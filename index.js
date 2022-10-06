@@ -1,6 +1,7 @@
 module.exports =  function ltbl(settings)  {
     var roomNum = 1;
     var itemNum = 1;
+    var doorNum = 1;
     var mode = 'where';
     var lastLocation = null;
     var lastDirection = null;
@@ -17,25 +18,11 @@ module.exports =  function ltbl(settings)  {
     };
     var locations = {
     };
+    var doors = {
+    };
     var items = {
     };
-
-    /*
-    versionInfo: GameID
-    IFID = '558c20af-6559-477a-9f98-b7b4274cd304'
-    name = 'The Best Burglar'
-    byline = 'by Eric Eve'
-    htmlByline = 'by <a href="mailto:eric.eve@hmc.ox.ac.uk">
-                  Eric Eve</a>'
-    version = '1'
-    authorEmail = 'Eric Eve <eric.eve@hmc.ox.ac.uk>'
-    desc = 'You are the world\'s best burglar faced with the greatest challenge
-        of your felonious career.'
-    htmlDesc = 'You are the world\'s best burglar faced with the greatest
-        challenge of your felonious career.'
-;
-    */
-
+    
 
     var extractNounAndAdj = function(command) {
         var words = command.toLowerCase().split(" ");
@@ -93,7 +80,7 @@ module.exports =  function ltbl(settings)  {
     };
 
     var saveFile = function() {
-        var obj = { metadata : metadata , locations : locations ,  location : location , items : items }
+        var obj = { metadata : metadata , locations : locations , doors : doors , location : location , items : items }
         fs.writeFile(settings.filename,JSON.stringify(obj,null,"  "),function(err,data) {});
     };      
 
@@ -112,18 +99,95 @@ module.exports =  function ltbl(settings)  {
         if (dir == "i") return "o";
         return dir;
     };
+    var friendlyDir = function (dir) {
+        if (dir == "s") return "south";
+        if (dir == "n") return "north";
+        if (dir == "e") return "east";
+        if (dir == "w") return "west";
+        if (dir == "u") return "up";
+        if (dir == "d") return "down";
+        if (dir == "sw") return "southwest";
+        if (dir == "se") return "southeast";
+        if (dir == "ne") return "northeast";
+        if (dir == "nw") return "northwest";
+        if (dir == "o") return "out";
+        if (dir == "i") return "in";
+        return dir;
+    }
 
-    var render = function (loc, depth) {
-        console.log(loc.description);
+    var render = function (loc, depth,where ) {
+        var describeNav = function(dir,name) {
+            if( dir.door ) {
+                console.log("To the "+name+" is "+doors[dir.door].name);
+            } else {
+                console.log("To the "+name+" is "+locations[dir.location].name+".");
+            }
+        };
+        if( loc.description ) {
+            console.log(loc.description);
+        } else if( loc.name ) {
+            console.log(loc.name);
+        }
         if (loc.contains) {
-            var contains = "";
+            var contains = "there is ";
+            if( loc.contains.length > 1 ) {
+                contains = "there are ";
+            }
             for (var i = 0; i < loc.contains.length; ++i) {
                 if (i) {
                     contains += " , ";
+                    if( (i+1) == loc.contains.length ) {
+                        contains += "and";
+                    }
                 }
-                contains += loc.contains[i].item;
+                var iname = items[loc.contains[i].item].name
+                if( "AEIOUYW".indexOf(iname[0]) )
+                    contains += " a ";
+                else
+                    contains += " an ";
+                contains += iname;
             }
+            if( where ) {
+                contains +=  " "+ where + ".";
+            }
+    
             console.log(contains);
+        }
+        if (loc.wall) {
+            for(var dir in loc.wall ) {
+                var wall = loc.wall[dir];
+                render(wall,1,"along "+friendlyDir(dir)+" wall ");
+            }
+        }
+        if( loc.e ) {
+            describeNav(loc.e,"east");
+        }
+        if( loc.w ) {
+            describeNav(loc.w,"west");
+        }
+        if( loc.n ) {
+            describeNav(loc.n,"north");
+        }
+        if( loc.s ) {
+            describeNav(loc.s,"south");
+        }
+        if( loc.u ) {
+            describeNav(loc.u,"up");
+        }
+        if( loc.d ) {
+            describeNav(loc.d,"down");
+        }
+        if( loc.se ) {
+            describeNav(loc.se,"southeast");
+        }
+        if( loc.ne ) {
+            describeNav(loc.ne,"northeast");
+        }
+        if( loc.sw ) {
+            describeNav(loc.sw,"southwest");
+        }
+        if( loc.nw ) {
+            describeNav(loc.nw,"northwest");
         }
     }
 
@@ -222,6 +286,9 @@ module.exports =  function ltbl(settings)  {
             } else if (mode == 'describe_item') {
                 items[descibeItem].description = command;
                 mode = "what";
+            } else if (mode == 'describe_location') {
+                locations[location].description = command;
+                mode = "what";                
             } else if (mode == 'what') {
                 // navigate the map
                 if (lCase == "l") {
@@ -243,8 +310,16 @@ module.exports =  function ltbl(settings)  {
                     } else {
                         console.log("what do you want to examine?");
                     }
-                } else if (lCase.substring(0, 5) == "drop ") {
-                    command = command.substring(5).trim();
+                } else if (lCase == "x") {
+                    var where = locations[location];
+                    if( where.description ) {
+                        console.log(where.description);
+                    } else {
+                        mode = "describe_location";
+                        console.log("How would you describe the "+where.name+"?")
+                    }
+                } else if (lCase.substring(0, 5) == "drop " || lCase.substring(0, 4) == "put " ) {
+                    command = command.substring(4).trim();
                     if (command != "") {
                         var where = locations[location];
                         var what = command;
@@ -310,6 +385,7 @@ module.exports =  function ltbl(settings)  {
               metadata = obj.metadata;
               locations = obj.locations;
               items = obj.items;
+              doors = obj.doors;
               location = obj.location;
       
               while(locations["room"+roomNum]) {
@@ -317,6 +393,9 @@ module.exports =  function ltbl(settings)  {
               }
               while(items["item"+itemNum]) {
                   itemNum = itemNum +1;
+              }
+              while(locations["door"+doorNum]) {
+                doorNum = doorNum +1;
               }
               onComplete(null,true);
             } else {
