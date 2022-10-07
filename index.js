@@ -22,7 +22,8 @@ module.exports =  function ltbl(settings)  {
     };
     var items = {
     };
-    
+    var npc = {        
+    };    
 
     var extractNounAndAdj = function(command) {
         var words = command.toLowerCase().split(" ");
@@ -80,7 +81,7 @@ module.exports =  function ltbl(settings)  {
     };
 
     var saveFile = function() {
-        var obj = { metadata : metadata , locations : locations , doors : doors , location : location , items : items }
+        var obj = { metadata : metadata , locations : locations , doors : doors , location : location , items : items , npc : npc }
         fs.writeFile(settings.filename,JSON.stringify(obj,null,"  "),function(err,data) {});
     };      
 
@@ -118,7 +119,11 @@ module.exports =  function ltbl(settings)  {
     var render = function (loc, depth,where ) {
         var describeNav = function(dir,name) {
             if( dir.door ) {
-                console.log("To the "+name+" is "+doors[dir.door].name);
+                if( dir.open ) {
+                    console.log("To the "+name+" is open "+doors[dir.door].name);
+                } else {
+                    console.log("To the "+name+" is "+doors[dir.door].name);
+                }
             } else {
                 console.log("To the "+name+" is "+locations[dir.location].name+".");
             }
@@ -209,7 +214,7 @@ module.exports =  function ltbl(settings)  {
             mode = "what";
         } else {
             if (lastLocation && lastDirection) {
-                console.log("You traveled " + lastDirection + " from " + locations[lastLocation].description + "(b for back)");
+                console.log("You traveled " + lastDirection + " from " + locations[lastLocation].description + ".( b for back)");
             }
             console.log("Where are you?");
             mode = 'where';
@@ -237,6 +242,9 @@ module.exports =  function ltbl(settings)  {
         }
         return itemName;
     };
+    var isDirection = function(command) {
+        return "snewdu".indexOf(command) >= 0 || command == "ne" || command == "se" || command == "nw" || command == "sw";
+    }
     var parseCommand =  function (command) {
         var lCase = command;
         if( mode == "gettitle" ) {
@@ -281,8 +289,23 @@ module.exports =  function ltbl(settings)  {
                         locations[lastLocation][lastDirection] = { location: location };
                         locations[location][reverseDirection(lastDirection)] = { location: lastLocation };
                     }
+                    console.log("Door name (blank or 'n' for no door)")
+                    mode = "door?"
                 }
-                describe();
+            } else if (mode == 'door?') {
+                lCase = lCase.trim();
+                if( lCase != "" && lCase != "n" && lCase != "no" ) {
+                    var name = extractNounAndAdj(command);
+                    if( !name || doors[name] ) {
+                        name = "door"+itemNum;
+                        itemNum = itemNum + 1;
+                    }
+                    doors[name]  = { name : command };
+                    locations[lastLocation][lastDirection].door = name;
+                    locations[location][reverseDirection(lastDirection)].door = name;
+                }
+                mode = "what";
+                describe(); 
             } else if (mode == 'describe_item') {
                 items[descibeItem].description = command;
                 mode = "what";
@@ -354,7 +377,7 @@ module.exports =  function ltbl(settings)  {
                             console.log("You see no "+command);
                         }
                     }
-                } else if ("snewdu".indexOf(lCase) >= 0 || lCase == "ne" || lCase == "se" || lCase == "nw" || lCase == "sw") {
+                } else if ( isDirection(lCase) ) {
                     if (locations[location]) {
                         var nextLoc = locations[location][lCase];
                         if (!nextLoc) {
@@ -386,6 +409,7 @@ module.exports =  function ltbl(settings)  {
               locations = obj.locations;
               items = obj.items;
               doors = obj.doors;
+              npc = obj.npc;
               location = obj.location;
       
               while(locations["room"+roomNum]) {
