@@ -5,7 +5,7 @@ module.exports =  function ltbl(settings)  {
     var mode = 'where';
     var lastLocation = null;
     var lastDirection = null;
-    var descibeItem = null;
+    var describeItem = null;
     var location = null;
     var fs = require("fs");
     var partOfSp = require("./en-parts.json");
@@ -289,7 +289,7 @@ module.exports =  function ltbl(settings)  {
                         locations[lastLocation][lastDirection] = { location: location };
                         locations[location][reverseDirection(lastDirection)] = { location: lastLocation };
                     }
-                    console.log("Door name (blank or 'n' for no door)")
+                    console.log("Door name (blank or 'n' for no door)");
                     mode = "door?"
                 }
             } else if (mode == 'door?') {
@@ -307,8 +307,11 @@ module.exports =  function ltbl(settings)  {
                 mode = "what";
                 describe(); 
             } else if (mode == 'describe_item') {
-                items[descibeItem].description = command;
+                items[describeItem].description = command;
                 mode = "what";
+            } else if (mode == 'write') {
+                items[describeItem].content = command;
+                mode = "what";                
             } else if (mode == 'describe_location') {
                 locations[location].description = command;
                 mode = "what";                
@@ -327,7 +330,7 @@ module.exports =  function ltbl(settings)  {
                             } else {
                                 mode = "describe_item";
                                 console.log("How would you describe the "+item+"?")
-                                descibeItem = item;
+                                describeItem = item;
                             }
                         }
                     } else {
@@ -359,6 +362,22 @@ module.exports =  function ltbl(settings)  {
                         }
                         where.contains.push({ item: name });
                     }
+                } else if (lCase.substring(0, 5) == "read ") {
+                    command = command.substring(5).trim();
+                    if (command != "") {
+                        var item = lookupItem(command);
+                        if( item ) {
+                            if( items[item].content ) {
+                                console.log(items[item].content);
+                            } else {
+                                describeItem = item;
+                                console.log("What do you see written in "+items[item].name+"?");
+                                mode = "write";
+                            }
+                        } else {
+                            console.log("You see no "+command);
+                        }                        
+                    }
                 } else if (lCase.substring(0, 5) == "take ") {
                     command = command.substring(5).trim();
                     if (command != "") {
@@ -389,6 +408,22 @@ module.exports =  function ltbl(settings)  {
                         }
                     }
                     describe();
+                } else if (lCase.substring(0,5) == "door " && isDirection(lCase.substring(5)) ) {
+                    lCase = lCase.substring(5).trim();
+                    if (locations[location]) {
+                        var nextLoc = locations[location][lCase];
+                        if (nextLoc) {
+                            lastDirection = lCase;
+                            lastLocation = location;
+                            location = nextLoc.location;
+                            console.log("Door name (blank or 'n' for no door)");
+                            mode = "door?";
+                        } else {
+                            console.log("There is no ending location.");
+                        }
+                    } else {
+                        console.log("There is no starting location.");
+                    }
                 } else if (lCase == "dump") {
                     console.log(JSON.stringify(metadata, null, "  "));
                     console.log(JSON.stringify(locations, null, "  "));
