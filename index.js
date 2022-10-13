@@ -1,3 +1,6 @@
+const { findSourceMap } = require("module");
+const path = require("path");
+
 module.exports =  function ltbl(settings)  {
     var roomNum = 1;
     var itemNum = 1;
@@ -462,9 +465,33 @@ module.exports =  function ltbl(settings)  {
             }
           });          
     };
+    var generateTads  = function(tadsSrc) {
+        var main = path.parse(settings.filename ).name+".t";
+        tadsSrc[main] = '// Tads source';
+        return true;
+    };
+    var exportTads = function(folder) {
+        var tadsSrc = {};
+        if( generateTads(tadsSrc) ) { 
+            for(var name in tadsSrc ) {
+                console.log(name+":");
+                console.log(tadsSrc[name]);
+            }
+            /*
+            fs.mkdir(folder,{},function(err,data) {
+                if( err ) {
+                    if( err.code != "EEXIST" ) {
+                        console.log("Error exporting to tads "+err.code);
+                        return;
+                    }
+                }            
+            });*/  
+        }
+    }
     return {
         describe: describe,
         parseCommand: parseCommand,
-        loadGame: loadGame
+        loadGame: loadGame,
+        exportTads: exportTads
     };
 };
