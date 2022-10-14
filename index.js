@@ -1,3 +1,4 @@
+const { doesNotReject } = require("assert");
 const { findSourceMap } = require("module");
 const path = require("path");
 
@@ -487,7 +488,27 @@ module.exports =  function ltbl(settings)  {
             ,";"
             ,""
         ];
+        var masterDoors = {};
+        var addDoors = null;
         var tadDirection = function(dir) {
+            if( dir.door ) {
+                if( doors[dir.door] ) {
+                    var doorPrt = doors[dir.door];
+                    var doorname = "door";
+                    if( doorPrt.name ) {
+                        doorname = doorPrt.name;
+                    }
+                    var masterDoor = masterDoors[dir.door];
+                    if( masterDoor ) {
+                        addDoors = ["+ "+dir.door+"Other : Door '"+doorname+"*doors' '"+doorname+"'","\tmasterObject = "+dir.door,";",""].join("\n");
+                        return dir.door+"Other";
+                    } else {
+                        masterDoors[dir.door] = true;
+                        addDoors = ["+ "+dir.door+": Door '"+doorname+"*doors' '"+doorname+"'",";",""].join("\n");
+                        return dir.door;
+                    }
+                }
+            }       
             return dir.location;
         };
         for( loc in locations ) {
@@ -531,6 +552,10 @@ module.exports =  function ltbl(settings)  {
             }
             srcLines.push(";");
             srcLines.push("");
+            if( addDoors ) {
+                srcLines.push(addDoors);
+                addDoors = null;
+            }
         }
         for( it in items) {
             var ip = items[it];
