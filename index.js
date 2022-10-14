@@ -17,6 +17,7 @@ module.exports =  function ltbl(settings)  {
         author : null ,
         authorEmail : null ,
         description: null ,
+        version: "1",
         IFID: null
     };
     var locations = {
@@ -467,7 +468,92 @@ module.exports =  function ltbl(settings)  {
     };
     var generateTads  = function(tadsSrc) {
         var main = path.parse(settings.filename ).name+".t";
-        tadsSrc[main] = '// Tads source';
+        var srcLines = [
+            '#charset "us-ascii"',
+            '#include <adv3.h>',
+            'versionInfo: GameID',
+            "\tname = '"+metadata.title+"'",
+            "\tbyLine = 'by "+metadata.author+"'",
+            "\tauthorEmail = '"+metadata.author+" <"+metadata.authorEmail+">",
+            "\tversion = '"+metadata.version+"'",
+            ";"
+            ,""
+            ,"gameMain: GameMainDef"
+            ,"\tinitialiPlayerChar = me"
+            ,";"
+            ,""
+            ,"me: Actor"
+            ,"\tlocation = "+location
+            ,";"
+            ,""
+        ];
+        var tadDirection = function(dir) {
+            return dir.location;
+        };
+        for( loc in locations ) {
+            var room = locations[loc];
+            srcLines.push(loc+": Room");
+            if( room.name ) {
+                srcLines.push("\troomName = '"+room.name+"'");
+            }
+            if( room.description ) {
+                srcLines.push('\tdesc = "'+room.description+'"');
+            }
+            if( room.e ) {
+                srcLines.push('\teast = '+tadDirection(room.e));
+            }
+            if( room.w ) {
+                srcLines.push('\twest = '+tadDirection(room.w));
+            }
+            if( room.n ) {
+                srcLines.push('\tnorth = '+tadDirection(room.n));
+            }
+            if( room.s ) {
+                srcLines.push('\tsouth = '+tadDirection(room.s));
+            }
+            if( room.sw ) {
+                srcLines.push('\tsouthwest = '+tadDirection(room.sw));
+            }
+            if( room.se ) {
+                srcLines.push('\tsoutheast = '+tadDirection(room.se));
+            }
+            if( room.nw ) {
+                srcLines.push('\tnorthwest = '+tadDirection(room.nw));
+            }
+            if( room.ne ) {
+                srcLines.push('\tnortheast = '+tadDirection(room.ne));
+            }
+            if( room.u ) {
+                srcLines.push('\tup = '+tadDirection(room.u));
+            }
+            if( room.d ) {
+                srcLines.push('\tdown = '+tadDirection(room.d));
+            }
+            srcLines.push(";");
+            srcLines.push("");
+        }
+        for( it in items) {
+            var ip = items[it];
+            srcLines.push(it+" : Thing");
+            srcLines.push("\tname = '"+ip.name+"'");
+            if( ip.description ) {
+                srcLines.push('\tdesc = "'+ip.description+'"');
+            }
+            for( loc in locations ) {
+                var room = locations[loc];
+                if( room.contains ) {
+                    for (var i = 0; i < room.contains.length; ++i) {
+                        if( room.contains[i].item == it ) {
+                            srcLines.push('\tlocation = '+loc);
+                            break;
+                        }
+                    }
+                }
+            }
+            srcLines.push(";");
+            srcLines.push("");
+        }
+        tadsSrc[main] = srcLines.join("\n");        
         return true;
     };
     var exportTads = function(folder) {
@@ -477,15 +563,24 @@ module.exports =  function ltbl(settings)  {
                 console.log(name+":");
                 console.log(tadsSrc[name]);
             }
-            /*
             fs.mkdir(folder,{},function(err,data) {
                 if( err ) {
                     if( err.code != "EEXIST" ) {
                         console.log("Error exporting to tads "+err.code);
                         return;
                     }
-                }            
-            });*/  
+                }
+                if( folder[folder.length-1] != "/" && folder[folder.length-1] != "\\" ) {
+                    if( folder.indexOf("\\") >= 0 ) {
+                        folder += "\\";
+                    } else {
+                        folder += "/";
+                    }
+                }
+                for(var name in tadsSrc ) {
+                    fs.writeFile(folder+name,tadsSrc[name],{},function() {});
+                }                
+            });
         }
     }
     return {
