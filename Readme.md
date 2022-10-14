@@ -9,3 +9,51 @@ One the builder is mature, the intention is to provide 'publish to'  inform and 
 
 
 
+```javascript
+var action = null;
+var actionArgs = [];
+for( i = 1 ; i < process.argv.length ; ++i ) {
+    if( action ) {
+        actionArgs.push(process.argv[i]);
+    } else if( process.argv[i] == "design" ) {
+        action = "design";
+    } else if( process.argv[i] == "tads" ) {
+        action = "tads";
+    }
+}
+if( action ) {
+    if( action == "design" ) {
+        if( actionArgs.length > 0 ) {
+            var readline = require('readline');
+            var rl = readline.createInterface( process.stdin, process.stdout );
+            var ltbl = require("ltbl")({ filename : actionArgs[0]});
+
+            var commandHandle = function(command) {
+                ltbl.parseCommand(command);
+                rl.question('>', commandHandle );
+            };
+
+            var i;
+
+            ltbl.loadGame(function(err) {
+                ltbl.describe();
+                rl.question('>', commandHandle );
+            });
+        } else {
+            console.log("error: design requires a file");
+        }
+    } else if( action == "tads" ) {
+        if( actionArgs.length > 1 ) {
+            var ltbl = require("ltbl")({ filename : actionArgs[0]});
+            ltbl.loadGame(function(err) {
+                ltbl.exportTads(actionArgs[1]);                
+            });
+        } else {
+            console.log("error: tabs requires a file and an output folder");
+        }
+
+    }
+} else {
+    console.log(["usage:","ltbl design <filename>"].join("\n"));
+}
+```
