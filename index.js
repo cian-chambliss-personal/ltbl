@@ -272,21 +272,31 @@ module.exports =  function ltbl(settings)  {
         return altNoun;
     };
     var getPartsOfSpeech = function(command) {
-        var  parts = { count : 0 , noun : [] , adj : [] };
+        var  parts = { count : 0 , noun : [] , adj : [] , name : "" };
         var words = command.toLowerCase().split(" ");
         var altNoun = null;
         var adj = "";
         var adjLoc = -1;
+        var name = [];
         for( var i = 0 ; i < words.length ; ++i ) {
             var pos = partOfSp[words[i]];
             if( (pos & 1) != 0 ) {
+                if( parts.noun.length > 0 ) {
+                    if( (partOfSp[parts.noun[parts.noun.length-1]] & 8) != 0 ) {
+                        parts.adj.push(parts.noun[parts.noun.length-1]);
+                        parts.noun.splice(parts.noun.length-1, 1);
+                    }
+                }
                 parts.noun.push(words[i]);
                 ++parts.count;
+                name.push(words[i]);
             } else if( (pos & 8) != 0 ) {
                 parts.adj.push(words[i]);
                 ++parts.count;
+                name.push(words[i]);
             }
         }
+        parts.name = name.join(" ");
         return parts;
     }
 
@@ -529,7 +539,9 @@ module.exports =  function ltbl(settings)  {
                         location = "room" + roomNum;
                         roomNum = roomNum + 1;
                     }
-                    locations[location] = { description: command };
+                    var name = command;
+                    var parts = getPartsOfSpeech(command);
+                    locations[location] = { name : parts.name , description: command };
                     map = null; // need to recalc the map 
                     if (lastLocation) {
                         if( locations[lastLocation].type ) {
@@ -886,20 +898,26 @@ module.exports =  function ltbl(settings)  {
         var emitItem = function(it) {
             var _srcLines = []
             var ip = items[it];
+            var oName = it;
+            if( ip.name ) {
+                if( oName == ip.name ) {
+                    oName = ip.name + "_";
+                }
+            }
             if( ip.content ) {
-                _srcLines.push(it+" : Readable");
+                _srcLines.push(oName+" : Readable");
             } else if( ip.type ) {
                 if( ip.type == "food") {
-                    _srcLines.push(it+" : Food");
+                    _srcLines.push(oName+" : Food");
                 } else if( ip.type == "wearable") {
-                    _srcLines.push(it+" : Wearable");
+                    _srcLines.push(oName+" : Wearable");
                 } else if( ip.type == "light") {
-                    _srcLines.push(it+" : Flashlight");
+                    _srcLines.push(oName+" : Flashlight");
                 } else {
-                    _srcLines.push(it+" : Thing");
+                    _srcLines.push(oName+" : Thing");
                 }
             } else {
-                _srcLines.push(it+" : Thing");
+                _srcLines.push(oName+" : Thing");
             }
             _srcLines.push("\tname = '"+ip.name+"'");
             var parts = getPartsOfSpeech(ip.name);
@@ -969,6 +987,12 @@ module.exports =  function ltbl(settings)  {
                 srcLines.push(loc+": FloorlessRoom");
             } else {
                 srcLines.push(loc+": Room");
+            }
+            if( !room.name && room.description ) {
+                var parts = getPartsOfSpeech(room.description);
+                if( parts.name.length > 0 ) {
+                    room.name = parts.name;
+                }
             }
             if( room.name ) {
                 srcLines.push("\troomName = '"+room.name+"'");
