@@ -200,7 +200,7 @@ module.exports =  function ltbl(settings)  {
                         } else if( ch == 4 ) {
                             if( cell.s ) {
                                 if( cell.type == "outside") {
-                                    text = "    .    ";
+                                    text = "    .     ";
                                 } else {
                                     text = "+---|----+";
                                 }
@@ -530,6 +530,7 @@ module.exports =  function ltbl(settings)  {
                         roomNum = roomNum + 1;
                     }
                     locations[location] = { description: command };
+                    map = null; // need to recalc the map 
                     if (lastLocation) {
                         if( locations[lastLocation].type ) {
                             locations[location].type = locations[lastLocation].type;
@@ -705,9 +706,54 @@ module.exports =  function ltbl(settings)  {
                     if (locations[location]) {
                         var nextLoc = locations[location][lCase];
                         if (!nextLoc) {
-                            lastLocation = location;
-                            location = null;
-                            lastDirection = lCase;
+                            if( !map ) {
+                                map = createMap();
+                            } else if( map.location.room != location ) {                                
+                                recalcLocation(map,location);
+                            }
+                            var level = map.location.level;
+                            var row = map.location.row;
+                            var col = map.location.col;
+                            if( lCase == "n" ) {
+                                row = row - 1;
+                            } else if( lCase == "s" ) {
+                                row = row + 1;
+                            } else if( lCase == "e" ) {
+                                col = col + 1;
+                            } else if( lCase == "w" ) {
+                                col = col - 1;
+                            } else if( lCase == "u" ) {
+                                level = level + 1;
+                            } else if( lCase == "d" ) {
+                                level = level - 1;
+                            } else if( lCase == "se" ) {
+                                row = row + 1;
+                                col = col + 1;
+                            } else if( lCase == "sw" ) {
+                                row = row + 1;
+                                col = col - 1;
+                            } else if( lCase == "ne" ) {
+                                row = row - 1;
+                                col = col + 1;
+                            } else if( lCase == "nw" ) {
+                                row = row - 1;
+                                col = col - 1;
+                            }
+                            var posCell = null;
+                            if(  0 <= level && level < map.levels.length 
+                              && 0 <= row && row < map.levels[level].length 
+                              && 0 <= col && col < map.levels[level][row].length 
+                                ) {
+                                posCell = map.levels[level][row][col];
+                            }
+                            if( posCell ) {
+                                locations[location][lCase] = { location : posCell };
+                                location = posCell;                                
+                            } else {
+                                lastLocation = location;
+                                location = null;
+                                lastDirection = lCase;
+                            }
                         } else {
                             location = nextLoc.location;
                         }
