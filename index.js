@@ -32,8 +32,191 @@ module.exports =  function ltbl(settings)  {
     var items = {
     };
     var npc = {        
-    };    
-
+    };
+    var createMap = function() {
+        var visited = {};
+        var createMapLow = function(row,col,level,_loc,bounds,emitRooms) {
+            if( !visited[_loc] )
+            {
+                visited[_loc] = true;
+                emitRooms(row,col,level,_loc,bounds);
+                if( level < bounds.startLevel )
+                    bounds.startLevel = level;
+                if( level > bounds.endLevel )
+                    bounds.endLevel = level;
+                if( row < bounds.startRow )
+                    bounds.startRow = row;
+                if( row > bounds.endRow )
+                    bounds.endRow = row;
+                if( col < bounds.startCol )
+                    bounds.startCol = col;
+                if( col > bounds.endCol )
+                    bounds.endCol = col;
+                var loc = locations[_loc];
+                if( loc.w ) {
+                    createMapLow(row,col-1,level,loc.w.location,bounds,emitRooms);
+                }
+                if( loc.e ) {
+                    createMapLow(row,col+1,level,loc.e.location,bounds,emitRooms);
+                }
+                if( loc.n ) {
+                    createMapLow(row-1,col,level,loc.n.location,bounds,emitRooms);
+                }
+                if( loc.nw ) {
+                    createMapLow(row-1,col-1,level,loc.nw.location,bounds,emitRooms);
+                }
+                if( loc.ne ) {
+                    createMapLow(row-1,col+1,level,loc.ne.location,bounds,emitRooms);
+                }
+                if( loc.s ) {
+                    createMapLow(row+1,col,level,loc.s.location,bounds,emitRooms);
+                }
+                if( loc.sw ) {
+                    createMapLow(row+1,col-1,level,loc.sw.location,bounds,emitRooms);
+                }
+                if( loc.se ) {
+                    createMapLow(row+1,col+1,level,loc.se.location,bounds,emitRooms);
+                }                
+                if( loc.d ) {
+                    createMapLow(row,col,level-1,loc.d.location,bounds,emitRooms);
+                }                
+                if( loc.u ) {
+                    createMapLow(row,col,level+1,loc.u.location,bounds,emitRooms);
+                }                
+            }
+        };
+        var bounds = {
+            startLevel : 0 ,
+            endLevel : 0 ,
+            startRow : 0 ,
+            endRow : 0 ,
+            startCol : 0 ,
+            endCol : 0 
+        };
+        createMapLow(0,0,0,location,bounds,function(row,col,level,loc,bounds) {});
+        visited = {};
+        var nLevel = (bounds.endLevel - bounds.startLevel + 1);
+        var nRow = (bounds.endRow - bounds.startRow + 1);
+        var nCol = (bounds.endCol - bounds.startCol + 1);
+        var levels = [];
+        for( var l = 0 ; l < nLevel ; ++l ) {
+            var rows = [];
+            for( var r = 0 ; r < nRow ; ++r ) {
+                var cols = [];
+                for( var c = 0 ; c < nCol ; ++c ) {
+                    cols.push(null);
+                }
+                rows.push(cols);
+            }
+            levels.push(rows);
+        }
+        createMapLow(0,0,0,location,bounds,function(row,col,level,loc,bounds) {
+            levels[level - bounds.startLevel ][row - bounds.startRow][col - bounds.startCol]  = loc;            
+        });
+        return { levels : levels , location : { room : location , level : -bounds.startLevel , row : -bounds.startRow , col : - bounds.startCol  } };
+    };
+    var recalcLocation = function(map,location) {
+        for( var l = 0 ; l < map.levels.length ; ++l ) {
+            var rows = map.levels[l];
+            for( var r = 0 ; r < rows.length ; ++r ) {
+                var cols = rows[r];
+                for( var c = 0 ; c < cols.length ; ++c ) {
+                    if( cols[c] == location ) {
+                        map.location.room = location;
+                        map.location.level = l;
+                        map.location.row = r;
+                        map.location.col = c;
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+    var renderMapLevelText = function(map) {
+        var rows = map.levels[map.location.level];
+        for( var r = 0; r < rows.length ; ++r ) {
+            var cols = rows[r];
+            for( var ch = 0 ; ch < 5 ; ++ch ) {
+                var line = "";
+                for( var c = 0; c < cols.length ; ++c ) {
+                    var cell = cols[c];
+                    if( cell ) {
+                        cell = locations[cell];
+                    }
+                    text = "          ";
+                    if( cell ) {
+                        if( cell.type != "outside") {
+                            if( ch == 0 || ch == 4) {
+                                text = "+--------+";
+                            } else {
+                                text = "|        |";
+                            }
+                        }
+                        if( ch == 0 ) {
+                            if( cell.n ) {
+                                if( cell.type == "outside") {
+                                    text = "    .     ";
+                                } else {
+                                    text = "+---|----+";
+                                }
+                            }
+                        } else if( 1 <= ch && ch < 4 ) {
+                            var nameParts = "";
+                            if( cell.name ) {
+                                nameParts = cell.name;
+                            } else if( cell.description ) {
+                                nameParts = cell.description;
+                            }
+                            nameParts = nameParts.split(" ");                            
+                            if( ch <= nameParts.length ) {
+                                nameParts = nameParts[ch-1];
+                            } else {
+                                nameParts = "";
+                            }
+                            if( nameParts.length > 8 ) {
+                                nameParts = nameParts.substring(0,8);
+                            }
+                            if( nameParts != "" ) {
+                                var leadChr = (10-nameParts.length) / 2;
+                                text = text.substring(0,leadChr) + nameParts + text.substring(nameParts.length + leadChr);
+                            }
+                            if( ch == 2 ) {
+                                if( cell.w ) {
+                                    if( cell.type == "outside") { 
+                                        text = "."+ text.substring(1);
+                                    } else {
+                                        text = "="+ text.substring(1);
+                                    }
+                                }
+                                if( cell.e ) {
+                                    if( cell.type == "outside") { 
+                                        text = text.substring(0,9)+".";
+                                    } else {
+                                        text = text.substring(0,9)+"=";
+                                    }
+                                }
+                            }
+                        } else if( ch == 4 ) {
+                            if( cell.s ) {
+                                if( cell.type == "outside") {
+                                    text = "    .    ";
+                                } else {
+                                    text = "+---|----+";
+                                }
+                            }
+                        }
+                    }
+                    if( map.location.row == r && map.location.col == c ) {
+                        text = text.split(" ").join(".");
+                    }
+                    line += text;
+                }
+                console.log(line);
+            }
+        }
+    };
+    var map = null;
     var extractNounAndAdj = function(command) {
         var words = command.toLowerCase().split(" ");
         var altNoun = null;
@@ -590,6 +773,13 @@ module.exports =  function ltbl(settings)  {
                     console.log(JSON.stringify(metadata, null, "  "));
                     console.log(JSON.stringify(locations, null, "  "));
                     console.log(JSON.stringify(items, null, "  "));
+                } else if(lCase == "map") {
+                    if( !map ) {
+                        map = createMap();
+                    } else if( location && map.location.room != location ) {
+                        recalcLocation(map,location);
+                    }
+                    renderMapLevelText(map);
                 } else if (lCase == "save") {
                     saveFile();
                 } else {
