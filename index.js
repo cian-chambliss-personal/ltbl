@@ -84,6 +84,24 @@ module.exports =  function ltbl(settings)  {
         }
         return altNoun;
     };
+    var getPartsOfSpeech = function(command) {
+        var  parts = { count : 0 , noun : [] , adj : [] };
+        var words = command.toLowerCase().split(" ");
+        var altNoun = null;
+        var adj = "";
+        var adjLoc = -1;
+        for( var i = 0 ; i < words.length ; ++i ) {
+            var pos = partOfSp[words[i]];
+            if( (pos & 1) != 0 ) {
+                parts.noun.push(words[i]);
+                ++parts.count;
+            } else if( (pos & 8) != 0 ) {
+                parts.adj.push(words[i]);
+                ++parts.count;
+            }
+        }
+        return parts;
+    }
 
     var saveFile = function() {
         var obj = { metadata : metadata , locations : locations , doors : doors , location : location , items : items , npc : npc }
@@ -229,9 +247,11 @@ module.exports =  function ltbl(settings)  {
         var itemName = null;
         if (command != "") {
             var where = locations[location];
+            var candidates = [];
             var what = command;            
             if( where.contains ) {
                 command = command.toLowerCase();
+                var parts = getPartsOfSpeech(command);
                 for( var i = 0 ; i < where.contains.length ; ++i ) {
                     var item = where.contains[i].item;
                     var  ptr = items[item];
@@ -240,8 +260,33 @@ module.exports =  function ltbl(settings)  {
                         if( command == lname.toLowerCase() ) {
                             itemName = item;
                             break;
+                        } else {
+                            var iparts = getPartsOfSpeech(lname);
+                            var foundPart = false;
+                            for( var j = 0 ; j < parts.noun.length ; ++j ) {
+                                for( var k = 0; k < iparts.noun.length ; ++k ) {
+                                    if( iparts.noun[k] ==  parts.noun[j] ) {
+                                        foundPart = true;
+                                        break;
+                                    }
+                                }
+                                if( foundPart ) {
+                                    break;
+                                }
+                            }
+                            if( foundPart ) {
+                                candidates.push(item);
+                            }
                         }
                     }
+                }
+            }
+            if( candidates.length == 1 ) {
+                itemName = candidates[0];
+            } else if( candidates.length > 1 ) { 
+                console.log("which "+command+"?");
+                for( var i = 0 ; i < candidates.length ; ++i ) {
+                    console.log(items[candidates[i]].name);
                 }
             }
         }
@@ -388,6 +433,7 @@ module.exports =  function ltbl(settings)  {
                     if (command != "") {
                         var item = lookupItem(command);
                         if( item ) {
+                            var where = locations[location];
                             for( var i = 0 ; i < where.contains.length ; ++i ) {
                                 if( where.contains[i].item == item ) {
                                     where.contains.splice(i, 1);
@@ -472,6 +518,7 @@ module.exports =  function ltbl(settings)  {
         var srcLines = [
             '#charset "us-ascii"',
             '#include <adv3.h>',
+            '#include <en_us.h>',
             'versionInfo: GameID',
             "\tname = '"+metadata.title+"'",
             "\tbyLine = 'by "+metadata.author+"'",
@@ -480,7 +527,7 @@ module.exports =  function ltbl(settings)  {
             ";"
             ,""
             ,"gameMain: GameMainDef"
-            ,"\tinitialiPlayerChar = me"
+            ,"\tinitialPlayerChar = me"
             ,";"
             ,""
             ,"me: Actor"
@@ -561,6 +608,23 @@ module.exports =  function ltbl(settings)  {
             var ip = items[it];
             srcLines.push(it+" : Thing");
             srcLines.push("\tname = '"+ip.name+"'");
+            var parts = getPartsOfSpeech(ip.name);
+            if( parts.count > 1 ) {
+                if( parts.noun.length > 0 )  {
+                    var nouns = "\tnoun = ";
+                    for( var i = 0 ; i < parts.noun.length ; ++i ) {
+                        nouns += " '"+parts.noun[i]+"'";
+                    }
+                    srcLines.push(nouns);
+                }
+                if( parts.adj.length > 0 )  {
+                    var adjs = "\tadjective = ";
+                    for( var i = 0 ; i < parts.adj.length ; ++i ) {
+                        adjs += " '"+parts.adj[i]+"'";
+                    }
+                    srcLines.push(adjs);
+                }
+            }
             if( ip.description ) {
                 srcLines.push('\tdesc = "'+ip.description+'"');
             }
