@@ -562,7 +562,7 @@ module.exports =  function ltbl(settings)  {
             'versionInfo: GameID',
             "\tname = '"+metadata.title+"'",
             "\tbyLine = 'by "+metadata.author+"'",
-            "\tauthorEmail = '"+metadata.author+" <"+metadata.authorEmail+">",
+            "\tauthorEmail = '"+metadata.author+" <"+metadata.authorEmail+">'",
             "\tversion = '"+metadata.version+"'",
             ";"
             ,""
@@ -605,7 +605,7 @@ module.exports =  function ltbl(settings)  {
                 _srcLines.push('\tdesc = "'+ip.description+'"');
             }
             if( ip.content ) {
-                _srcLines.push("\treadDesc = '"+ip.content+"'");
+                _srcLines.push('\treadDesc = "'+ip.content+'"');
             }
             return _srcLines.join("\n");
         };
