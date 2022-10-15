@@ -152,7 +152,7 @@ module.exports =  function ltbl(settings)  {
                     console.log("To the "+name+" is "+doors[dir.door].name);
                 }
             } else {
-                console.log("To the "+name+" is "+locations[dir.location].name+".");
+                console.log("To the "+name+" is "+(locations[dir.location].name || locations[dir.location].description) +".");
             }
         };
         if( loc.description ) {
@@ -347,6 +347,11 @@ module.exports =  function ltbl(settings)  {
                         roomNum = roomNum + 1;
                     }
                     locations[location] = { description: command };
+                    if (lastLocation) {
+                        if( locations[lastLocation].type ) {
+                            locations[location].type = locations[lastLocation].type;
+                        }
+                    }
                     if (lastLocation && lastDirection) {
                         locations[lastLocation][lastDirection] = { location: location };
                         locations[location][reverseDirection(lastDirection)] = { location: lastLocation };
@@ -486,6 +491,33 @@ module.exports =  function ltbl(settings)  {
                             console.log("You see no "+command);
                         }
                     }
+                } else if ( lCase.substring(0, 4) == "eat " || lCase.substring(0, 5) == "wear " || lCase.substring(0, 6) == "light " ) {
+                    var thingType = null;
+                    if( lCase.substring(0, 4) == "eat ") {
+                        thingType = "food";
+                    } else if( lCase.substring(0, 5) == "wear ") {
+                        thingType = "wearable";
+                    } else if(lCase.substring(0, 6) == "light " ) {
+                        thingType = "light";
+                    }
+                    command = command.substring(command.indexOf(" ")+1).trim();
+                    if (command != "") {
+                        var where = locations[location];
+                        var what = command;
+                        if (!where.contains) {
+                            where.contains = [];
+                        }
+                        var existingItem = lookupItem(what);
+                        if( existingItem ) {
+                            if( !items[existingItem].type ) {
+                                items[existingItem].type = thingType;
+                            } else if( items[existingItem].type != thingType ) {
+                                console.log("You cannot "+lCase.substring(0,lCase.indexOf(" ")+1)+command);
+                            }
+                        } else {
+                            console.log("You see no "+command);
+                        }
+                    }
                 } else if ( isDirection(lCase) ) {
                     if (locations[location]) {
                         var nextLoc = locations[location][lCase];
@@ -513,6 +545,46 @@ module.exports =  function ltbl(settings)  {
                         }
                     } else {
                         console.log("There is no starting location.");
+                    }
+                } else if (lCase == "location outside") {
+                    if( location ) {
+                        locations[location].type = "outside";                        
+                    } else {
+                        console.log("You are nowhere.");
+                    }
+                } else if (lCase == "location ship") {
+                    if( location ) {
+                        locations[location].type = "ship";                        
+                    } else {
+                        console.log("You are nowhere.");
+                    }   
+                } else if (lCase == "location dark") {
+                    if( location ) {
+                        locations[location].type = "dark";                        
+                    } else {
+                        console.log("You are nowhere.");
+                    }   
+                } else if (lCase == "location bottomless") {
+                    if( location ) {
+                        locations[location].type = "bottomless";                        
+                    } else {
+                        console.log("You are nowhere.");
+                    }   
+                } else if (lCase == "location inside") {
+                    if( location ) {
+                        delete locations[location].type;
+                    } else {
+                        console.log("You are nowhere.");
+                    }
+                } else if (lCase == "location") {
+                    if( location ) {
+                        if( locations[location].type ) {
+                            console.log("Location is "+locations[location].type+".");
+                        } else {
+                            console.log("Location is inside.");
+                        }
+                    } else {
+                        console.log("You are nowhere.");
                     }
                 } else if (lCase == "dump") {
                     console.log(JSON.stringify(metadata, null, "  "));
@@ -580,6 +652,16 @@ module.exports =  function ltbl(settings)  {
             var ip = items[it];
             if( ip.content ) {
                 _srcLines.push(it+" : Readable");
+            } else if( ip.type ) {
+                if( ip.type == "food") {
+                    _srcLines.push(it+" : Food");
+                } else if( ip.type == "wearable") {
+                    _srcLines.push(it+" : Wearable");
+                } else if( ip.type == "light") {
+                    _srcLines.push(it+" : Flashlight");
+                } else {
+                    _srcLines.push(it+" : Thing");
+                }
             } else {
                 _srcLines.push(it+" : Thing");
             }
@@ -610,9 +692,9 @@ module.exports =  function ltbl(settings)  {
             return _srcLines.join("\n");
         };
         var itemEmitted = {};
-        for( var i = 0 ; i < actor.inventory ; ++i ) {
+        for( var i = 0 ; i < actor.inventory.length ; ++i ) {
             itemEmitted[actor.inventory[i].item] = true;
-            srcLines.push("+"+emitItem(actor.inventory[i].item));
+            srcLines.push("+ "+emitItem(actor.inventory[i].item));
             srcLines.push(";");
             srcLines.push("");
         }
@@ -641,7 +723,17 @@ module.exports =  function ltbl(settings)  {
         };
         for( loc in locations ) {
             var room = locations[loc];
-            srcLines.push(loc+": Room");
+            if( locations[location].type == "outside" ) {
+                srcLines.push(loc+": OutdoorRoom");
+            } else if( locations[location].type == "dark" ) {
+                srcLines.push(loc+": DarkRoom");
+            } else if( locations[location].type == "ship" ) {
+                srcLines.push(loc+": ShipboardRoom");
+            } else if( locations[location].type == "bottomless" ) {
+                srcLines.push(loc+": FloorlessRoom");
+            } else {
+                srcLines.push(loc+": Room");
+            }
             if( room.name ) {
                 srcLines.push("\troomName = '"+room.name+"'");
             }
