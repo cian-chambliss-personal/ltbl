@@ -4,9 +4,9 @@ const path = require("path");
 const { isAsyncFunction } = require("util/types");
 
 module.exports =  function ltbl(settings)  {
-    var roomNum = 100;
-    var itemNum = 100;
-    var doorNum = 100;
+    var roomNum = 1;
+    var itemNum = 1;
+    var doorNum = 1;
     var mode = 'where';
     var lastLocation = null;
     var lastDirection = null;
@@ -14,6 +14,7 @@ module.exports =  function ltbl(settings)  {
     var location = null;
     var fs = require("fs");
     var partOfSp = require("./en-parts.json");
+    var reservedNames = require("./reserved.json");
     var metadata = {
         title : null ,
         author : null ,
@@ -491,15 +492,39 @@ module.exports =  function ltbl(settings)  {
             if( where.contains && !itemName &&  flags != "actor" ) {
                 itemName = lookupItemLow(where.contains);
             }
-            if( candidates.length == 1 ) {
-                console.log("You mean "+items[candidates[0]].name);
-                itemName = candidates[0];
-            } else if( candidates.length > 1 ) { 
-                console.log("which "+command+"?");
-                for( var i = 0 ; i < candidates.length ; ++i ) {
-                    console.log(items[candidates[i]].name);
+            if( !itemName && flags != "actor" && where.wall ) {
+                if( !itemName && where.wall.n ) {
+                    if( where.wall.n.contains ) {
+                        itemName = lookupItemLow(where.wall.n.contains);
+                    }
                 }
-                itemName = "?"; // ambiguouse
+                if( !itemName && where.wall.s ) {
+                    if( where.wall.s.contains ) {
+                        itemName = lookupItemLow(where.wall.s.contains);
+                    }
+                }
+                if( !itemName && where.wall.e ) {
+                    if( where.wall.e.contains ) {
+                        itemName = lookupItemLow(where.wall.e.contains);
+                    }
+                }
+                if( !itemName && where.wall.w ) {
+                    if( where.wall.w.contains ) {
+                        itemName = lookupItemLow(where.wall.w.contains);
+                    }
+                }
+            }
+            if( !itemName ) {
+                if( candidates.length == 1 ) {
+                    console.log("You mean "+items[candidates[0]].name);
+                    itemName = candidates[0];
+                } else if( candidates.length > 1 ) { 
+                    console.log("which "+command+"?");
+                    for( var i = 0 ; i < candidates.length ; ++i ) {
+                        console.log(items[candidates[i]].name);
+                    }
+                    itemName = "?"; // ambiguouse
+                }
             }
         }
         return itemName;
@@ -694,7 +719,7 @@ module.exports =  function ltbl(settings)  {
                             console.log("You see no "+command);
                         }
                     }
-                } else if ( lCase.substring(0, 4) == "eat " || lCase.substring(0, 5) == "wear " || lCase.substring(0, 6) == "light " ) {
+                } else if ( lCase.substring(0, 4) == "eat " || lCase.substring(0, 5) == "wear " || lCase.substring(0, 6) == "light " || lCase.substring(0,6) == "affix " ) {
                     var thingType = null;
                     if( lCase.substring(0, 4) == "eat ") {
                         thingType = "food";
@@ -702,6 +727,8 @@ module.exports =  function ltbl(settings)  {
                         thingType = "wearable";
                     } else if(lCase.substring(0, 6) == "light " ) {
                         thingType = "light";
+                    } else if(lCase.substring(0, 6) == "affix " ) {
+                        thingType = "fixture";    
                     }
                     command = command.substring(command.indexOf(" ")+1).trim();
                     if (command != "") {
@@ -711,13 +738,13 @@ module.exports =  function ltbl(settings)  {
                             where.contains = [];
                         }
                         var existingItem = lookupItem(what);
-                        if( existingItem ) {
+                        if( existingItem && existingItem != "?") {
                             if( !items[existingItem].type ) {
                                 items[existingItem].type = thingType;
                             } else if( items[existingItem].type != thingType ) {
                                 console.log("You cannot "+lCase.substring(0,lCase.indexOf(" ")+1)+command);
                             }
-                        } else {
+                        } else if( existingItem != "?" ) {
                             console.log("You see no "+command);
                         }
                     }
@@ -886,6 +913,10 @@ module.exports =  function ltbl(settings)  {
     // Generate a TADs source file....
     var generateTads  = function(tadsSrc) {
         var main = path.parse(settings.filename ).name+".t";
+        var roomDObj = location;
+        if( reservedNames[roomDObj] ) {
+            roomDObj = reservedNames[roomDObj];
+        }
         var srcLines = [
             '#charset "us-ascii"',
             '#include <adv3.h>',
@@ -902,7 +933,7 @@ module.exports =  function ltbl(settings)  {
             ,";"
             ,""
             ,"me: Actor"
-            ,"\tlocation = "+location
+            ,"\tlocation = "+roomDObj
             ,";"
             ,""
         ];
@@ -910,10 +941,8 @@ module.exports =  function ltbl(settings)  {
             var _srcLines = []
             var ip = items[it];
             var oName = it;
-            if( ip.name ) {
-                if( oName == ip.name ) {
-                    oName = ip.name + "_";
-                }
+            if( reservedNames[oName] ) {
+                oName = reservedNames[oName];
             }
             if( ip.content ) {
                 _srcLines.push(oName+" : Readable");
@@ -924,6 +953,8 @@ module.exports =  function ltbl(settings)  {
                     _srcLines.push(oName+" : Wearable");
                 } else if( ip.type == "light") {
                     _srcLines.push(oName+" : Flashlight");
+                } else if( ip.type == "fixture") {
+                    _srcLines.push(oName+" : Fixture");                    
                 } else {
                     _srcLines.push(oName+" : Thing");
                 }
@@ -984,20 +1015,27 @@ module.exports =  function ltbl(settings)  {
                     }
                 }
             }       
+            if( reservedNames[dir.location] ) {
+                return reservedNames[dir.location];
+            }
             return dir.location;
         };
         for( loc in locations ) {
             var room = locations[loc];
+            var roomDObj = loc;
+            if( reservedNames[roomDObj] ) {
+                roomDObj = reservedNames[roomDObj];
+            }
             if( locations[location].type == "outside" ) {
-                srcLines.push(loc+": OutdoorRoom");
+                srcLines.push(roomDObj+": OutdoorRoom");
             } else if( locations[location].type == "dark" ) {
-                srcLines.push(loc+": DarkRoom");
+                srcLines.push(roomDObj+": DarkRoom");
             } else if( locations[location].type == "ship" ) {
-                srcLines.push(loc+": ShipboardRoom");
+                srcLines.push(roomDObj+": ShipboardRoom");
             } else if( locations[location].type == "bottomless" ) {
-                srcLines.push(loc+": FloorlessRoom");
+                srcLines.push(roomDObj+": FloorlessRoom");
             } else {
-                srcLines.push(loc+": Room");
+                srcLines.push(roomDObj+": Room");
             }
             if( !room.name && room.description ) {
                 var parts = getPartsOfSpeech(room.description);
@@ -1056,7 +1094,11 @@ module.exports =  function ltbl(settings)  {
                     if( room.contains ) {
                         for (var i = 0; i < room.contains.length; ++i) {
                             if( room.contains[i].item == it ) {
-                                srcLines.push('\tlocation = '+loc);
+                                var roomDObj = loc;
+                                if( reservedNames[roomDObj] ) {
+                                    roomDObj = reservedNames[roomDObj];
+                                }                        
+                                srcLines.push('\tlocation = '+roomDObj);
                                 break;
                             }
                         }
