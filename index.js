@@ -4,9 +4,9 @@ const path = require("path");
 const { isAsyncFunction } = require("util/types");
 
 module.exports =  function ltbl(settings)  {
-    var roomNum = 1;
-    var itemNum = 1;
-    var doorNum = 1;
+    var roomNum = 100;
+    var itemNum = 100;
+    var doorNum = 100;
     var mode = 'where';
     var lastLocation = null;
     var lastDirection = null;
@@ -33,6 +33,8 @@ module.exports =  function ltbl(settings)  {
     };
     var npc = {        
     };
+    //---------------------------------------------------------------------------
+    // Create a spacial map of from the logical description
     var createMap = function() {
         var visited = {};
         var createMapLow = function(row,col,level,_loc,bounds,emitRooms) {
@@ -217,6 +219,8 @@ module.exports =  function ltbl(settings)  {
         }
     };
     var map = null;
+    //---------------------------------------------------------------------------
+    // parser Utility functions
     var extractNounAndAdj = function(command) {
         var words = command.toLowerCase().split(" ");
         var altNoun = null;
@@ -299,12 +303,15 @@ module.exports =  function ltbl(settings)  {
         parts.name = name.join(" ");
         return parts;
     }
-
+    //---------------------------------------------------------------------------
+    // Save off to file....
     var saveFile = function() {        
         var obj = { metadata : metadata , actor : actor , locations : locations , doors : doors , location : location , items : items , npc : npc }
         fs.writeFile(settings.filename,JSON.stringify(obj,null,"  "),function(err,data) {});
     };      
 
+    //---------------------------------------------------------------------------
+    // Build a map....
     var reverseDirection = function (dir) {
         if (dir == "s") return "n";
         if (dir == "n") return "s";
@@ -846,6 +853,8 @@ module.exports =  function ltbl(settings)  {
             }
         }
     };
+    //---------------------------------------------------------------------------
+    // Load a Game from JSON
     var loadGame = function(onComplete) {
         fs.readFile(settings.filename, (err, data) => {
             if( !err ) {
@@ -873,6 +882,8 @@ module.exports =  function ltbl(settings)  {
             }
           });          
     };
+    //---------------------------------------------------------------------------
+    // Generate a TADs source file....
     var generateTads  = function(tadsSrc) {
         var main = path.parse(settings.filename ).name+".t";
         var srcLines = [
