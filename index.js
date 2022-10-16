@@ -921,7 +921,7 @@ module.exports =  function ltbl(settings)  {
             }
             _srcLines.push("\tname = '"+ip.name+"'");
             var parts = getPartsOfSpeech(ip.name);
-            if( parts.count > 1 ) {
+            if( parts.count > 0 ) {
                 if( parts.noun.length > 0 )  {
                     var nouns = "\tnoun = ";
                     for( var i = 0 ; i < parts.noun.length ; ++i ) {
