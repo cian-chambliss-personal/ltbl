@@ -346,7 +346,13 @@ module.exports =  function ltbl(settings)  {
 
     var render = function (loc, depth,where ) {
         var describeNav = function(dir,name) {
-            if( dir.door ) {
+            if( dir.type == "stairs" ) {
+                console.log("There are stairs leading "+name+".");
+            } else if( dir.type == "passage" ) {
+                console.log("There is a passage leading "+name+".");
+            } else if( dir.type == "path" ) {
+                console.log("There is a path leading "+name+".");
+            } else if( dir.door ) {
                 if( dir.open ) {
                     console.log("To the "+name+" is open "+doors[dir.door].name);
                 } else {
@@ -516,7 +522,6 @@ module.exports =  function ltbl(settings)  {
             }
             if( !itemName ) {
                 if( candidates.length == 1 ) {
-                    console.log("You mean "+items[candidates[0]].name);
                     itemName = candidates[0];
                 } else if( candidates.length > 1 ) { 
                     console.log("which "+command+"?");
@@ -529,8 +534,35 @@ module.exports =  function ltbl(settings)  {
         }
         return itemName;
     };
+    var directionTags = [ "s", "n",  "e",  "w",  "u",  "d",  "sw", "se", "nw", "ne" ];
+    var directionsHash = {
+        "s" : { primary : "s" },
+        "n" : { primary : "n" },
+        "e" : { primary : "e" },
+        "w" : { primary : "w" },
+        "u" : { primary : "u" },
+        "d" : { primary : "d" },
+        "sw" : { primary : "sw" },
+        "se" : { primary : "sw" },
+        "nw" : { primary : "nw" },
+        "ne" : { primary : "ne" },
+        "south" : { primary : "s" },
+        "north" : { primary : "n" },
+        "east" : { primary : "e" },
+        "west" : { primary : "w" },
+        "up" : { primary : "u" },
+        "down" : { primary : "d" },
+        "southwest" : { primary : "sw" },
+        "southeast" : { primary : "sw" },
+        "northwest" : { primary : "nw" },
+        "northeast" : { primary : "ne" },
+        "south west" : { primary : "sw" },
+        "south east" : { primary : "sw" },
+        "north west" : { primary : "nw" },
+        "north east" : { primary : "ne" }
+    };
     var isDirection = function(command) {
-        return "snewdu".indexOf(command) >= 0 || command == "ne" || command == "se" || command == "nw" || command == "sw";
+        return directionsHash[command];
     }
     var parseCommand =  function (command) {
         var lCase = command;
@@ -584,12 +616,26 @@ module.exports =  function ltbl(settings)  {
                         locations[lastLocation][lastDirection] = { location: location };
                         locations[location][reverseDirection(lastDirection)] = { location: lastLocation };
                     }
-                    console.log("Door name (blank or 'n' for no door)");
+                    console.log("Door name (blank or 'n' for no door, 's' for stairs, 'p' for path/passage )");
                     mode = "door?"
                 }
             } else if (mode == 'door?') {
                 lCase = lCase.trim();
-                if( lCase != "" && lCase != "n" && lCase != "no" ) {
+                if( lCase == "s" ) {
+                    locations[lastLocation][lastDirection].type = "stairs";
+                    locations[location][reverseDirection(lastDirection)].type = "stairs";
+                } else if( lCase == "p" ) {
+                    if( locations[lastLocation].type == "outside"  ) {
+                        locations[lastLocation][lastDirection].type = "path";
+                        locations[location][reverseDirection(lastDirection)].type = "path";
+                    } else {
+                        locations[lastLocation][lastDirection].type = "passage";
+                        locations[location][reverseDirection(lastDirection)].type = "passage";
+                    }
+                } else if( lCase != "" 
+                 && lCase != "n" 
+                 && lCase != "no" 
+                 ) {
                     var name = extractNounAndAdj(command);
                     if( !name || doors[name] ) {
                         name = "door"+itemNum;
@@ -653,30 +699,79 @@ module.exports =  function ltbl(settings)  {
                     if (command != "") {
                         var where = locations[location];
                         var what = command;
-                        if (!where.contains) {
-                            where.contains = [];
-                        }
+                        var holder = "contains";
                         var existingItem = lookupItem(what,"actor");
-                        if( existingItem ) {
-                            if( existingItem != "?" ) {
-                                for( var i = 0; i < actor.inventory.length ; ++i ) {
-                                    if( actor.inventory[i].item == existingItem ) {
-                                        where.contains.push(actor.inventory[i]);
-                                        actor.inventory.splice(i, 1);
-                                        break;
-                                    }
+                        var objectWhere = null;
+                        var sep = command.indexOf(" on ");
+                        if( sep > 0 ) {
+                            objectWhere =  command.substring(sep+4);
+                            command = command.substring(0,sep);
+                            holder = "supports";
+                        } else {
+                            sep = command.indexOf(" in ");
+                            if( sep > 0 ) {
+                                objectWhere =  command.substring(sep+4);
+                                command = command.substring(0,sep);
+                            } else {
+                                sep = command.indexOf(" inside ");
+                                if( sep > 0 ) {
+                                    objectWhere =  command.substring(sep+8);
+                                    command = command.substring(0,sep);
+                                } else {
+                                    sep = command.indexOf(" behind ");
+                                    if( sep > 0 ) {
+                                        objectWhere =  command.substring(sep+8);
+                                        command = command.substring(0,sep);
+                                        holder = "behind";
+                                    } else {
+                                        sep = command.indexOf(" under ");
+                                        if( sep > 0 ) {
+                                            objectWhere =  command.substring(sep+7);
+                                            command = command.substring(0,sep);
+                                            holder = "under";
+                                        }    
+                                    }    
                                 }
                             }
-                        } else {
-                            var name = extractNounAndAdj(what);
-                            if( !name ) {
-                                name = "item"+itemNum;
-                                itemNum = itemNum + 1;
+                        }
+                        // we are relative to another object
+                        if( objectWhere ) {
+                            where = lookupItem(objectWhere);
+                            if( where ) {
+                                where = items[where];
                             }
-                            if( !items[name] ) {
-                                items[name] = { name : command };
+                            if( !where ) {
+                                console.log("you see no "+objectWhere);
                             }
-                            where.contains.push({ item: name });
+                        }
+                        if( where ) {
+                            if( existingItem ) {
+                                if( existingItem != "?" ) {
+                                    for( var i = 0; i < actor.inventory.length ; ++i ) {
+                                        if( actor.inventory[i].item == existingItem ) {
+                                            if (!where[holder]) {
+                                                where[holder] = [];
+                                            }
+                                            where[holder].push(actor.inventory[i]);
+                                            actor.inventory.splice(i, 1);
+                                            break;
+                                        }
+                                    }
+                                }
+                            } else {
+                                var name = extractNounAndAdj(what);
+                                if( !name ) {
+                                    name = "item"+itemNum;
+                                    itemNum = itemNum + 1;
+                                }
+                                if( !items[name] ) {
+                                    items[name] = { name : command };
+                                }
+                                if (!where[holder]) {
+                                    where[holder] = [];
+                                }
+                                where[holder].push({ item: name });
+                            }
                         }
                     }
                 } else if (lCase.substring(0, 5) == "read ") {
@@ -749,6 +844,7 @@ module.exports =  function ltbl(settings)  {
                         }
                     }
                 } else if ( isDirection(lCase) ) {
+                    lCase = isDirection(lCase).primary;
                     if (locations[location]) {
                         var nextLoc = locations[location][lCase];
                         if (!nextLoc) {
@@ -806,7 +902,7 @@ module.exports =  function ltbl(settings)  {
                     }
                     describe();
                 } else if (lCase.substring(0,5) == "door " && isDirection(lCase.substring(5)) ) {
-                    lCase = lCase.substring(5).trim();
+                    lCase = isDirection(lCase.substring(5).trim()).primary;
                     if (locations[location]) {
                         var nextLoc = locations[location][lCase];
                         if (nextLoc) {
@@ -937,29 +1033,43 @@ module.exports =  function ltbl(settings)  {
             ,";"
             ,""
         ];
-        var emitItem = function(it) {
+        var emitItem = function(it,depth) {
             var _srcLines = []
             var ip = items[it];
             var oName = it;
             if( reservedNames[oName] ) {
                 oName = reservedNames[oName];
             }
+            if( depth > 0 ) {
+                oName = ("+++++++++++++++++".substring(0,depth)) + " " + oName;
+            }
+            var prefix = "";
+            if( ip.supports ) {
+                prefix = " Surface,"
+            }
+            if( ip.behind ) {
+                // TBD - tads 3 has a specialization of this that allows for attached to rear
+                prefix += " RearContainer,"
+            }
+            if( ip.under ) {
+                prefix += " Underside,"
+            }
             if( ip.content ) {
                 _srcLines.push(oName+" : Readable");
             } else if( ip.type ) {
                 if( ip.type == "food") {
-                    _srcLines.push(oName+" : Food");
+                    _srcLines.push(oName+" :"+prefix+" Food");
                 } else if( ip.type == "wearable") {
-                    _srcLines.push(oName+" : Wearable");
+                    _srcLines.push(oName+" :"+prefix+" Wearable");
                 } else if( ip.type == "light") {
-                    _srcLines.push(oName+" : Flashlight");
+                    _srcLines.push(oName+" :"+prefix+" Flashlight");
                 } else if( ip.type == "fixture") {
-                    _srcLines.push(oName+" : Fixture");                    
+                    _srcLines.push(oName+" :"+prefix+" Fixture");                    
                 } else {
-                    _srcLines.push(oName+" : Thing");
+                    _srcLines.push(oName+" :"+prefix+" Thing");
                 }
             } else {
-                _srcLines.push(oName+" : Thing");
+                _srcLines.push(oName+" :"+prefix+" Thing");
             }
             _srcLines.push("\tname = '"+ip.name+"'");
             var parts = getPartsOfSpeech(ip.name);
@@ -985,18 +1095,76 @@ module.exports =  function ltbl(settings)  {
             if( ip.content ) {
                 _srcLines.push('\treadDesc = "'+ip.content+'"');
             }
+            _srcLines.push(";");
+            _srcLines.push("");
+            // Containership & Concealing
+            if( ip.supports ) {
+                for( var i = 0 ; i < ip.supports.length ; ++i ) {
+                    itemEmitted[ip.supports[i].item] = true;
+                    _srcLines.push(emitItem(ip.supports[i].item,depth+1));
+                }
+            }
+            if( ip.contains ) {
+                for( var i = 0 ; i < ip.contains.length ; ++i ) {
+                    itemEmitted[ip.contains[i].item] = true;
+                    _srcLines.push(emitItem(ip.contains[i].item,depth+1));
+                }                
+            }
+            if( ip.behind ) {
+                for( var i = 0 ; i < ip.behind.length ; ++i ) {
+                    itemEmitted[ip.behind[i].item] = true;
+                    _srcLines.push(emitItem(ip.behind[i].item,depth+1));
+                }                
+            }
+            if( ip.under ) {
+                for( var i = 0 ; i < ip.under.length ; ++i ) {
+                    itemEmitted[ip.under[i].item] = true;
+                    _srcLines.push(emitItem(ip.under[i].item,depth+1));
+                }                                
+            }
             return _srcLines.join("\n");
         };
         var itemEmitted = {};
         for( var i = 0 ; i < actor.inventory.length ; ++i ) {
             itemEmitted[actor.inventory[i].item] = true;
-            srcLines.push("+ "+emitItem(actor.inventory[i].item));
-            srcLines.push(";");
-            srcLines.push("");
+            srcLines.push(emitItem(actor.inventory[i].item,1));
         }
         var masterDoors = {};
+        var locationHandled = {};
         var addDoors = null;
-        var tadDirection = function(dir) {
+        var findLocationDir = function(room,roomLoc) {        
+            for( var i = 0 ; i < directionTags.length ; ++i ) {
+                var dPtr = room[directionTags[i]];
+                if( dPtr ) {
+                    if( dPtr.location == roomLoc ) {
+                        return directionTags[i];
+                    }
+                }
+            }
+            return null;
+        }
+        var getConnector = function(dir,roomLoc,dirName) {
+            var connectorType = null , connectorName = null;
+            if( dir.type == "stairs" ) {                
+                if( dirName == "u")
+                    connectorType = "StairwayUp";
+                else if( dirName == "d")
+                    connectorType = "StairwayDown";
+                else // TBD - up/down inside dir (e.g. north & up)
+                    connectorType = "Stairway";
+                connectorName = roomLoc+"Stairs";
+            } else if( dir.type == "path" ) {
+                connectorType = "PathPassage";
+                connectorName = roomLoc+"Path";
+            } else if( dir.type == "passage" ) {
+                connectorType= "ThroughPassage";
+                connectorName = roomLoc+"Passage";
+            } else {
+                return null;
+            }
+            return { type : connectorType , name : connectorName };
+        };
+        var tadDirection = function(dir,roomLoc,dirName) {
             if( dir.door ) {
                 if( doors[dir.door] ) {
                     var doorPrt = doors[dir.door];
@@ -1006,15 +1174,52 @@ module.exports =  function ltbl(settings)  {
                     }
                     var masterDoor = masterDoors[dir.door];
                     if( masterDoor ) {
-                        addDoors = ["+ "+dir.door+"Other : Door '"+doorname+"*doors' '"+doorname+"'","\tmasterObject = "+dir.door,";",""].join("\n");
+                        if( !addDoors ) {
+                            addDoors = "";
+                        }
+                        addDoors = [addDoors+"+ "+dir.door+"Other : Door '"+doorname+"*doors' '"+doorname+"'","\tmasterObject = "+dir.door,";",""].join("\n");
                         return dir.door+"Other";
                     } else {
                         masterDoors[dir.door] = true;
-                        addDoors = ["+ "+dir.door+": Door '"+doorname+"*doors' '"+doorname+"'",";",""].join("\n");
+                        if( !addDoors ) {
+                            addDoors = "";
+                        }
+                        addDoors = [addDoors+"+ "+dir.door+": Door '"+doorname+"*doors' '"+doorname+"'",";",""].join("\n");
                         return dir.door;
                     }
                 }
-            }       
+            }
+            if( dir.type ) {
+                if( dir.type == "stairs" 
+                 || dir.type == "path" 
+                 || dir.type == "passage" 
+                  ) {
+                    var connectorDef = getConnector(dir,roomLoc,dirName);
+                    if( locationHandled[dir.location] ) {
+                        if( connectorDef ) {
+                            if( !addDoors ) {
+                                addDoors = "";
+                            }
+                            addDoors = [addDoors+"+ "+connectorDef.name+" : "+connectorDef.type+" '"+dir.type+"' '"+dir.type+"'",";",""].join("\n");
+                            return connectorDef.name;
+                        }
+                    } else {
+                        var wayBack = locations[dir.location];
+                        var wayDir = findLocationDir(wayBack,roomLoc);
+                        if( wayDir ) {
+                            var connectorDefAlt = getConnector(wayBack[wayDir],dir.location,wayDir);
+                            if( !connectorDefAlt ) {
+                                connectorDefAlt =  { name : dir.location };
+                            }
+                            if( !addDoors ) {
+                                addDoors = "";
+                            }
+                            addDoors = [addDoors+"+ "+connectorDef.name+" : "+connectorDef.type+" ->"+connectorDefAlt.name+" '"+dir.type+"' '"+dir.type+"'",";",""].join("\n");
+                            return connectorDef.name;
+                        }
+                    }
+                }
+            }
             if( reservedNames[dir.location] ) {
                 return reservedNames[dir.location];
             }
@@ -1050,34 +1255,34 @@ module.exports =  function ltbl(settings)  {
                 srcLines.push('\tdesc = "'+room.description+'"');
             }
             if( room.e ) {
-                srcLines.push('\teast = '+tadDirection(room.e));
+                srcLines.push('\teast = '+tadDirection(room.e,loc,"e"));
             }
             if( room.w ) {
-                srcLines.push('\twest = '+tadDirection(room.w));
+                srcLines.push('\twest = '+tadDirection(room.w,loc,"w"));
             }
             if( room.n ) {
-                srcLines.push('\tnorth = '+tadDirection(room.n));
+                srcLines.push('\tnorth = '+tadDirection(room.n,loc,"n"));
             }
             if( room.s ) {
-                srcLines.push('\tsouth = '+tadDirection(room.s));
+                srcLines.push('\tsouth = '+tadDirection(room.s,loc,"s"));
             }
             if( room.sw ) {
-                srcLines.push('\tsouthwest = '+tadDirection(room.sw));
+                srcLines.push('\tsouthwest = '+tadDirection(room.sw,loc,"sw"));
             }
             if( room.se ) {
-                srcLines.push('\tsoutheast = '+tadDirection(room.se));
+                srcLines.push('\tsoutheast = '+tadDirection(room.se,loc,"se"));
             }
             if( room.nw ) {
-                srcLines.push('\tnorthwest = '+tadDirection(room.nw));
+                srcLines.push('\tnorthwest = '+tadDirection(room.nw,loc,"nw"));
             }
             if( room.ne ) {
-                srcLines.push('\tnortheast = '+tadDirection(room.ne));
+                srcLines.push('\tnortheast = '+tadDirection(room.ne,loc,"ne"));
             }
             if( room.u ) {
-                srcLines.push('\tup = '+tadDirection(room.u));
+                srcLines.push('\tup = '+tadDirection(room.u,loc,"u"));
             }
             if( room.d ) {
-                srcLines.push('\tdown = '+tadDirection(room.d));
+                srcLines.push('\tdown = '+tadDirection(room.d,loc,"d"));
             }
             srcLines.push(";");
             srcLines.push("");
@@ -1085,27 +1290,22 @@ module.exports =  function ltbl(settings)  {
                 srcLines.push(addDoors);
                 addDoors = null;
             }
+            if( room.contains ) {
+                for (var i = 0; i < room.contains.length; ++i) {
+                    itemEmitted[room.contains[i].item] = true;
+                    srcLines.push(emitItem(room.contains[i].item,1));
+                }
+            }
+            if( room.wall ) {
+                if( room.wall.n ) {
+                }
+            }
+            locationHandled[loc] = true;
         }
+        // Leftover items (not directly owned or contained)
         for( it in items) {
             if( !itemEmitted[it] ) {
-                srcLines.push(emitItem(it));
-                for( loc in locations ) {
-                    var room = locations[loc];
-                    if( room.contains ) {
-                        for (var i = 0; i < room.contains.length; ++i) {
-                            if( room.contains[i].item == it ) {
-                                var roomDObj = loc;
-                                if( reservedNames[roomDObj] ) {
-                                    roomDObj = reservedNames[roomDObj];
-                                }                        
-                                srcLines.push('\tlocation = '+roomDObj);
-                                break;
-                            }
-                        }
-                    }
-                }
-                srcLines.push(";");
-                srcLines.push("");
+                srcLines.push(emitItem(it,0));
             }
         }
         tadsSrc[main] = srcLines.join("\n");        
