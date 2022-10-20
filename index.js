@@ -694,7 +694,12 @@ module.exports =  function ltbl(settings)  {
                             console.log(items[actor.inventory[i].item].name);
                         }
                     }
-                } else if (lCase.substring(0, 5) == "drop " || lCase.substring(0, 4) == "put " ) {
+                } else if ( lCase.substring(0, 5) == "drop " 
+                         || lCase.substring(0, 4) == "put " 
+                         || lCase.substring(0, 5) == "hide " 
+                          ) {
+                    // Drop & put are pretty much the same, rely on 'on' / 'in' / 'behind' / 'under' for position
+                    // Hide adds the 'hidden' property requires the player to inspect the container
                     command = command.substring(4).trim();
                     if (command != "") {
                         var where = locations[location];
@@ -703,6 +708,11 @@ module.exports =  function ltbl(settings)  {
                         var existingItem = lookupItem(what,"actor");
                         var objectWhere = null;
                         var sep = command.indexOf(" on ");
+                        var hidden = false;
+                        if( lCase.substring(0, 5) == "hide " )
+                        {
+                            hidden = true;
+                        }
                         if( sep > 0 ) {
                             objectWhere =  command.substring(sep+4);
                             command = command.substring(0,sep);
@@ -752,6 +762,11 @@ module.exports =  function ltbl(settings)  {
                                             if (!where[holder]) {
                                                 where[holder] = [];
                                             }
+                                            if( hidden ) {
+                                                actor.inventory[i].hidden = true;
+                                            } else if( actor.inventory[i].hidden ) {
+                                                delete actor.inventory[i].hidden;
+                                            }
                                             where[holder].push(actor.inventory[i]);
                                             actor.inventory.splice(i, 1);
                                             break;
@@ -770,7 +785,11 @@ module.exports =  function ltbl(settings)  {
                                 if (!where[holder]) {
                                     where[holder] = [];
                                 }
-                                where[holder].push({ item: name });
+                                var itemEnv = { item: name };
+                                if( hidden ) {
+                                    itemEnv.hidden = true;
+                                }
+                                where[holder].push(itemEnv);
                             }
                         }
                     }
@@ -836,8 +855,9 @@ module.exports =  function ltbl(settings)  {
                         if( existingItem && existingItem != "?") {
                             if( !items[existingItem].type ) {
                                 items[existingItem].type = thingType;
+                                console.log(command+" is "+thingType+".");
                             } else if( items[existingItem].type != thingType ) {
-                                console.log("You cannot "+lCase.substring(0,lCase.indexOf(" ")+1)+command);
+                                console.log("You cannot "+lCase.substring(0,lCase.indexOf(" ")+1)+" "+command);
                             }
                         } else if( existingItem != "?" ) {
                             console.log("You see no "+command);
@@ -1033,7 +1053,7 @@ module.exports =  function ltbl(settings)  {
             ,";"
             ,""
         ];
-        var emitItem = function(it,depth) {
+        var emitItem = function(it,depth,props) {
             var _srcLines = []
             var ip = items[it];
             var oName = it;
@@ -1044,8 +1064,11 @@ module.exports =  function ltbl(settings)  {
                 oName = ("+++++++++++++++++".substring(0,depth)) + " " + oName;
             }
             var prefix = "";
+            if( props.hidden ) {
+                prefix = " Hidden,"
+            }
             if( ip.supports ) {
-                prefix = " Surface,"
+                prefix += " Surface,"
             }
             if( ip.behind ) {
                 // TBD - tads 3 has a specialization of this that allows for attached to rear
@@ -1055,7 +1078,7 @@ module.exports =  function ltbl(settings)  {
                 prefix += " Underside,"
             }
             if( ip.content ) {
-                _srcLines.push(oName+" : Readable");
+                _srcLines.push(oName+" :"+prefix+" Readable");
             } else if( ip.type ) {
                 if( ip.type == "food") {
                     _srcLines.push(oName+" :"+prefix+" Food");
@@ -1101,25 +1124,25 @@ module.exports =  function ltbl(settings)  {
             if( ip.supports ) {
                 for( var i = 0 ; i < ip.supports.length ; ++i ) {
                     itemEmitted[ip.supports[i].item] = true;
-                    _srcLines.push(emitItem(ip.supports[i].item,depth+1));
+                    _srcLines.push(emitItem(ip.supports[i].item,depth+1,ip.supports[i]));
                 }
             }
             if( ip.contains ) {
                 for( var i = 0 ; i < ip.contains.length ; ++i ) {
                     itemEmitted[ip.contains[i].item] = true;
-                    _srcLines.push(emitItem(ip.contains[i].item,depth+1));
+                    _srcLines.push(emitItem(ip.contains[i].item,depth+1,ip.contains[i]));
                 }                
             }
             if( ip.behind ) {
                 for( var i = 0 ; i < ip.behind.length ; ++i ) {
                     itemEmitted[ip.behind[i].item] = true;
-                    _srcLines.push(emitItem(ip.behind[i].item,depth+1));
+                    _srcLines.push(emitItem(ip.behind[i].item,depth+1,ip.behind[i]));
                 }                
             }
             if( ip.under ) {
                 for( var i = 0 ; i < ip.under.length ; ++i ) {
                     itemEmitted[ip.under[i].item] = true;
-                    _srcLines.push(emitItem(ip.under[i].item,depth+1));
+                    _srcLines.push(emitItem(ip.under[i].item,depth+1,ip.under[i]));
                 }                                
             }
             return _srcLines.join("\n");
@@ -1127,7 +1150,7 @@ module.exports =  function ltbl(settings)  {
         var itemEmitted = {};
         for( var i = 0 ; i < actor.inventory.length ; ++i ) {
             itemEmitted[actor.inventory[i].item] = true;
-            srcLines.push(emitItem(actor.inventory[i].item,1));
+            srcLines.push(emitItem(actor.inventory[i].item,1,actor.inventory[i]));
         }
         var masterDoors = {};
         var locationHandled = {};
@@ -1293,7 +1316,7 @@ module.exports =  function ltbl(settings)  {
             if( room.contains ) {
                 for (var i = 0; i < room.contains.length; ++i) {
                     itemEmitted[room.contains[i].item] = true;
-                    srcLines.push(emitItem(room.contains[i].item,1));
+                    srcLines.push(emitItem(room.contains[i].item,1,room.contains[i]));
                 }
             }
             if( room.wall ) {
@@ -1305,7 +1328,7 @@ module.exports =  function ltbl(settings)  {
         // Leftover items (not directly owned or contained)
         for( it in items) {
             if( !itemEmitted[it] ) {
-                srcLines.push(emitItem(it,0));
+                srcLines.push(emitItem(it,0,{}));
             }
         }
         tadsSrc[main] = srcLines.join("\n");        
