@@ -3,7 +3,7 @@ const { findSourceMap } = require("module");
 const path = require("path");
 const { isAsyncFunction } = require("util/types");
 
-module.exports =  function ltbl(settings)  {
+module.exports = function ltbl(settings) {
     var roomNum = 1;
     var itemNum = 1;
     var doorNum = 1;
@@ -16,15 +16,15 @@ module.exports =  function ltbl(settings)  {
     var partOfSp = require("./en-parts.json");
     var reservedNames = require("./reserved.json");
     var metadata = {
-        title : null ,
-        author : null ,
-        authorEmail : null ,
-        description: null ,
+        title: null,
+        author: null,
+        authorEmail: null,
+        description: null,
         version: "1",
         IFID: null
     };
     var actor = {
-        inventory : []
+        inventory: []
     };
     var locations = {
     };
@@ -32,99 +32,98 @@ module.exports =  function ltbl(settings)  {
     };
     var items = {
     };
-    var npc = {        
+    var npc = {
     };
     //---------------------------------------------------------------------------
     // Create a spacial map of from the logical description
-    var createMap = function() {
+    var createMap = function () {
         var visited = {};
-        var createMapLow = function(row,col,level,_loc,bounds,emitRooms) {
-            if( !visited[_loc] )
-            {
+        var createMapLow = function (row, col, level, _loc, bounds, emitRooms) {
+            if (!visited[_loc]) {
                 visited[_loc] = true;
-                emitRooms(row,col,level,_loc,bounds);
-                if( level < bounds.startLevel )
+                emitRooms(row, col, level, _loc, bounds);
+                if (level < bounds.startLevel)
                     bounds.startLevel = level;
-                if( level > bounds.endLevel )
+                if (level > bounds.endLevel)
                     bounds.endLevel = level;
-                if( row < bounds.startRow )
+                if (row < bounds.startRow)
                     bounds.startRow = row;
-                if( row > bounds.endRow )
+                if (row > bounds.endRow)
                     bounds.endRow = row;
-                if( col < bounds.startCol )
+                if (col < bounds.startCol)
                     bounds.startCol = col;
-                if( col > bounds.endCol )
+                if (col > bounds.endCol)
                     bounds.endCol = col;
                 var loc = locations[_loc];
-                if( loc.w ) {
-                    createMapLow(row,col-1,level,loc.w.location,bounds,emitRooms);
+                if (loc.w) {
+                    createMapLow(row, col - 1, level, loc.w.location, bounds, emitRooms);
                 }
-                if( loc.e ) {
-                    createMapLow(row,col+1,level,loc.e.location,bounds,emitRooms);
+                if (loc.e) {
+                    createMapLow(row, col + 1, level, loc.e.location, bounds, emitRooms);
                 }
-                if( loc.n ) {
-                    createMapLow(row-1,col,level,loc.n.location,bounds,emitRooms);
+                if (loc.n) {
+                    createMapLow(row - 1, col, level, loc.n.location, bounds, emitRooms);
                 }
-                if( loc.nw ) {
-                    createMapLow(row-1,col-1,level,loc.nw.location,bounds,emitRooms);
+                if (loc.nw) {
+                    createMapLow(row - 1, col - 1, level, loc.nw.location, bounds, emitRooms);
                 }
-                if( loc.ne ) {
-                    createMapLow(row-1,col+1,level,loc.ne.location,bounds,emitRooms);
+                if (loc.ne) {
+                    createMapLow(row - 1, col + 1, level, loc.ne.location, bounds, emitRooms);
                 }
-                if( loc.s ) {
-                    createMapLow(row+1,col,level,loc.s.location,bounds,emitRooms);
+                if (loc.s) {
+                    createMapLow(row + 1, col, level, loc.s.location, bounds, emitRooms);
                 }
-                if( loc.sw ) {
-                    createMapLow(row+1,col-1,level,loc.sw.location,bounds,emitRooms);
+                if (loc.sw) {
+                    createMapLow(row + 1, col - 1, level, loc.sw.location, bounds, emitRooms);
                 }
-                if( loc.se ) {
-                    createMapLow(row+1,col+1,level,loc.se.location,bounds,emitRooms);
-                }                
-                if( loc.d ) {
-                    createMapLow(row,col,level-1,loc.d.location,bounds,emitRooms);
-                }                
-                if( loc.u ) {
-                    createMapLow(row,col,level+1,loc.u.location,bounds,emitRooms);
-                }                
+                if (loc.se) {
+                    createMapLow(row + 1, col + 1, level, loc.se.location, bounds, emitRooms);
+                }
+                if (loc.d) {
+                    createMapLow(row, col, level - 1, loc.d.location, bounds, emitRooms);
+                }
+                if (loc.u) {
+                    createMapLow(row, col, level + 1, loc.u.location, bounds, emitRooms);
+                }
             }
         };
         var bounds = {
-            startLevel : 0 ,
-            endLevel : 0 ,
-            startRow : 0 ,
-            endRow : 0 ,
-            startCol : 0 ,
-            endCol : 0 
+            startLevel: 0,
+            endLevel: 0,
+            startRow: 0,
+            endRow: 0,
+            startCol: 0,
+            endCol: 0
         };
-        createMapLow(0,0,0,location,bounds,function(row,col,level,loc,bounds) {});
+        createMapLow(0, 0, 0, location, bounds, function (row, col, level, loc, bounds) { });
         visited = {};
         var nLevel = (bounds.endLevel - bounds.startLevel + 1);
         var nRow = (bounds.endRow - bounds.startRow + 1);
         var nCol = (bounds.endCol - bounds.startCol + 1);
         var levels = [];
-        for( var l = 0 ; l < nLevel ; ++l ) {
+        for (var l = 0; l < nLevel; ++l) {
             var rows = [];
-            for( var r = 0 ; r < nRow ; ++r ) {
+            for (var r = 0; r < nRow; ++r) {
                 var cols = [];
-                for( var c = 0 ; c < nCol ; ++c ) {
+                for (var c = 0; c < nCol; ++c) {
                     cols.push(null);
                 }
                 rows.push(cols);
             }
             levels.push(rows);
         }
-        createMapLow(0,0,0,location,bounds,function(row,col,level,loc,bounds) {
-            levels[level - bounds.startLevel ][row - bounds.startRow][col - bounds.startCol]  = loc;            
+        createMapLow(0, 0, 0, location, bounds, function (row, col, level, loc, bounds) {
+            levels[level - bounds.startLevel][row - bounds.startRow][col - bounds.startCol] = loc;
         });
-        return { levels : levels , location : { room : location , level : -bounds.startLevel , row : -bounds.startRow , col : - bounds.startCol  } };
+        return { levels: levels, location: { room: location, level: -bounds.startLevel, row: -bounds.startRow, col: - bounds.startCol } };
     };
-    var recalcLocation = function(map,location) {
-        for( var l = 0 ; l < map.levels.length ; ++l ) {
+    var recalcLocation = function (map, location) {
+        for (var l = 0; l < map.levels.length; ++l) {
             var rows = map.levels[l];
-            for( var r = 0 ; r < rows.length ; ++r ) {
+            for (var r = 0; r < rows.length; ++r) {
                 var cols = rows[r];
-                for( var c = 0 ; c < cols.length ; ++c ) {
-                    if( cols[c] == location ) {
+                for (var c = 0; c < cols.length; ++c) {
+                    if (cols[c] == location) {
                         map.location.room = location;
                         map.location.level = l;
                         map.location.row = r;
@@ -136,73 +135,73 @@ module.exports =  function ltbl(settings)  {
         }
         return false;
     }
-    var renderMapLevelText = function(map) {
+    var renderMapLevelText = function (map) {
         var rows = map.levels[map.location.level];
-        for( var r = 0; r < rows.length ; ++r ) {
+        for (var r = 0; r < rows.length; ++r) {
             var cols = rows[r];
-            for( var ch = 0 ; ch < 5 ; ++ch ) {
+            for (var ch = 0; ch < 5; ++ch) {
                 var line = "";
-                for( var c = 0; c < cols.length ; ++c ) {
+                for (var c = 0; c < cols.length; ++c) {
                     var cell = cols[c];
-                    if( cell ) {
+                    if (cell) {
                         cell = locations[cell];
                     }
                     text = "          ";
-                    if( cell ) {
-                        if( cell.type != "outside") {
-                            if( ch == 0 || ch == 4) {
+                    if (cell) {
+                        if (cell.type != "outside") {
+                            if (ch == 0 || ch == 4) {
                                 text = "+--------+";
                             } else {
                                 text = "|        |";
                             }
                         }
-                        if( ch == 0 ) {
-                            if( cell.n ) {
-                                if( cell.type == "outside") {
+                        if (ch == 0) {
+                            if (cell.n) {
+                                if (cell.type == "outside") {
                                     text = "    .     ";
                                 } else {
                                     text = "+---|----+";
                                 }
                             }
-                        } else if( 1 <= ch && ch < 4 ) {
+                        } else if (1 <= ch && ch < 4) {
                             var nameParts = "";
-                            if( cell.name ) {
+                            if (cell.name) {
                                 nameParts = cell.name;
-                            } else if( cell.description ) {
+                            } else if (cell.description) {
                                 nameParts = cell.description;
                             }
-                            nameParts = nameParts.split(" ");                            
-                            if( ch <= nameParts.length ) {
-                                nameParts = nameParts[ch-1];
+                            nameParts = nameParts.split(" ");
+                            if (ch <= nameParts.length) {
+                                nameParts = nameParts[ch - 1];
                             } else {
                                 nameParts = "";
                             }
-                            if( nameParts.length > 8 ) {
-                                nameParts = nameParts.substring(0,8);
+                            if (nameParts.length > 8) {
+                                nameParts = nameParts.substring(0, 8);
                             }
-                            if( nameParts != "" ) {
-                                var leadChr = (10-nameParts.length) / 2;
-                                text = text.substring(0,leadChr) + nameParts + text.substring(nameParts.length + leadChr);
+                            if (nameParts != "") {
+                                var leadChr = (10 - nameParts.length) / 2;
+                                text = text.substring(0, leadChr) + nameParts + text.substring(nameParts.length + leadChr);
                             }
-                            if( ch == 2 ) {
-                                if( cell.w ) {
-                                    if( cell.type == "outside") { 
-                                        text = "."+ text.substring(1);
+                            if (ch == 2) {
+                                if (cell.w) {
+                                    if (cell.type == "outside") {
+                                        text = "." + text.substring(1);
                                     } else {
-                                        text = "="+ text.substring(1);
+                                        text = "=" + text.substring(1);
                                     }
                                 }
-                                if( cell.e ) {
-                                    if( cell.type == "outside") { 
-                                        text = text.substring(0,9)+".";
+                                if (cell.e) {
+                                    if (cell.type == "outside") {
+                                        text = text.substring(0, 9) + ".";
                                     } else {
-                                        text = text.substring(0,9)+"=";
+                                        text = text.substring(0, 9) + "=";
                                     }
                                 }
                             }
-                        } else if( ch == 4 ) {
-                            if( cell.s ) {
-                                if( cell.type == "outside") {
+                        } else if (ch == 4) {
+                            if (cell.s) {
+                                if (cell.type == "outside") {
                                     text = "    .     ";
                                 } else {
                                     text = "+---|----+";
@@ -210,7 +209,7 @@ module.exports =  function ltbl(settings)  {
                             }
                         }
                     }
-                    if( map.location.row == r && map.location.col == c ) {
+                    if (map.location.row == r && map.location.col == c) {
                         text = text.split(" ").join(".");
                     }
                     line += text;
@@ -222,53 +221,51 @@ module.exports =  function ltbl(settings)  {
     var map = null;
     //---------------------------------------------------------------------------
     // parser Utility functions
-    var extractNounAndAdj = function(command) {
+    var extractNounAndAdj = function (command) {
         var words = command.toLowerCase().split(" ");
         var altNoun = null;
         var adj = "";
         var adjLoc = -1;
-        for( var i = 0 ; i < words.length ; ++i ) {
+        for (var i = 0; i < words.length; ++i) {
             var pos = partOfSp[words[i]];
-            if( pos ) {
-                if( i > 0 && words[i] == "room" )
-                {
-                    if( (i-1) > adjLoc )
-                    {
-                        if( adj != "" ) {
+            if (pos) {
+                if (i > 0 && words[i] == "room") {
+                    if ((i - 1) > adjLoc) {
+                        if (adj != "") {
                             adj = adj + words[i].charAt(0).toUpperCase() + words[i].slice(1);
                         } else {
-                            adj =  words[i];
+                            adj = words[i];
                         }
                     }
                 }
-                if( (pos & 8) != 0 ) {
-                    if( adj != "" ) {
+                if ((pos & 8) != 0) {
+                    if (adj != "") {
                         adj = adj + words[i].charAt(0).toUpperCase() + words[i].slice(1);
                     } else {
-                        adj =  words[i];
+                        adj = words[i];
                     }
-                    if( pos & 1 ) {
+                    if (pos & 1) {
                         altNoun = adj;
                     }
                     adjLoc = i;
-                } else if( (pos & 1) != 0 ) {
-                    if( adj.length > 0 ) {
-                        if( adj != "" ) {
+                } else if ((pos & 1) != 0) {
+                    if (adj.length > 0) {
+                        if (adj != "") {
                             adj = adj + words[i].charAt(0).toUpperCase() + words[i].slice(1);
                         } else {
-                            adj =  words[i];
+                            adj = words[i];
                         }
-                        return adj;    
+                        return adj;
                     }
                     return words[i];
                 }
             } else {
-                words[i] = words[i].replace("'","")
-                if( words[i].length > 1 && words[i][words[i].length-1] == 's' ) {
-                    if( adj != "" ) {
+                words[i] = words[i].replace("'", "")
+                if (words[i].length > 1 && words[i][words[i].length - 1] == 's') {
+                    if (adj != "") {
                         adj = adj + words[i].charAt(0).toUpperCase() + words[i].slice(1);
                     } else {
-                        adj =  words[i];
+                        adj = words[i];
                     }
                     adjLoc = i;
                 }
@@ -276,26 +273,26 @@ module.exports =  function ltbl(settings)  {
         }
         return altNoun;
     };
-    var getPartsOfSpeech = function(command) {
-        var  parts = { count : 0 , noun : [] , adj : [] , name : "" };
+    var getPartsOfSpeech = function (command) {
+        var parts = { count: 0, noun: [], adj: [], name: "" };
         var words = command.toLowerCase().split(" ");
         var altNoun = null;
         var adj = "";
         var adjLoc = -1;
         var name = [];
-        for( var i = 0 ; i < words.length ; ++i ) {
+        for (var i = 0; i < words.length; ++i) {
             var pos = partOfSp[words[i]];
-            if( (pos & 1) != 0 ) {
-                if( parts.noun.length > 0 ) {
-                    if( (partOfSp[parts.noun[parts.noun.length-1]] & 8) != 0 ) {
-                        parts.adj.push(parts.noun[parts.noun.length-1]);
-                        parts.noun.splice(parts.noun.length-1, 1);
+            if ((pos & 1) != 0) {
+                if (parts.noun.length > 0) {
+                    if ((partOfSp[parts.noun[parts.noun.length - 1]] & 8) != 0) {
+                        parts.adj.push(parts.noun[parts.noun.length - 1]);
+                        parts.noun.splice(parts.noun.length - 1, 1);
                     }
                 }
                 parts.noun.push(words[i]);
                 ++parts.count;
                 name.push(words[i]);
-            } else if( (pos & 8) != 0 ) {
+            } else if ((pos & 8) != 0) {
                 parts.adj.push(words[i]);
                 ++parts.count;
                 name.push(words[i]);
@@ -306,10 +303,10 @@ module.exports =  function ltbl(settings)  {
     }
     //---------------------------------------------------------------------------
     // Save off to file....
-    var saveFile = function() {        
-        var obj = { metadata : metadata , actor : actor , locations : locations , doors : doors , location : location , items : items , npc : npc }
-        fs.writeFile(settings.filename,JSON.stringify(obj,null,"  "),function(err,data) {});
-    };      
+    var saveFile = function () {
+        var obj = { metadata: metadata, actor: actor, locations: locations, doors: doors, location: location, items: items, npc: npc }
+        fs.writeFile(settings.filename, JSON.stringify(obj, null, "  "), function (err, data) { });
+    };
 
     //---------------------------------------------------------------------------
     // Build a map....
@@ -344,103 +341,103 @@ module.exports =  function ltbl(settings)  {
         return dir;
     }
 
-    var render = function (loc, depth,where ) {
-        var describeNav = function(dir,name) {
-            if( dir.type == "stairs" ) {
-                console.log("There are stairs leading "+name+".");
-            } else if( dir.type == "passage" ) {
-                console.log("There is a passage leading "+name+".");
-            } else if( dir.type == "path" ) {
-                console.log("There is a path leading "+name+".");
-            } else if( dir.door ) {
-                if( dir.open ) {
-                    console.log("To the "+name+" is open "+doors[dir.door].name);
+    var render = function (loc, depth, where) {
+        var describeNav = function (dir, name) {
+            if (dir.type == "stairs") {
+                console.log("There are stairs leading " + name + ".");
+            } else if (dir.type == "passage") {
+                console.log("There is a passage leading " + name + ".");
+            } else if (dir.type == "path") {
+                console.log("There is a path leading " + name + ".");
+            } else if (dir.door) {
+                if (dir.open) {
+                    console.log("To the " + name + " is open " + doors[dir.door].name);
                 } else {
-                    console.log("To the "+name+" is "+doors[dir.door].name);
+                    console.log("To the " + name + " is " + doors[dir.door].name);
                 }
             } else {
-                console.log("To the "+name+" is "+(locations[dir.location].name || locations[dir.location].description) +".");
+                console.log("To the " + name + " is " + (locations[dir.location].name || locations[dir.location].description) + ".");
             }
         };
-        if( loc.description ) {
+        if (loc.description) {
             console.log(loc.description);
-        } else if( loc.name ) {
+        } else if (loc.name) {
             console.log(loc.name);
         }
         if (loc.contains) {
             var contains = "there is ";
-            if( loc.contains.length > 1 ) {
+            if (loc.contains.length > 1) {
                 contains = "there are ";
             }
             for (var i = 0; i < loc.contains.length; ++i) {
                 if (i) {
                     contains += " , ";
-                    if( (i+1) == loc.contains.length ) {
+                    if ((i + 1) == loc.contains.length) {
                         contains += "and";
                     }
                 }
                 var iname = items[loc.contains[i].item].name
-                if( "AEIOUYW".indexOf(iname[0]) )
+                if ("AEIOUYW".indexOf(iname[0]))
                     contains += " a ";
                 else
                     contains += " an ";
                 contains += iname;
             }
-            if( where ) {
-                contains +=  " "+ where + ".";
+            if (where) {
+                contains += " " + where + ".";
             }
-    
+
             console.log(contains);
         }
         if (loc.wall) {
-            for(var dir in loc.wall ) {
+            for (var dir in loc.wall) {
                 var wall = loc.wall[dir];
-                render(wall,1,"along "+friendlyDir(dir)+" wall ");
+                render(wall, 1, "along " + friendlyDir(dir) + " wall ");
             }
         }
-        if( loc.e ) {
-            describeNav(loc.e,"east");
+        if (loc.e) {
+            describeNav(loc.e, "east");
         }
-        if( loc.w ) {
-            describeNav(loc.w,"west");
+        if (loc.w) {
+            describeNav(loc.w, "west");
         }
-        if( loc.n ) {
-            describeNav(loc.n,"north");
+        if (loc.n) {
+            describeNav(loc.n, "north");
         }
-        if( loc.s ) {
-            describeNav(loc.s,"south");
+        if (loc.s) {
+            describeNav(loc.s, "south");
         }
-        if( loc.u ) {
-            describeNav(loc.u,"up");
+        if (loc.u) {
+            describeNav(loc.u, "up");
         }
-        if( loc.d ) {
-            describeNav(loc.d,"down");
+        if (loc.d) {
+            describeNav(loc.d, "down");
         }
-        if( loc.se ) {
-            describeNav(loc.se,"southeast");
+        if (loc.se) {
+            describeNav(loc.se, "southeast");
         }
-        if( loc.ne ) {
-            describeNav(loc.ne,"northeast");
+        if (loc.ne) {
+            describeNav(loc.ne, "northeast");
         }
-        if( loc.sw ) {
-            describeNav(loc.sw,"southwest");
+        if (loc.sw) {
+            describeNav(loc.sw, "southwest");
         }
-        if( loc.nw ) {
-            describeNav(loc.nw,"northwest");
+        if (loc.nw) {
+            describeNav(loc.nw, "northwest");
         }
     }
 
     var describe = function () {
-        if( !metadata.title ) {
+        if (!metadata.title) {
             console.log("What is the title of your interactive fiction?");
             mode = "gettitle";
-        } else if( !metadata.description ) {
+        } else if (!metadata.description) {
             console.log("How would you describe this interactive fiction work?");
             mode = "getdescription";
-        } else if( !metadata.author ) {
+        } else if (!metadata.author) {
             console.log("What is you name (byline)?");
             mode = "getauthor";
-        } else if( !metadata.authorEmail ) {
+        } else if (!metadata.authorEmail) {
             console.log("What is you email?");
             mode = "getemail";
         } else if (location) {
@@ -454,38 +451,38 @@ module.exports =  function ltbl(settings)  {
             mode = 'where';
         }
     };
-    var lookupItem = function(command,flags) {
+    var lookupItem = function (command, flags) {
         var itemName = null;
         if (command != "") {
             var where = locations[location];
             var candidates = [];
-            var what = command;         
+            var what = command;
             command = command.toLowerCase();
             var parts = getPartsOfSpeech(command);
-            var lookupItemLow = function(arr) {
-                for( var i = 0 ; i < arr.length ; ++i ) {
+            var lookupItemLow = function (arr) {
+                for (var i = 0; i < arr.length; ++i) {
                     var item = arr[i].item;
-                    var  ptr = items[item];
-                    if( ptr ) {
+                    var ptr = items[item];
+                    if (ptr) {
                         var lname = ptr.name;
-                        if( command == lname.toLowerCase() ) {
+                        if (command == lname.toLowerCase()) {
                             itemName = item;
                             break;
                         } else {
                             var iparts = getPartsOfSpeech(lname);
                             var foundPart = false;
-                            for( var j = 0 ; j < parts.noun.length ; ++j ) {
-                                for( var k = 0; k < iparts.noun.length ; ++k ) {
-                                    if( iparts.noun[k] ==  parts.noun[j] ) {
+                            for (var j = 0; j < parts.noun.length; ++j) {
+                                for (var k = 0; k < iparts.noun.length; ++k) {
+                                    if (iparts.noun[k] == parts.noun[j]) {
                                         foundPart = true;
                                         break;
                                     }
                                 }
-                                if( foundPart ) {
+                                if (foundPart) {
                                     break;
                                 }
                             }
-                            if( foundPart ) {
+                            if (foundPart) {
                                 candidates.push(item);
                             }
                         }
@@ -493,39 +490,39 @@ module.exports =  function ltbl(settings)  {
                 }
                 return itemName;
             };
-            if( flags != "noactor")
+            if (flags != "noactor")
                 itemName = lookupItemLow(actor.inventory);
-            if( where.contains && !itemName &&  flags != "actor" ) {
+            if (where.contains && !itemName && flags != "actor") {
                 itemName = lookupItemLow(where.contains);
             }
-            if( !itemName && flags != "actor" && where.wall ) {
-                if( !itemName && where.wall.n ) {
-                    if( where.wall.n.contains ) {
+            if (!itemName && flags != "actor" && where.wall) {
+                if (!itemName && where.wall.n) {
+                    if (where.wall.n.contains) {
                         itemName = lookupItemLow(where.wall.n.contains);
                     }
                 }
-                if( !itemName && where.wall.s ) {
-                    if( where.wall.s.contains ) {
+                if (!itemName && where.wall.s) {
+                    if (where.wall.s.contains) {
                         itemName = lookupItemLow(where.wall.s.contains);
                     }
                 }
-                if( !itemName && where.wall.e ) {
-                    if( where.wall.e.contains ) {
+                if (!itemName && where.wall.e) {
+                    if (where.wall.e.contains) {
                         itemName = lookupItemLow(where.wall.e.contains);
                     }
                 }
-                if( !itemName && where.wall.w ) {
-                    if( where.wall.w.contains ) {
+                if (!itemName && where.wall.w) {
+                    if (where.wall.w.contains) {
                         itemName = lookupItemLow(where.wall.w.contains);
                     }
                 }
             }
-            if( !itemName ) {
-                if( candidates.length == 1 ) {
+            if (!itemName) {
+                if (candidates.length == 1) {
                     itemName = candidates[0];
-                } else if( candidates.length > 1 ) { 
-                    console.log("which "+command+"?");
-                    for( var i = 0 ; i < candidates.length ; ++i ) {
+                } else if (candidates.length > 1) {
+                    console.log("which " + command + "?");
+                    for (var i = 0; i < candidates.length; ++i) {
                         console.log(items[candidates[i]].name);
                     }
                     itemName = "?"; // ambiguouse
@@ -534,53 +531,53 @@ module.exports =  function ltbl(settings)  {
         }
         return itemName;
     };
-    var directionTags = [ "s", "n",  "e",  "w",  "u",  "d",  "sw", "se", "nw", "ne" ];
+    var directionTags = ["s", "n", "e", "w", "u", "d", "sw", "se", "nw", "ne"];
     var directionsHash = {
-        "s" : { primary : "s" },
-        "n" : { primary : "n" },
-        "e" : { primary : "e" },
-        "w" : { primary : "w" },
-        "u" : { primary : "u" },
-        "d" : { primary : "d" },
-        "sw" : { primary : "sw" },
-        "se" : { primary : "sw" },
-        "nw" : { primary : "nw" },
-        "ne" : { primary : "ne" },
-        "south" : { primary : "s" },
-        "north" : { primary : "n" },
-        "east" : { primary : "e" },
-        "west" : { primary : "w" },
-        "up" : { primary : "u" },
-        "down" : { primary : "d" },
-        "southwest" : { primary : "sw" },
-        "southeast" : { primary : "sw" },
-        "northwest" : { primary : "nw" },
-        "northeast" : { primary : "ne" },
-        "south west" : { primary : "sw" },
-        "south east" : { primary : "sw" },
-        "north west" : { primary : "nw" },
-        "north east" : { primary : "ne" }
+        "s": { primary: "s" },
+        "n": { primary: "n" },
+        "e": { primary: "e" },
+        "w": { primary: "w" },
+        "u": { primary: "u" },
+        "d": { primary: "d" },
+        "sw": { primary: "sw" },
+        "se": { primary: "sw" },
+        "nw": { primary: "nw" },
+        "ne": { primary: "ne" },
+        "south": { primary: "s" },
+        "north": { primary: "n" },
+        "east": { primary: "e" },
+        "west": { primary: "w" },
+        "up": { primary: "u" },
+        "down": { primary: "d" },
+        "southwest": { primary: "sw" },
+        "southeast": { primary: "sw" },
+        "northwest": { primary: "nw" },
+        "northeast": { primary: "ne" },
+        "south west": { primary: "sw" },
+        "south east": { primary: "sw" },
+        "north west": { primary: "nw" },
+        "north east": { primary: "ne" }
     };
-    var isDirection = function(command) {
+    var isDirection = function (command) {
         return directionsHash[command];
     }
-    var parseCommand =  function (command) {
+    var parseCommand = function (command) {
         var lCase = command;
-        if( mode == "gettitle" ) {
+        if (mode == "gettitle") {
             metadata.title = command;
             describe();
-        } else if( mode == "getdescription" ) {
+        } else if (mode == "getdescription") {
             metadata.description = command;
             describe();
-        } else if( mode == "getauthor" ) {
+        } else if (mode == "getauthor") {
             metadata.author = command;
             describe();
-        } else if( mode == "getemail" ) {
+        } else if (mode == "getemail") {
             metadata.authorEmail = command;
             describe();
             saveFile();
         } else if (lCase == 'quit' || lCase == 'exit') {
-            rl.close();           
+            rl.close();
         } else {
             lCase = lCase.toLowerCase();
             if (lCase.trim() == "") {
@@ -605,10 +602,10 @@ module.exports =  function ltbl(settings)  {
                     }
                     var name = command;
                     var parts = getPartsOfSpeech(command);
-                    locations[location] = { name : parts.name , description: command };
+                    locations[location] = { name: parts.name, description: command };
                     map = null; // need to recalc the map 
                     if (lastLocation) {
-                        if( locations[lastLocation].type ) {
+                        if (locations[lastLocation].type) {
                             locations[location].type = locations[lastLocation].type;
                         }
                     }
@@ -621,41 +618,41 @@ module.exports =  function ltbl(settings)  {
                 }
             } else if (mode == 'door?') {
                 lCase = lCase.trim();
-                if( lCase == "s" ) {
+                if (lCase == "s") {
                     locations[lastLocation][lastDirection].type = "stairs";
                     locations[location][reverseDirection(lastDirection)].type = "stairs";
-                } else if( lCase == "p" ) {
-                    if( locations[lastLocation].type == "outside"  ) {
+                } else if (lCase == "p") {
+                    if (locations[lastLocation].type == "outside") {
                         locations[lastLocation][lastDirection].type = "path";
                         locations[location][reverseDirection(lastDirection)].type = "path";
                     } else {
                         locations[lastLocation][lastDirection].type = "passage";
                         locations[location][reverseDirection(lastDirection)].type = "passage";
                     }
-                } else if( lCase != "" 
-                 && lCase != "n" 
-                 && lCase != "no" 
-                 ) {
+                } else if (lCase != ""
+                    && lCase != "n"
+                    && lCase != "no"
+                ) {
                     var name = extractNounAndAdj(command);
-                    if( !name || doors[name] ) {
-                        name = "door"+itemNum;
+                    if (!name || doors[name]) {
+                        name = "door" + itemNum;
                         itemNum = itemNum + 1;
                     }
-                    doors[name]  = { name : command };
+                    doors[name] = { name: command };
                     locations[lastLocation][lastDirection].door = name;
                     locations[location][reverseDirection(lastDirection)].door = name;
                 }
                 mode = "what";
-                describe(); 
+                describe();
             } else if (mode == 'describe_item') {
                 items[describeItem].description = command;
                 mode = "what";
             } else if (mode == 'write') {
                 items[describeItem].content = command;
-                mode = "what";                
+                mode = "what";
             } else if (mode == 'describe_location') {
                 locations[location].description = command;
-                mode = "what";                
+                mode = "what";
             } else if (mode == 'what') {
                 // navigate the map
                 if (lCase == "l") {
@@ -664,13 +661,13 @@ module.exports =  function ltbl(settings)  {
                     command = command.substring(2).trim();
                     if (command != "") {
                         var item = lookupItem(command);
-                        if( item && item != "?") {
+                        if (item && item != "?") {
                             var itemPtr = items[item];
-                            if( itemPtr.description ) {
+                            if (itemPtr.description) {
                                 console.log(itemPtr.description);
                             } else {
                                 mode = "describe_item";
-                                console.log("How would you describe the "+item+"?")
+                                console.log("How would you describe the " + item + "?")
                                 describeItem = item;
                             }
                         }
@@ -679,25 +676,25 @@ module.exports =  function ltbl(settings)  {
                     }
                 } else if (lCase == "x") {
                     var where = locations[location];
-                    if( where.description ) {
+                    if (where.description) {
                         console.log(where.description);
                     } else {
                         mode = "describe_location";
-                        console.log("How would you describe the "+where.name+"?")
+                        console.log("How would you describe the " + where.name + "?")
                     }
-                } else if( lCase == "i" ) {
-                    if( actor.inventory.length == 0 ) {
+                } else if (lCase == "i") {
+                    if (actor.inventory.length == 0) {
                         console.log("You are carrying nothing.");
                     } else {
                         console.log("You are carrying:");
-                        for( var i = 0; i < actor.inventory.length ; ++i ) {
+                        for (var i = 0; i < actor.inventory.length; ++i) {
                             console.log(items[actor.inventory[i].item].name);
                         }
                     }
-                } else if ( lCase.substring(0, 5) == "drop " 
-                         || lCase.substring(0, 4) == "put " 
-                         || lCase.substring(0, 5) == "hide " 
-                          ) {
+                } else if (lCase.substring(0, 5) == "drop "
+                    || lCase.substring(0, 4) == "put "
+                    || lCase.substring(0, 5) == "hide "
+                ) {
                     // Drop & put are pretty much the same, rely on 'on' / 'in' / 'behind' / 'under' for position
                     // Hide adds the 'hidden' property requires the player to inspect the container
                     command = command.substring(4).trim();
@@ -705,66 +702,65 @@ module.exports =  function ltbl(settings)  {
                         var where = locations[location];
                         var what = command;
                         var holder = "contains";
-                        var existingItem = lookupItem(what,"actor");
+                        var existingItem = lookupItem(what, "actor");
                         var objectWhere = null;
                         var sep = command.indexOf(" on ");
                         var hidden = false;
-                        if( lCase.substring(0, 5) == "hide " )
-                        {
+                        if (lCase.substring(0, 5) == "hide ") {
                             hidden = true;
                         }
-                        if( sep > 0 ) {
-                            objectWhere =  command.substring(sep+4);
-                            command = command.substring(0,sep);
+                        if (sep > 0) {
+                            objectWhere = command.substring(sep + 4);
+                            command = command.substring(0, sep);
                             holder = "supports";
                         } else {
                             sep = command.indexOf(" in ");
-                            if( sep > 0 ) {
-                                objectWhere =  command.substring(sep+4);
-                                command = command.substring(0,sep);
+                            if (sep > 0) {
+                                objectWhere = command.substring(sep + 4);
+                                command = command.substring(0, sep);
                             } else {
                                 sep = command.indexOf(" inside ");
-                                if( sep > 0 ) {
-                                    objectWhere =  command.substring(sep+8);
-                                    command = command.substring(0,sep);
+                                if (sep > 0) {
+                                    objectWhere = command.substring(sep + 8);
+                                    command = command.substring(0, sep);
                                 } else {
                                     sep = command.indexOf(" behind ");
-                                    if( sep > 0 ) {
-                                        objectWhere =  command.substring(sep+8);
-                                        command = command.substring(0,sep);
+                                    if (sep > 0) {
+                                        objectWhere = command.substring(sep + 8);
+                                        command = command.substring(0, sep);
                                         holder = "behind";
                                     } else {
                                         sep = command.indexOf(" under ");
-                                        if( sep > 0 ) {
-                                            objectWhere =  command.substring(sep+7);
-                                            command = command.substring(0,sep);
+                                        if (sep > 0) {
+                                            objectWhere = command.substring(sep + 7);
+                                            command = command.substring(0, sep);
                                             holder = "under";
-                                        }    
-                                    }    
+                                        }
+                                    }
                                 }
                             }
                         }
                         // we are relative to another object
-                        if( objectWhere ) {
+                        if (objectWhere) {
                             where = lookupItem(objectWhere);
-                            if( where ) {
+                            if (where) {
                                 where = items[where];
                             }
-                            if( !where ) {
-                                console.log("you see no "+objectWhere);
+                            if (!where) {
+                                console.log("you see no " + objectWhere);
                             }
                         }
-                        if( where ) {
-                            if( existingItem ) {
-                                if( existingItem != "?" ) {
-                                    for( var i = 0; i < actor.inventory.length ; ++i ) {
-                                        if( actor.inventory[i].item == existingItem ) {
+                        if (where) {
+                            if (existingItem) {
+                                if (existingItem != "?") {
+                                    for (var i = 0; i < actor.inventory.length; ++i) {
+                                        if (actor.inventory[i].item == existingItem) {
                                             if (!where[holder]) {
                                                 where[holder] = [];
                                             }
-                                            if( hidden ) {
+                                            if (hidden) {
                                                 actor.inventory[i].hidden = true;
-                                            } else if( actor.inventory[i].hidden ) {
+                                            } else if (actor.inventory[i].hidden) {
                                                 delete actor.inventory[i].hidden;
                                             }
                                             where[holder].push(actor.inventory[i]);
@@ -775,18 +771,18 @@ module.exports =  function ltbl(settings)  {
                                 }
                             } else {
                                 var name = extractNounAndAdj(what);
-                                if( !name ) {
-                                    name = "item"+itemNum;
+                                if (!name) {
+                                    name = "item" + itemNum;
                                     itemNum = itemNum + 1;
                                 }
-                                if( !items[name] ) {
-                                    items[name] = { name : command };
+                                if (!items[name]) {
+                                    items[name] = { name: command };
                                 }
                                 if (!where[holder]) {
                                     where[holder] = [];
                                 }
                                 var itemEnv = { item: name };
-                                if( hidden ) {
+                                if (hidden) {
                                     itemEnv.hidden = true;
                                 }
                                 where[holder].push(itemEnv);
@@ -797,54 +793,54 @@ module.exports =  function ltbl(settings)  {
                     command = command.substring(5).trim();
                     if (command != "") {
                         var item = lookupItem(command);
-                        if( item ) {
-                            if( item != "?"  ) {
-                                if( items[item].content ) {
+                        if (item) {
+                            if (item != "?") {
+                                if (items[item].content) {
                                     console.log(items[item].content);
                                 } else {
                                     describeItem = item;
-                                    console.log("What do you see written in "+items[item].name+"?");
+                                    console.log("What do you see written in " + items[item].name + "?");
                                     mode = "write";
                                 }
                             }
                         } else {
-                            console.log("You see no "+command);
-                        }                        
+                            console.log("You see no " + command);
+                        }
                     }
                 } else if (lCase.substring(0, 5) == "take ") {
                     command = command.substring(5).trim();
                     if (command != "") {
-                        var item = lookupItem(command,"noactor");
-                        if( item ) {
-                            if( item != "?" ) {
+                        var item = lookupItem(command, "noactor");
+                        if (item) {
+                            if (item != "?") {
                                 var where = locations[location];
-                                for( var i = 0 ; i < where.contains.length ; ++i ) {
-                                    if( where.contains[i].item == item ) {
+                                for (var i = 0; i < where.contains.length; ++i) {
+                                    if (where.contains[i].item == item) {
                                         actor.inventory.push(where.contains[i]);
                                         where.contains.splice(i, 1);
-                                        if(where.contains.length == 0  ) {
-                                            delete where.contains;                            
+                                        if (where.contains.length == 0) {
+                                            delete where.contains;
                                         }
                                         break;
                                     }
                                 }
                             }
                         } else {
-                            console.log("You see no "+command);
+                            console.log("You see no " + command);
                         }
                     }
-                } else if ( lCase.substring(0, 4) == "eat " || lCase.substring(0, 5) == "wear " || lCase.substring(0, 6) == "light " || lCase.substring(0,6) == "affix " ) {
+                } else if (lCase.substring(0, 4) == "eat " || lCase.substring(0, 5) == "wear " || lCase.substring(0, 6) == "light " || lCase.substring(0, 6) == "affix ") {
                     var thingType = null;
-                    if( lCase.substring(0, 4) == "eat ") {
+                    if (lCase.substring(0, 4) == "eat ") {
                         thingType = "food";
-                    } else if( lCase.substring(0, 5) == "wear ") {
+                    } else if (lCase.substring(0, 5) == "wear ") {
                         thingType = "wearable";
-                    } else if(lCase.substring(0, 6) == "light " ) {
+                    } else if (lCase.substring(0, 6) == "light ") {
                         thingType = "light";
-                    } else if(lCase.substring(0, 6) == "affix " ) {
-                        thingType = "fixture";    
+                    } else if (lCase.substring(0, 6) == "affix ") {
+                        thingType = "fixture";
                     }
-                    command = command.substring(command.indexOf(" ")+1).trim();
+                    command = command.substring(command.indexOf(" ") + 1).trim();
                     if (command != "") {
                         var where = locations[location];
                         var what = command;
@@ -852,65 +848,65 @@ module.exports =  function ltbl(settings)  {
                             where.contains = [];
                         }
                         var existingItem = lookupItem(what);
-                        if( existingItem && existingItem != "?") {
-                            if( !items[existingItem].type ) {
+                        if (existingItem && existingItem != "?") {
+                            if (!items[existingItem].type) {
                                 items[existingItem].type = thingType;
-                                console.log(command+" is "+thingType+".");
-                            } else if( items[existingItem].type != thingType ) {
-                                console.log("You cannot "+lCase.substring(0,lCase.indexOf(" ")+1)+" "+command);
+                                console.log(command + " is " + thingType + ".");
+                            } else if (items[existingItem].type != thingType) {
+                                console.log("You cannot " + lCase.substring(0, lCase.indexOf(" ") + 1) + " " + command);
                             }
-                        } else if( existingItem != "?" ) {
-                            console.log("You see no "+command);
+                        } else if (existingItem != "?") {
+                            console.log("You see no " + command);
                         }
                     }
-                } else if ( isDirection(lCase) ) {
+                } else if (isDirection(lCase)) {
                     lCase = isDirection(lCase).primary;
                     if (locations[location]) {
                         var nextLoc = locations[location][lCase];
                         if (!nextLoc) {
-                            if( !map ) {
+                            if (!map) {
                                 map = createMap();
-                            } else if( map.location.room != location ) {                                
-                                recalcLocation(map,location);
+                            } else if (map.location.room != location) {
+                                recalcLocation(map, location);
                             }
                             var level = map.location.level;
                             var row = map.location.row;
                             var col = map.location.col;
-                            if( lCase == "n" ) {
+                            if (lCase == "n") {
                                 row = row - 1;
-                            } else if( lCase == "s" ) {
+                            } else if (lCase == "s") {
                                 row = row + 1;
-                            } else if( lCase == "e" ) {
+                            } else if (lCase == "e") {
                                 col = col + 1;
-                            } else if( lCase == "w" ) {
+                            } else if (lCase == "w") {
                                 col = col - 1;
-                            } else if( lCase == "u" ) {
+                            } else if (lCase == "u") {
                                 level = level + 1;
-                            } else if( lCase == "d" ) {
+                            } else if (lCase == "d") {
                                 level = level - 1;
-                            } else if( lCase == "se" ) {
+                            } else if (lCase == "se") {
                                 row = row + 1;
                                 col = col + 1;
-                            } else if( lCase == "sw" ) {
+                            } else if (lCase == "sw") {
                                 row = row + 1;
                                 col = col - 1;
-                            } else if( lCase == "ne" ) {
+                            } else if (lCase == "ne") {
                                 row = row - 1;
                                 col = col + 1;
-                            } else if( lCase == "nw" ) {
+                            } else if (lCase == "nw") {
                                 row = row - 1;
                                 col = col - 1;
                             }
                             var posCell = null;
-                            if(  0 <= level && level < map.levels.length 
-                              && 0 <= row && row < map.levels[level].length 
-                              && 0 <= col && col < map.levels[level][row].length 
-                                ) {
+                            if (0 <= level && level < map.levels.length
+                                && 0 <= row && row < map.levels[level].length
+                                && 0 <= col && col < map.levels[level][row].length
+                            ) {
                                 posCell = map.levels[level][row][col];
                             }
-                            if( posCell ) {
-                                locations[location][lCase] = { location : posCell };
-                                location = posCell;                                
+                            if (posCell) {
+                                locations[location][lCase] = { location: posCell };
+                                location = posCell;
                             } else {
                                 lastLocation = location;
                                 location = null;
@@ -921,7 +917,7 @@ module.exports =  function ltbl(settings)  {
                         }
                     }
                     describe();
-                } else if (lCase.substring(0,5) == "door " && isDirection(lCase.substring(5)) ) {
+                } else if (lCase.substring(0, 5) == "door " && isDirection(lCase.substring(5))) {
                     lCase = isDirection(lCase.substring(5).trim()).primary;
                     if (locations[location]) {
                         var nextLoc = locations[location][lCase];
@@ -938,39 +934,39 @@ module.exports =  function ltbl(settings)  {
                         console.log("There is no starting location.");
                     }
                 } else if (lCase == "location outside") {
-                    if( location ) {
-                        locations[location].type = "outside";                        
+                    if (location) {
+                        locations[location].type = "outside";
                     } else {
                         console.log("You are nowhere.");
                     }
                 } else if (lCase == "location ship") {
-                    if( location ) {
-                        locations[location].type = "ship";                        
+                    if (location) {
+                        locations[location].type = "ship";
                     } else {
                         console.log("You are nowhere.");
-                    }   
+                    }
                 } else if (lCase == "location dark") {
-                    if( location ) {
-                        locations[location].type = "dark";                        
+                    if (location) {
+                        locations[location].type = "dark";
                     } else {
                         console.log("You are nowhere.");
-                    }   
+                    }
                 } else if (lCase == "location bottomless") {
-                    if( location ) {
-                        locations[location].type = "bottomless";                        
+                    if (location) {
+                        locations[location].type = "bottomless";
                     } else {
                         console.log("You are nowhere.");
-                    }   
+                    }
                 } else if (lCase == "location inside") {
-                    if( location ) {
+                    if (location) {
                         delete locations[location].type;
                     } else {
                         console.log("You are nowhere.");
                     }
                 } else if (lCase == "location") {
-                    if( location ) {
-                        if( locations[location].type ) {
-                            console.log("Location is "+locations[location].type+".");
+                    if (location) {
+                        if (locations[location].type) {
+                            console.log("Location is " + locations[location].type + ".");
                         } else {
                             console.log("Location is inside.");
                         }
@@ -981,15 +977,53 @@ module.exports =  function ltbl(settings)  {
                     console.log(JSON.stringify(metadata, null, "  "));
                     console.log(JSON.stringify(locations, null, "  "));
                     console.log(JSON.stringify(items, null, "  "));
-                } else if(lCase == "map") {
-                    if( !map ) {
+                } else if (lCase == "map") {
+                    if (!map) {
                         map = createMap();
-                    } else if( location && map.location.room != location ) {
-                        recalcLocation(map,location);
+                    } else if (location && map.location.room != location) {
+                        recalcLocation(map, location);
                     }
                     renderMapLevelText(map);
                 } else if (lCase == "save") {
                     saveFile();
+                } else if (lCase.split(" ")[0] == "help") {
+                    if (lCase.split(" ").length > 1) {
+                        lCase = lCase.split(" ")[1];
+                        if (lCase == 'location') {
+                            console.log([
+                             "location outside - outdoors",
+                             "location inside - inside a building/cave", 
+                             "location dark - in a dark room (require light)", 
+                             "location ship - aboard a ship", 
+                             "location bottomless - in a room with no floor (chasm)"
+                            ].join("\n"));
+                        } else if (lCase == 'item') {
+                            console.log([
+                             "take <item> - place an item in the actors inventory",
+                             "drop <item> - place an item in the current location", 
+                             "drop <item> in/on/behind/under <item> - place item relative to another item", 
+                             "put <item> in/on/behind/under <item> - place item relative to another item", 
+                             "hide <item> in/on/behind/under <item> - hide item relative to another item",
+                             "eat <item> - indicates that the item is food", 
+                             "wear <item> - indicates that the item can be worn", 
+                             "light  <item> - indicates that the item is a light source", 
+                             "read <item>   - read text of item (book/letter) create text if none exists",                             
+                             "affix  <item> - the item is a fixture (attached / cannot be moved)"
+                            ].join("\n"));
+                        } else if (lCase == 'door') {
+                            console.log([
+                                "door <n/s/e/w> - add a door in the direction specified"
+                            ].join("\n"));
+                        }
+                    } else {
+                        console.log([
+                           "Help topics:",
+                           "help location", 
+                           "help item", 
+                           "help door"
+                        ].join("\n"));
+                    }
+
                 } else {
                     console.log("Command not handled");
                 }
@@ -998,39 +1032,39 @@ module.exports =  function ltbl(settings)  {
     };
     //---------------------------------------------------------------------------
     // Load a Game from JSON
-    var loadGame = function(onComplete) {
+    var loadGame = function (onComplete) {
         fs.readFile(settings.filename, (err, data) => {
-            if( !err ) {
-              var obj = JSON.parse(data);
-              metadata = obj.metadata;
-              actor = obj.actor;
-              locations = obj.locations;
-              items = obj.items;
-              doors = obj.doors;
-              npc = obj.npc;
-              location = obj.location;
-      
-              while(locations["room"+roomNum]) {
-                  roomNum = roomNum +1;
-              }
-              while(items["item"+itemNum]) {
-                  itemNum = itemNum +1;
-              }
-              while(locations["door"+doorNum]) {
-                doorNum = doorNum +1;
-              }
-              onComplete(null,true);
+            if (!err) {
+                var obj = JSON.parse(data);
+                metadata = obj.metadata;
+                actor = obj.actor;
+                locations = obj.locations;
+                items = obj.items;
+                doors = obj.doors;
+                npc = obj.npc;
+                location = obj.location;
+
+                while (locations["room" + roomNum]) {
+                    roomNum = roomNum + 1;
+                }
+                while (items["item" + itemNum]) {
+                    itemNum = itemNum + 1;
+                }
+                while (locations["door" + doorNum]) {
+                    doorNum = doorNum + 1;
+                }
+                onComplete(null, true);
             } else {
-              onComplete(err,false);
+                onComplete(err, false);
             }
-          });          
+        });
     };
     //---------------------------------------------------------------------------
     // Generate a TADs source file....
-    var generateTads  = function(tadsSrc) {
-        var main = path.parse(settings.filename ).name+".t";
+    var generateTads = function (tadsSrc) {
+        var main = path.parse(settings.filename).name + ".t";
         var roomDObj = location;
-        if( reservedNames[roomDObj] ) {
+        if (reservedNames[roomDObj]) {
             roomDObj = reservedNames[roomDObj];
         }
         var srcLines = [
@@ -1038,326 +1072,326 @@ module.exports =  function ltbl(settings)  {
             '#include <adv3.h>',
             '#include <en_us.h>',
             'versionInfo: GameID',
-            "\tname = '"+metadata.title+"'",
-            "\tbyLine = 'by "+metadata.author+"'",
-            "\tauthorEmail = '"+metadata.author+" <"+metadata.authorEmail+">'",
-            "\tversion = '"+metadata.version+"'",
+            "\tname = '" + metadata.title + "'",
+            "\tbyLine = 'by " + metadata.author + "'",
+            "\tauthorEmail = '" + metadata.author + " <" + metadata.authorEmail + ">'",
+            "\tversion = '" + metadata.version + "'",
             ";"
-            ,""
-            ,"gameMain: GameMainDef"
-            ,"\tinitialPlayerChar = me"
-            ,";"
-            ,""
-            ,"me: Actor"
-            ,"\tlocation = "+roomDObj
-            ,";"
-            ,""
+            , ""
+            , "gameMain: GameMainDef"
+            , "\tinitialPlayerChar = me"
+            , ";"
+            , ""
+            , "me: Actor"
+            , "\tlocation = " + roomDObj
+            , ";"
+            , ""
         ];
-        var emitItem = function(it,depth,props) {
+        var emitItem = function (it, depth, props) {
             var _srcLines = []
             var ip = items[it];
             var oName = it;
-            if( reservedNames[oName] ) {
+            if (reservedNames[oName]) {
                 oName = reservedNames[oName];
             }
-            if( depth > 0 ) {
-                oName = ("+++++++++++++++++".substring(0,depth)) + " " + oName;
+            if (depth > 0) {
+                oName = ("+++++++++++++++++".substring(0, depth)) + " " + oName;
             }
             var prefix = "";
-            if( props.hidden ) {
+            if (props.hidden) {
                 prefix = " Hidden,"
             }
-            if( ip.supports ) {
+            if (ip.supports) {
                 prefix += " Surface,"
             }
-            if( ip.behind ) {
+            if (ip.behind) {
                 // TBD - tads 3 has a specialization of this that allows for attached to rear
                 prefix += " RearContainer,"
             }
-            if( ip.under ) {
+            if (ip.under) {
                 prefix += " Underside,"
             }
-            if( ip.content ) {
-                _srcLines.push(oName+" :"+prefix+" Readable");
-            } else if( ip.type ) {
-                if( ip.type == "food") {
-                    _srcLines.push(oName+" :"+prefix+" Food");
-                } else if( ip.type == "wearable") {
-                    _srcLines.push(oName+" :"+prefix+" Wearable");
-                } else if( ip.type == "light") {
-                    _srcLines.push(oName+" :"+prefix+" Flashlight");
-                } else if( ip.type == "fixture") {
-                    _srcLines.push(oName+" :"+prefix+" Fixture");                    
+            if (ip.content) {
+                _srcLines.push(oName + " :" + prefix + " Readable");
+            } else if (ip.type) {
+                if (ip.type == "food") {
+                    _srcLines.push(oName + " :" + prefix + " Food");
+                } else if (ip.type == "wearable") {
+                    _srcLines.push(oName + " :" + prefix + " Wearable");
+                } else if (ip.type == "light") {
+                    _srcLines.push(oName + " :" + prefix + " Flashlight");
+                } else if (ip.type == "fixture") {
+                    _srcLines.push(oName + " :" + prefix + " Fixture");
                 } else {
-                    _srcLines.push(oName+" :"+prefix+" Thing");
+                    _srcLines.push(oName + " :" + prefix + " Thing");
                 }
             } else {
-                _srcLines.push(oName+" :"+prefix+" Thing");
+                _srcLines.push(oName + " :" + prefix + " Thing");
             }
-            _srcLines.push("\tname = '"+ip.name+"'");
+            _srcLines.push("\tname = '" + ip.name + "'");
             var parts = getPartsOfSpeech(ip.name);
-            if( parts.count > 0 ) {
-                if( parts.noun.length > 0 )  {
+            if (parts.count > 0) {
+                if (parts.noun.length > 0) {
                     var nouns = "\tnoun = ";
-                    for( var i = 0 ; i < parts.noun.length ; ++i ) {
-                        nouns += " '"+parts.noun[i]+"'";
+                    for (var i = 0; i < parts.noun.length; ++i) {
+                        nouns += " '" + parts.noun[i] + "'";
                     }
                     _srcLines.push(nouns);
                 }
-                if( parts.adj.length > 0 )  {
+                if (parts.adj.length > 0) {
                     var adjs = "\tadjective = ";
-                    for( var i = 0 ; i < parts.adj.length ; ++i ) {
-                        adjs += " '"+parts.adj[i]+"'";
+                    for (var i = 0; i < parts.adj.length; ++i) {
+                        adjs += " '" + parts.adj[i] + "'";
                     }
                     _srcLines.push(adjs);
                 }
             }
-            if( ip.description ) {
-                _srcLines.push('\tdesc = "'+ip.description+'"');
+            if (ip.description) {
+                _srcLines.push('\tdesc = "' + ip.description + '"');
             }
-            if( ip.content ) {
-                _srcLines.push('\treadDesc = "'+ip.content+'"');
+            if (ip.content) {
+                _srcLines.push('\treadDesc = "' + ip.content + '"');
             }
             _srcLines.push(";");
             _srcLines.push("");
             // Containership & Concealing
-            if( ip.supports ) {
-                for( var i = 0 ; i < ip.supports.length ; ++i ) {
+            if (ip.supports) {
+                for (var i = 0; i < ip.supports.length; ++i) {
                     itemEmitted[ip.supports[i].item] = true;
-                    _srcLines.push(emitItem(ip.supports[i].item,depth+1,ip.supports[i]));
+                    _srcLines.push(emitItem(ip.supports[i].item, depth + 1, ip.supports[i]));
                 }
             }
-            if( ip.contains ) {
-                for( var i = 0 ; i < ip.contains.length ; ++i ) {
+            if (ip.contains) {
+                for (var i = 0; i < ip.contains.length; ++i) {
                     itemEmitted[ip.contains[i].item] = true;
-                    _srcLines.push(emitItem(ip.contains[i].item,depth+1,ip.contains[i]));
-                }                
+                    _srcLines.push(emitItem(ip.contains[i].item, depth + 1, ip.contains[i]));
+                }
             }
-            if( ip.behind ) {
-                for( var i = 0 ; i < ip.behind.length ; ++i ) {
+            if (ip.behind) {
+                for (var i = 0; i < ip.behind.length; ++i) {
                     itemEmitted[ip.behind[i].item] = true;
-                    _srcLines.push(emitItem(ip.behind[i].item,depth+1,ip.behind[i]));
-                }                
+                    _srcLines.push(emitItem(ip.behind[i].item, depth + 1, ip.behind[i]));
+                }
             }
-            if( ip.under ) {
-                for( var i = 0 ; i < ip.under.length ; ++i ) {
+            if (ip.under) {
+                for (var i = 0; i < ip.under.length; ++i) {
                     itemEmitted[ip.under[i].item] = true;
-                    _srcLines.push(emitItem(ip.under[i].item,depth+1,ip.under[i]));
-                }                                
+                    _srcLines.push(emitItem(ip.under[i].item, depth + 1, ip.under[i]));
+                }
             }
             return _srcLines.join("\n");
         };
         var itemEmitted = {};
-        for( var i = 0 ; i < actor.inventory.length ; ++i ) {
+        for (var i = 0; i < actor.inventory.length; ++i) {
             itemEmitted[actor.inventory[i].item] = true;
-            srcLines.push(emitItem(actor.inventory[i].item,1,actor.inventory[i]));
+            srcLines.push(emitItem(actor.inventory[i].item, 1, actor.inventory[i]));
         }
         var masterDoors = {};
         var locationHandled = {};
         var addDoors = null;
-        var findLocationDir = function(room,roomLoc) {        
-            for( var i = 0 ; i < directionTags.length ; ++i ) {
+        var findLocationDir = function (room, roomLoc) {
+            for (var i = 0; i < directionTags.length; ++i) {
                 var dPtr = room[directionTags[i]];
-                if( dPtr ) {
-                    if( dPtr.location == roomLoc ) {
+                if (dPtr) {
+                    if (dPtr.location == roomLoc) {
                         return directionTags[i];
                     }
                 }
             }
             return null;
         }
-        var getConnector = function(dir,roomLoc,dirName) {
-            var connectorType = null , connectorName = null;
-            if( dir.type == "stairs" ) {                
-                if( dirName == "u")
+        var getConnector = function (dir, roomLoc, dirName) {
+            var connectorType = null, connectorName = null;
+            if (dir.type == "stairs") {
+                if (dirName == "u")
                     connectorType = "StairwayUp";
-                else if( dirName == "d")
+                else if (dirName == "d")
                     connectorType = "StairwayDown";
                 else // TBD - up/down inside dir (e.g. north & up)
                     connectorType = "Stairway";
-                connectorName = roomLoc+"Stairs";
-            } else if( dir.type == "path" ) {
+                connectorName = roomLoc + "Stairs";
+            } else if (dir.type == "path") {
                 connectorType = "PathPassage";
-                connectorName = roomLoc+"Path";
-            } else if( dir.type == "passage" ) {
-                connectorType= "ThroughPassage";
-                connectorName = roomLoc+"Passage";
+                connectorName = roomLoc + "Path";
+            } else if (dir.type == "passage") {
+                connectorType = "ThroughPassage";
+                connectorName = roomLoc + "Passage";
             } else {
                 return null;
             }
-            return { type : connectorType , name : connectorName };
+            return { type: connectorType, name: connectorName };
         };
-        var tadDirection = function(dir,roomLoc,dirName) {
-            if( dir.door ) {
-                if( doors[dir.door] ) {
+        var tadDirection = function (dir, roomLoc, dirName) {
+            if (dir.door) {
+                if (doors[dir.door]) {
                     var doorPrt = doors[dir.door];
                     var doorname = "door";
-                    if( doorPrt.name ) {
+                    if (doorPrt.name) {
                         doorname = doorPrt.name;
                     }
                     var masterDoor = masterDoors[dir.door];
-                    if( masterDoor ) {
-                        if( !addDoors ) {
+                    if (masterDoor) {
+                        if (!addDoors) {
                             addDoors = "";
                         }
-                        addDoors = [addDoors+"+ "+dir.door+"Other : Door '"+doorname+"*doors' '"+doorname+"'","\tmasterObject = "+dir.door,";",""].join("\n");
-                        return dir.door+"Other";
+                        addDoors = [addDoors + "+ " + dir.door + "Other : Door '" + doorname + "*doors' '" + doorname + "'", "\tmasterObject = " + dir.door, ";", ""].join("\n");
+                        return dir.door + "Other";
                     } else {
                         masterDoors[dir.door] = true;
-                        if( !addDoors ) {
+                        if (!addDoors) {
                             addDoors = "";
                         }
-                        addDoors = [addDoors+"+ "+dir.door+": Door '"+doorname+"*doors' '"+doorname+"'",";",""].join("\n");
+                        addDoors = [addDoors + "+ " + dir.door + ": Door '" + doorname + "*doors' '" + doorname + "'", ";", ""].join("\n");
                         return dir.door;
                     }
                 }
             }
-            if( dir.type ) {
-                if( dir.type == "stairs" 
-                 || dir.type == "path" 
-                 || dir.type == "passage" 
-                  ) {
-                    var connectorDef = getConnector(dir,roomLoc,dirName);
-                    if( locationHandled[dir.location] ) {
-                        if( connectorDef ) {
-                            if( !addDoors ) {
+            if (dir.type) {
+                if (dir.type == "stairs"
+                    || dir.type == "path"
+                    || dir.type == "passage"
+                ) {
+                    var connectorDef = getConnector(dir, roomLoc, dirName);
+                    if (locationHandled[dir.location]) {
+                        if (connectorDef) {
+                            if (!addDoors) {
                                 addDoors = "";
                             }
-                            addDoors = [addDoors+"+ "+connectorDef.name+" : "+connectorDef.type+" '"+dir.type+"' '"+dir.type+"'",";",""].join("\n");
+                            addDoors = [addDoors + "+ " + connectorDef.name + " : " + connectorDef.type + " '" + dir.type + "' '" + dir.type + "'", ";", ""].join("\n");
                             return connectorDef.name;
                         }
                     } else {
                         var wayBack = locations[dir.location];
-                        var wayDir = findLocationDir(wayBack,roomLoc);
-                        if( wayDir ) {
-                            var connectorDefAlt = getConnector(wayBack[wayDir],dir.location,wayDir);
-                            if( !connectorDefAlt ) {
-                                connectorDefAlt =  { name : dir.location };
+                        var wayDir = findLocationDir(wayBack, roomLoc);
+                        if (wayDir) {
+                            var connectorDefAlt = getConnector(wayBack[wayDir], dir.location, wayDir);
+                            if (!connectorDefAlt) {
+                                connectorDefAlt = { name: dir.location };
                             }
-                            if( !addDoors ) {
+                            if (!addDoors) {
                                 addDoors = "";
                             }
-                            addDoors = [addDoors+"+ "+connectorDef.name+" : "+connectorDef.type+" ->"+connectorDefAlt.name+" '"+dir.type+"' '"+dir.type+"'",";",""].join("\n");
+                            addDoors = [addDoors + "+ " + connectorDef.name + " : " + connectorDef.type + " ->" + connectorDefAlt.name + " '" + dir.type + "' '" + dir.type + "'", ";", ""].join("\n");
                             return connectorDef.name;
                         }
                     }
                 }
             }
-            if( reservedNames[dir.location] ) {
+            if (reservedNames[dir.location]) {
                 return reservedNames[dir.location];
             }
             return dir.location;
         };
-        for( loc in locations ) {
+        for (loc in locations) {
             var room = locations[loc];
             var roomDObj = loc;
-            if( reservedNames[roomDObj] ) {
+            if (reservedNames[roomDObj]) {
                 roomDObj = reservedNames[roomDObj];
             }
-            if( locations[location].type == "outside" ) {
-                srcLines.push(roomDObj+": OutdoorRoom");
-            } else if( locations[location].type == "dark" ) {
-                srcLines.push(roomDObj+": DarkRoom");
-            } else if( locations[location].type == "ship" ) {
-                srcLines.push(roomDObj+": ShipboardRoom");
-            } else if( locations[location].type == "bottomless" ) {
-                srcLines.push(roomDObj+": FloorlessRoom");
+            if (locations[location].type == "outside") {
+                srcLines.push(roomDObj + ": OutdoorRoom");
+            } else if (locations[location].type == "dark") {
+                srcLines.push(roomDObj + ": DarkRoom");
+            } else if (locations[location].type == "ship") {
+                srcLines.push(roomDObj + ": ShipboardRoom");
+            } else if (locations[location].type == "bottomless") {
+                srcLines.push(roomDObj + ": FloorlessRoom");
             } else {
-                srcLines.push(roomDObj+": Room");
+                srcLines.push(roomDObj + ": Room");
             }
-            if( !room.name && room.description ) {
+            if (!room.name && room.description) {
                 var parts = getPartsOfSpeech(room.description);
-                if( parts.name.length > 0 ) {
+                if (parts.name.length > 0) {
                     room.name = parts.name;
                 }
             }
-            if( room.name ) {
-                srcLines.push("\troomName = '"+room.name+"'");
+            if (room.name) {
+                srcLines.push("\troomName = '" + room.name + "'");
             }
-            if( room.description ) {
-                srcLines.push('\tdesc = "'+room.description+'"');
+            if (room.description) {
+                srcLines.push('\tdesc = "' + room.description + '"');
             }
-            if( room.e ) {
-                srcLines.push('\teast = '+tadDirection(room.e,loc,"e"));
+            if (room.e) {
+                srcLines.push('\teast = ' + tadDirection(room.e, loc, "e"));
             }
-            if( room.w ) {
-                srcLines.push('\twest = '+tadDirection(room.w,loc,"w"));
+            if (room.w) {
+                srcLines.push('\twest = ' + tadDirection(room.w, loc, "w"));
             }
-            if( room.n ) {
-                srcLines.push('\tnorth = '+tadDirection(room.n,loc,"n"));
+            if (room.n) {
+                srcLines.push('\tnorth = ' + tadDirection(room.n, loc, "n"));
             }
-            if( room.s ) {
-                srcLines.push('\tsouth = '+tadDirection(room.s,loc,"s"));
+            if (room.s) {
+                srcLines.push('\tsouth = ' + tadDirection(room.s, loc, "s"));
             }
-            if( room.sw ) {
-                srcLines.push('\tsouthwest = '+tadDirection(room.sw,loc,"sw"));
+            if (room.sw) {
+                srcLines.push('\tsouthwest = ' + tadDirection(room.sw, loc, "sw"));
             }
-            if( room.se ) {
-                srcLines.push('\tsoutheast = '+tadDirection(room.se,loc,"se"));
+            if (room.se) {
+                srcLines.push('\tsoutheast = ' + tadDirection(room.se, loc, "se"));
             }
-            if( room.nw ) {
-                srcLines.push('\tnorthwest = '+tadDirection(room.nw,loc,"nw"));
+            if (room.nw) {
+                srcLines.push('\tnorthwest = ' + tadDirection(room.nw, loc, "nw"));
             }
-            if( room.ne ) {
-                srcLines.push('\tnortheast = '+tadDirection(room.ne,loc,"ne"));
+            if (room.ne) {
+                srcLines.push('\tnortheast = ' + tadDirection(room.ne, loc, "ne"));
             }
-            if( room.u ) {
-                srcLines.push('\tup = '+tadDirection(room.u,loc,"u"));
+            if (room.u) {
+                srcLines.push('\tup = ' + tadDirection(room.u, loc, "u"));
             }
-            if( room.d ) {
-                srcLines.push('\tdown = '+tadDirection(room.d,loc,"d"));
+            if (room.d) {
+                srcLines.push('\tdown = ' + tadDirection(room.d, loc, "d"));
             }
             srcLines.push(";");
             srcLines.push("");
-            if( addDoors ) {
+            if (addDoors) {
                 srcLines.push(addDoors);
                 addDoors = null;
             }
-            if( room.contains ) {
+            if (room.contains) {
                 for (var i = 0; i < room.contains.length; ++i) {
                     itemEmitted[room.contains[i].item] = true;
-                    srcLines.push(emitItem(room.contains[i].item,1,room.contains[i]));
+                    srcLines.push(emitItem(room.contains[i].item, 1, room.contains[i]));
                 }
             }
-            if( room.wall ) {
-                if( room.wall.n ) {
+            if (room.wall) {
+                if (room.wall.n) {
                 }
             }
             locationHandled[loc] = true;
         }
         // Leftover items (not directly owned or contained)
-        for( it in items) {
-            if( !itemEmitted[it] ) {
-                srcLines.push(emitItem(it,0,{}));
+        for (it in items) {
+            if (!itemEmitted[it]) {
+                srcLines.push(emitItem(it, 0, {}));
             }
         }
-        tadsSrc[main] = srcLines.join("\n");        
+        tadsSrc[main] = srcLines.join("\n");
         return true;
     };
-    var exportTads = function(folder) {
+    var exportTads = function (folder) {
         var tadsSrc = {};
-        if( generateTads(tadsSrc) ) { 
-            for(var name in tadsSrc ) {
-                console.log(name+":");
+        if (generateTads(tadsSrc)) {
+            for (var name in tadsSrc) {
+                console.log(name + ":");
                 console.log(tadsSrc[name]);
             }
-            fs.mkdir(folder,{},function(err,data) {
-                if( err ) {
-                    if( err.code != "EEXIST" ) {
-                        console.log("Error exporting to tads "+err.code);
+            fs.mkdir(folder, {}, function (err, data) {
+                if (err) {
+                    if (err.code != "EEXIST") {
+                        console.log("Error exporting to tads " + err.code);
                         return;
                     }
                 }
-                if( folder[folder.length-1] != "/" && folder[folder.length-1] != "\\" ) {
-                    if( folder.indexOf("\\") >= 0 ) {
+                if (folder[folder.length - 1] != "/" && folder[folder.length - 1] != "\\") {
+                    if (folder.indexOf("\\") >= 0) {
                         folder += "\\";
                     } else {
                         folder += "/";
                     }
                 }
-                for(var name in tadsSrc ) {
-                    fs.writeFile(folder+name,tadsSrc[name],{},function() {});
-                }                
+                for (var name in tadsSrc) {
+                    fs.writeFile(folder + name, tadsSrc[name], {}, function () { });
+                }
             });
         }
     }
