@@ -15,6 +15,11 @@ module.exports = function ltbl(settings) {
     var fs = require("fs");
     var partOfSp = require("./en-parts.json");
     var reservedNames = require("./reserved.json");
+    var verbAction = null;
+    var propositionAction = null;
+    var verbNPC = null;
+    var verbsWithTopics = { "ask" : true , "tell" : true };
+    var verbTopic = null;
     var metadata = {
         title: null,
         author: null,
@@ -33,6 +38,8 @@ module.exports = function ltbl(settings) {
     var items = {
     };
     var npc = {
+    };
+    var topics = {
     };
     //---------------------------------------------------------------------------
     // Create a spacial map of from the logical description
@@ -304,7 +311,16 @@ module.exports = function ltbl(settings) {
     //---------------------------------------------------------------------------
     // Save off to file....
     var saveFile = function () {
-        var obj = { metadata: metadata, actor: actor, locations: locations, doors: doors, location: location, items: items, npc: npc }
+        var obj = { 
+            metadata: metadata, 
+            actor: actor, 
+            locations: locations, 
+            doors: doors, 
+            location: location, 
+            items: items, 
+            npc: npc , 
+            topics : topics 
+        };
         fs.writeFile(settings.filename, JSON.stringify(obj, null, "  "), function (err, data) { });
     };
 
@@ -561,6 +577,49 @@ module.exports = function ltbl(settings) {
     var isDirection = function (command) {
         return directionsHash[command];
     }
+    var processScript = function(command) {
+        if( command == "n" || command == "no" )
+            return true;
+        if( command && command.length > 0 ) {
+            if( !verbNPC ) {
+                verbNPC = command;
+            } else if( verbsWithTopics[verbAction] && !verbTopic ) {
+                verbTopic = command;
+            } else {
+                if( verbsWithTopics[verbAction] ) {
+                    console.log( "TBD - implelement convo - ["+verbAction+","+verbNPC+","+propositionAction+","+verbTopic+"] => "+command );
+                } else {
+                    console.log( "TBD - implelement verb - ["+verbAction+","+verbNPC+","+propositionAction+","+verbTopic+"] => "+command );
+                }
+                return true;
+            }
+        }
+        if( !verbNPC ) {
+            console.log( verbAction +" who? (n/no to stop defining)" );
+            return false;
+        } else if( verbsWithTopics[verbAction] && !verbTopic ) {
+            if( propositionAction )
+                console.log( verbAction +" "+verbNPC+" "+propositionAction+" what?" );
+            else
+                console.log( verbAction +" "+verbNPC+" what?" );
+        } else {
+            if( verbsWithTopics[verbAction] ) {
+                if( !propositionAction ) {
+                    if( verbTopic.substring(0,6) == "about " ) {
+                        propositionAction = "about";
+                        verbTopic = verbTopic.substring(6).trim();
+                    }
+                }
+                if( propositionAction ) {
+                    console.log( "what is response? (n/no for stop)" );                    
+                }
+            } else {
+                console.log( "what is response? (n/no for stop)" );
+            }
+        }
+        return false;
+    }
+
     var parseCommand = function (command) {
         var lCase = command;
         if (mode == "gettitle") {
@@ -577,7 +636,7 @@ module.exports = function ltbl(settings) {
             describe();
             saveFile();
         } else if (lCase == 'quit' || lCase == 'exit') {
-            rl.close();
+            return false;
         } else {
             lCase = lCase.toLowerCase();
             if (lCase.trim() == "") {
@@ -614,7 +673,7 @@ module.exports = function ltbl(settings) {
                         locations[location][reverseDirection(lastDirection)] = { location: lastLocation };
                     }
                     console.log("Door name (blank or 'n' for no door, 's' for stairs, 'p' for path/passage )");
-                    mode = "door?"
+                    mode = "door?";
                 }
             } else if (mode == 'door?') {
                 lCase = lCase.trim();
@@ -644,6 +703,10 @@ module.exports = function ltbl(settings) {
                 }
                 mode = "what";
                 describe();
+            } else if (mode == "script?") {
+                if( processScript(command) ) {
+                    mode = "what";
+                }
             } else if (mode == 'describe_item') {
                 items[describeItem].description = command;
                 mode = "what";
@@ -933,31 +996,31 @@ module.exports = function ltbl(settings) {
                     } else {
                         console.log("There is no starting location.");
                     }
-                } else if (lCase == "location outside") {
+                } else if (lCase == "location outside" || lCase == "is outside") {
                     if (location) {
                         locations[location].type = "outside";
                     } else {
                         console.log("You are nowhere.");
                     }
-                } else if (lCase == "location ship") {
+                } else if (lCase == "location ship" || lCase == "is ship") {
                     if (location) {
                         locations[location].type = "ship";
                     } else {
                         console.log("You are nowhere.");
                     }
-                } else if (lCase == "location dark") {
+                } else if (lCase == "location dark" || lCase == "is dark") {
                     if (location) {
                         locations[location].type = "dark";
                     } else {
                         console.log("You are nowhere.");
                     }
-                } else if (lCase == "location bottomless") {
+                } else if (lCase == "location bottomless" || lCase == "is bottomless" ) {
                     if (location) {
                         locations[location].type = "bottomless";
                     } else {
                         console.log("You are nowhere.");
                     }
-                } else if (lCase == "location inside") {
+                } else if (lCase == "location inside" || lCase == "is inside" ) {
                     if (location) {
                         delete locations[location].type;
                     } else {
@@ -972,6 +1035,48 @@ module.exports = function ltbl(settings) {
                         }
                     } else {
                         console.log("You are nowhere.");
+                    }
+
+                } else if( (lCase+" ").substring(0,5) == "then ") {
+                    // linear script
+                    if( verbAction ) {
+                        command = command.substring(5).trim();
+                        console.log("TBD continue [then] "+verbAction+" - "+command)
+                    }
+                } else if( (lCase+" ").substring(0,3) == "or ") {
+                    // alt scriptqq
+                    if( verbAction ) {
+                        command = command.substring(3).trim();
+                        console.log("TBD continue [or] "+verbAction+" - "+command)
+                    }
+                } else if ( (lCase+" ").substring(0,4) == "ask " 
+                         || (lCase+" ").substring(0,5) == "tell "  
+                          ) {
+                    // TBD - register NPCs & topics
+                    command = command.substring(4).trim();
+                    command = command.split(" about ");
+                    if( command.length == 1 ) {
+                        command = command[0].split(" for ");
+                        if( command.length != 1 ) {
+                            propositionAction = "for";
+                        } else {
+                            propositionAction = null;
+                        }
+                    } else {
+                        propositionAction = "about";
+                    }                
+                    verbAction = (lCase+" ").substring(0,4).trim();
+                    verbNPC = null;
+                    verbTopic = null;                
+                    if( command.length > 1 ) {
+                        verbNPC = command[0];
+                        verbTopic = command[1];
+                    } else if( command.length == 1 ) {
+                        verbNPC = command[0];
+                        verbTopic = "";
+                    }
+                    if( !processScript("") ) {
+                        mode = "script?";
                     }
                 } else if (lCase == "dump") {
                     console.log(JSON.stringify(metadata, null, "  "));
@@ -1023,12 +1128,27 @@ module.exports = function ltbl(settings) {
                            "help door"
                         ].join("\n"));
                     }
-
                 } else {
-                    console.log("Command not handled");
+                    var verb = lCase.split(" ")[0];
+                    if ( partOfSp[verb] & 2) {
+                        // TBD register actions (and consequences)
+                        verbAction = verb;
+                        verbNPC = null;
+                        verbTopic = null;    
+                        propositionAction = null;
+                        command = command.split(" ");
+                        command[0] = "";
+                        command = command.join(" ").trim();
+                        if( !processScript(command) ) {
+                            mode = "script?";
+                        }
+                    } else {
+                        console.log("Command not handled");
+                    }
                 }
             }
         }
+        return true;
     };
     //---------------------------------------------------------------------------
     // Load a Game from JSON
@@ -1042,6 +1162,7 @@ module.exports = function ltbl(settings) {
                 items = obj.items;
                 doors = obj.doors;
                 npc = obj.npc;
+                topics = obj.topics;
                 location = obj.location;
 
                 while (locations["room" + roomNum]) {
