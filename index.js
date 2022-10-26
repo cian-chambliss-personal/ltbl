@@ -226,6 +226,14 @@ module.exports = function ltbl(settings) {
         }
     };
     var map = null;
+    var camelCase = function(name) {
+        var words = name.toLowerCase().split(" ");
+        name = words[0];
+        for( var i = 1 ; i < words.length ; ++i ) {
+            name = name + words[i].charAt(0).toUpperCase() + words[i].slice(1);
+        }
+        return name;
+    };
     //---------------------------------------------------------------------------
     // parser Utility functions
     var extractNounAndAdj = function (command) {
@@ -441,7 +449,29 @@ module.exports = function ltbl(settings) {
         if (loc.nw) {
             describeNav(loc.nw, "northwest");
         }
-    }
+    };
+    var findNPC =function(name) {
+        name = name.toLowerCase().trim();
+        var cc = camelCase(name);
+        if( npc[cc] ) {
+            // well known short name...
+            return npc[cc];
+        }
+        for( var _ind in npc ) {
+            var _npc = npc[_ind];
+            if( _npc.name == name ) {
+                return _npc;
+            }
+            if( _npc.alias ) {
+                for( var i = 0 ; i < _npc.alias.length ; ++i ) {
+                    if( _npc.alias[i] == name ) {
+                        return _npc;
+                    }
+                }
+            }
+        }
+        return null;
+    };
 
     var describe = function () {
         if (!metadata.title) {
@@ -586,16 +616,27 @@ module.exports = function ltbl(settings) {
             } else if( verbsWithTopics[verbAction] && !verbTopic ) {
                 verbTopic = command;
             } else {
-                if( verbsWithTopics[verbAction] ) {
-                    console.log( "TBD - implelement convo - ["+verbAction+","+verbNPC+","+propositionAction+","+verbTopic+"] => "+command );
+                var _npc = findNPC(verbNPC);
+                // TBD - also look for items (for verbs like push/pull etc)...
+                if( _npc ) {
+                    if( verbsWithTopics[verbAction] ) {
+                        console.log( "TBD - implement convo - ["+verbAction+","+verbNPC+","+propositionAction+","+verbTopic+"] => "+command );
+                    } else {
+                        console.log( "TBD - implement verb - ["+verbAction+","+verbNPC+","+propositionAction+","+verbTopic+"] => "+command );
+                    }
+                    return true;                    
                 } else {
-                    console.log( "TBD - implelement verb - ["+verbAction+","+verbNPC+","+propositionAction+","+verbTopic+"] => "+command );
+                    var newNPC  = verbNPC;
+                    newNPC = newNPC.toLowerCase().trim();
+                    npc[camelCase(newNPC)] = { name : newNPC , description : command };
                 }
-                return true;
             }
         }
         if( !verbNPC ) {
             console.log( verbAction +" who? (n/no to stop defining)" );
+            return false;
+        } else if( !findNPC(verbNPC) ) {
+            console.log( "Describe non player character named '"+verbNPC+"': (n/no for stop)" );
             return false;
         } else if( verbsWithTopics[verbAction] && !verbTopic ) {
             if( propositionAction )
