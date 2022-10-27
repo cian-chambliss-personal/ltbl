@@ -19,6 +19,29 @@ module.exports = function ltbl(settings) {
     var propositionAction = null;
     var verbNPC = null;
     var verbsWithTopics = { "ask" : true , "tell" : true };
+    var firstWordMap = {
+        "hello" : "hi",
+        "hi" : "hi",
+        "bye" : "bye" ,
+        "goodbye" : "bye",
+        "farewell" : "bye",
+        "leave" : "leave",
+        "notice" : "notice",
+        "l" : "look",
+        "look" : "look",
+        "x" : "examine",
+        "examine" : "examine",
+        "i": "inventory",
+        "inventory" : "inventory",
+        "drop" : "drop",
+        "put" : "put",
+        "hide" : "hide",
+        "read" : "read",
+        "eat" : "eat",
+        "wear" : "wear",
+        "light": "light",
+        "affix" : "affix"
+    };
     var verbTopic = null;
     var metadata = {
         title: null,
@@ -604,9 +627,15 @@ module.exports = function ltbl(settings) {
         "north west": { primary: "nw" },
         "north east": { primary: "ne" }
     };
+    var subSentence = function(sentence,wrd) {
+        sentence = sentence.split(" ");
+        for( var i = 0 ; i < wrd ; ++i )
+            sentence[i] = "";
+        return sentence.join(" ").trim();
+    };
     var isDirection = function (command) {
         return directionsHash[command];
-    }
+    };
     var processScript = function(command) {
         if( command == "n" || command == "no" )
             return true;
@@ -662,7 +691,6 @@ module.exports = function ltbl(settings) {
     }
 
     var parseCommand = function (command) {
-        var lCase = command;
         if (mode == "gettitle") {
             metadata.title = command;
             describe();
@@ -679,7 +707,12 @@ module.exports = function ltbl(settings) {
         } else if (lCase == 'quit' || lCase == 'exit') {
             return false;
         } else {
+            var lCase = command;
             lCase = lCase.toLowerCase();
+            var firstWord = lCase.split(" ")[0].trim();
+            if( firstWordMap[firstWord] ) {
+                firstWord = firstWordMap[firstWord];
+            }
             if (lCase.trim() == "") {
                 console.log("Pardon?");
                 describe();
@@ -759,10 +792,10 @@ module.exports = function ltbl(settings) {
                 mode = "what";
             } else if (mode == 'what') {
                 // navigate the map
-                if (lCase == "l") {
+                if (firstWord == "look" && lCase.indexOf(" ") < 0 ) {
                     describe();
-                } else if (lCase.substring(0, 2) == "x ") {
-                    command = command.substring(2).trim();
+                } else if ( firstWord == "examine") {
+                    command = subSentence( command , 1);
                     if (command != "") {
                         var item = lookupItem(command);
                         if (item && item != "?") {
@@ -778,7 +811,7 @@ module.exports = function ltbl(settings) {
                     } else {
                         console.log("what do you want to examine?");
                     }
-                } else if (lCase == "x") {
+                } else if (firstWord == "examine") {
                     var where = locations[location];
                     if (where.description) {
                         console.log(where.description);
@@ -786,7 +819,7 @@ module.exports = function ltbl(settings) {
                         mode = "describe_location";
                         console.log("How would you describe the " + where.name + "?")
                     }
-                } else if (lCase == "i") {
+                } else if (firstWord == "inventory") {
                     if (actor.inventory.length == 0) {
                         console.log("You are carrying nothing.");
                     } else {
@@ -795,13 +828,13 @@ module.exports = function ltbl(settings) {
                             console.log(items[actor.inventory[i].item].name);
                         }
                     }
-                } else if (lCase.substring(0, 5) == "drop "
-                    || lCase.substring(0, 4) == "put "
-                    || lCase.substring(0, 5) == "hide "
-                ) {
+                } else if ( firstWord == "drop"
+                         || firstWord == "put" 
+                         || firstWord == "hide" 
+                          ) {
                     // Drop & put are pretty much the same, rely on 'on' / 'in' / 'behind' / 'under' for position
                     // Hide adds the 'hidden' property requires the player to inspect the container
-                    command = command.substring(4).trim();
+                    command = subSentence( command , 1);
                     if (command != "") {
                         var where = locations[location];
                         var what = command;
@@ -893,8 +926,8 @@ module.exports = function ltbl(settings) {
                             }
                         }
                     }
-                } else if (lCase.substring(0, 5) == "read ") {
-                    command = command.substring(5).trim();
+                } else if( firstWord == "read" ) {
+                    command = subSentence( command , 1);
                     if (command != "") {
                         var item = lookupItem(command);
                         if (item) {
@@ -911,8 +944,8 @@ module.exports = function ltbl(settings) {
                             console.log("You see no " + command);
                         }
                     }
-                } else if (lCase.substring(0, 5) == "take ") {
-                    command = command.substring(5).trim();
+                } else if ( firstWord == "take" ) {
+                    command = subSentence( command , 1);
                     if (command != "") {
                         var item = lookupItem(command, "noactor");
                         if (item) {
@@ -933,18 +966,22 @@ module.exports = function ltbl(settings) {
                             console.log("You see no " + command);
                         }
                     }
-                } else if (lCase.substring(0, 4) == "eat " || lCase.substring(0, 5) == "wear " || lCase.substring(0, 6) == "light " || lCase.substring(0, 6) == "affix ") {
+                } else if ( firstWord == "eat" 
+                         || firstWord == "wear" 
+                         || firstWord == "light" 
+                         || firstWord == "affix"
+                          ) {
                     var thingType = null;
-                    if (lCase.substring(0, 4) == "eat ") {
+                    if (firstWord == "eat") {
                         thingType = "food";
-                    } else if (lCase.substring(0, 5) == "wear ") {
+                    } else if (firstWord == "wear") {
                         thingType = "wearable";
-                    } else if (lCase.substring(0, 6) == "light ") {
+                    } else if (firstWord == "light") {
                         thingType = "light";
-                    } else if (lCase.substring(0, 6) == "affix ") {
+                    } else if (firstWord == "affix") {
                         thingType = "fixture";
                     }
-                    command = command.substring(command.indexOf(" ") + 1).trim();
+                    command = subSentence( command , 1);
                     if (command != "") {
                         var where = locations[location];
                         var what = command;
@@ -1021,8 +1058,9 @@ module.exports = function ltbl(settings) {
                         }
                     }
                     describe();
-                } else if (lCase.substring(0, 5) == "door " && isDirection(lCase.substring(5))) {
-                    lCase = isDirection(lCase.substring(5).trim()).primary;
+                } else if (firstWord == "door" && isDirection(subSentence( command , 1))) {
+                    command = subSentence( command , 1);
+                    lCase = isDirection(command).primary;
                     if (locations[location]) {
                         var nextLoc = locations[location][lCase];
                         if (nextLoc) {
@@ -1078,23 +1116,31 @@ module.exports = function ltbl(settings) {
                         console.log("You are nowhere.");
                     }
 
-                } else if( (lCase+" ").substring(0,5) == "then ") {
+                } else if( firstWord == "then") {
                     // linear script
                     if( verbAction ) {
+                        command = subSentence( command , 1);
                         command = command.substring(5).trim();
                         console.log("TBD continue [then] "+verbAction+" - "+command)
                     }
-                } else if( (lCase+" ").substring(0,3) == "or ") {
-                    // alt scriptqq
+                } else if( firstWord == "or" ) {
+                    // alt script
                     if( verbAction ) {
-                        command = command.substring(3).trim();
+                        command = subSentence( command , 1);
                         console.log("TBD continue [or] "+verbAction+" - "+command)
                     }
-                } else if ( (lCase+" ").substring(0,4) == "ask " 
-                         || (lCase+" ").substring(0,5) == "tell "  
+                } else if ( firstWord == "hi" 
+                         || firstWord == "bye" 
+                         || firstWord == "leave" 
+                         || firstWord == "notice" 
+                          ) {
+                    command = subSentence( command , 1);
+
+                } else if ( firstWord == "ask" 
+                         || firstWord == "tell"  
                           ) {
                     // TBD - register NPCs & topics
-                    command = command.substring(4).trim();
+                    command = subSentence( command , 1);
                     command = command.split(" about ");
                     if( command.length == 1 ) {
                         command = command[0].split(" for ");
@@ -1106,7 +1152,7 @@ module.exports = function ltbl(settings) {
                     } else {
                         propositionAction = "about";
                     }                
-                    verbAction = (lCase+" ").substring(0,4).trim();
+                    verbAction = firstWord;
                     verbNPC = null;
                     verbTopic = null;                
                     if( command.length > 1 ) {
