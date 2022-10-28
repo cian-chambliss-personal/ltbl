@@ -19,7 +19,8 @@ module.exports = function ltbl(settings) {
     var propositionAction = null;
     var verbNPC = null;
     var verbsWithTopics = { "ask" : true , "tell" : true };
-    var firstWordMap = {
+    var wordMap = {
+        firstWord : {
         "hello" : "hi",
         "hi" : "hi",
         "bye" : "bye" ,
@@ -41,6 +42,10 @@ module.exports = function ltbl(settings) {
         "wear" : "wear",
         "light": "light",
         "affix" : "affix"
+        },
+        firstTwoWord : {
+            "talk to" : "!talkto"
+        }
     };
     var verbTopic = null;
     var metadata = {
@@ -388,7 +393,7 @@ module.exports = function ltbl(settings) {
         return dir;
     }
 
-    var render = function (loc, depth, where) {
+    var render = function (loc,locationId, depth, where) {
         var describeNav = function (dir, name) {
             if (dir.type == "stairs") {
                 console.log("There are stairs leading " + name + ".");
@@ -439,7 +444,7 @@ module.exports = function ltbl(settings) {
         if (loc.wall) {
             for (var dir in loc.wall) {
                 var wall = loc.wall[dir];
-                render(wall, 1, "along " + friendlyDir(dir) + " wall ");
+                render(wall,null, 1, "along " + friendlyDir(dir) + " wall ");
             }
         }
         if (loc.e) {
@@ -471,6 +476,14 @@ module.exports = function ltbl(settings) {
         }
         if (loc.nw) {
             describeNav(loc.nw, "northwest");
+        }
+        if( locationId ) {
+            for( var _npc in npc) {
+                var  ni = npc[_npc];
+                if( ni.location == locationId ) {
+                    console.log(ni.name+" is here.");
+                }
+            }
         }
     };
     var findNPC =function(name) {
@@ -510,7 +523,7 @@ module.exports = function ltbl(settings) {
             console.log("What is you email?");
             mode = "getemail";
         } else if (location) {
-            render(locations[location], 0);
+            render(locations[location],location, 0);
             mode = "what";
         } else {
             if (lastLocation && lastDirection) {
@@ -657,7 +670,11 @@ module.exports = function ltbl(settings) {
                 } else {
                     var newNPC  = verbNPC;
                     newNPC = newNPC.toLowerCase().trim();
-                    npc[camelCase(newNPC)] = { name : newNPC , description : command };
+                    npc[camelCase(newNPC)] = {
+                        name : newNPC ,
+                        description : command ,
+                        location : location 
+                    };
                 }
             }
         }
@@ -709,9 +726,23 @@ module.exports = function ltbl(settings) {
         } else {
             var lCase = command;
             lCase = lCase.toLowerCase();
-            var firstWord = lCase.split(" ")[0].trim();
-            if( firstWordMap[firstWord] ) {
-                firstWord = firstWordMap[firstWord];
+            var lCaseWords =  lCase.split(" ");
+            var firstWord = lCaseWords[0].trim(); 
+            var firstPhrase = null;
+
+            if( wordMap.firstWord[firstWord] ) {
+                firstWord = wordMap.firstWord[firstWord];
+            }
+            // Override pattern
+            if( lCaseWords.length > 0 ) {
+                firstPhrase =  wordMap.firstTwoWord[lCaseWords[0]+" "+lCaseWords[1]];
+                if( firstPhrase ) {
+                    command = firstPhrase+" "+subSentence(command,2);
+                    firstWord = firstPhrase;
+                    lCase = command;
+                    lCase = lCase.toLowerCase();
+                    lCaseWords =  lCase.split(" ");
+                }
             }
             if (lCase.trim() == "") {
                 console.log("Pardon?");
@@ -843,7 +874,7 @@ module.exports = function ltbl(settings) {
                         var objectWhere = null;
                         var sep = command.indexOf(" on ");
                         var hidden = false;
-                        if (lCase.substring(0, 5) == "hide ") {
+                        if (firstWord == "hide") {
                             hidden = true;
                         }
                         if (sep > 0) {
@@ -994,7 +1025,7 @@ module.exports = function ltbl(settings) {
                                 items[existingItem].type = thingType;
                                 console.log(command + " is " + thingType + ".");
                             } else if (items[existingItem].type != thingType) {
-                                console.log("You cannot " + lCase.substring(0, lCase.indexOf(" ") + 1) + " " + command);
+                                console.log("You cannot " + firstWord + " " + command);
                             }
                         } else if (existingItem != "?") {
                             console.log("You see no " + command);
@@ -1120,7 +1151,6 @@ module.exports = function ltbl(settings) {
                     // linear script
                     if( verbAction ) {
                         command = subSentence( command , 1);
-                        command = command.substring(5).trim();
                         console.log("TBD continue [then] "+verbAction+" - "+command)
                     }
                 } else if( firstWord == "or" ) {
@@ -1135,9 +1165,9 @@ module.exports = function ltbl(settings) {
                          || firstWord == "notice" 
                           ) {
                     command = subSentence( command , 1);
-
                 } else if ( firstWord == "ask" 
                          || firstWord == "tell"  
+                         || firstWord == "!talkto"
                           ) {
                     // TBD - register NPCs & topics
                     command = subSentence( command , 1);
@@ -1283,7 +1313,7 @@ module.exports = function ltbl(settings) {
             "\tname = '" + metadata.title + "'",
             "\tbyLine = 'by " + metadata.author + "'",
             "\tauthorEmail = '" + metadata.author + " <" + metadata.authorEmail + ">'",
-            "\tversion = '" + metadata.version + "'",
+            "\tversion = '" + (metadata.version || "1") + "'",
             ";"
             , ""
             , "gameMain: GameMainDef"
