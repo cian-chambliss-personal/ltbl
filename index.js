@@ -14,6 +14,7 @@ module.exports = function ltbl(settings) {
     var location = null;
     var fs = require("fs");
     var partOfSp = require("./en-parts.json");
+    var helpText = require("./en-help.json");
     var reservedNames = require("./reserved.json");
     var verbAction = null;
     var propositionAction = null;
@@ -1211,39 +1212,13 @@ module.exports = function ltbl(settings) {
                 } else if (lCase.split(" ")[0] == "help") {
                     if (lCase.split(" ").length > 1) {
                         lCase = lCase.split(" ")[1];
-                        if (lCase == 'location') {
-                            console.log([
-                             "location outside - outdoors",
-                             "location inside - inside a building/cave", 
-                             "location dark - in a dark room (require light)", 
-                             "location ship - aboard a ship", 
-                             "location bottomless - in a room with no floor (chasm)"
-                            ].join("\n"));
-                        } else if (lCase == 'item') {
-                            console.log([
-                             "take <item> - place an item in the actors inventory",
-                             "drop <item> - place an item in the current location", 
-                             "drop <item> in/on/behind/under <item> - place item relative to another item", 
-                             "put <item> in/on/behind/under <item> - place item relative to another item", 
-                             "hide <item> in/on/behind/under <item> - hide item relative to another item",
-                             "eat <item> - indicates that the item is food", 
-                             "wear <item> - indicates that the item can be worn", 
-                             "light  <item> - indicates that the item is a light source", 
-                             "read <item>   - read text of item (book/letter) create text if none exists",                             
-                             "affix  <item> - the item is a fixture (attached / cannot be moved)"
-                            ].join("\n"));
-                        } else if (lCase == 'door') {
-                            console.log([
-                                "door <n/s/e/w> - add a door in the direction specified"
-                            ].join("\n"));
+                        if( helpText.subtopic[lCase]) {
+                            console.log(helpText.subtopic[lCase].help.join("\n"));                            
+                        } else {
+                            console.log("Unrecognized help category '"+lCase+"'\n"+helpText.help.join("\n"));
                         }
                     } else {
-                        console.log([
-                           "Help topics:",
-                           "help location", 
-                           "help item", 
-                           "help door"
-                        ].join("\n"));
+                        console.log(helpText.help.join("\n"));
                     }
                 } else {
                     var verb = lCase.split(" ")[0];
