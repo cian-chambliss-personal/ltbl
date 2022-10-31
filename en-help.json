@@ -1,0 +1,34 @@
+{
+    "help" : [
+    "Help topics:",
+    "help location - help defining locations", 
+    "help item - help defining items", 
+    "help door - help with door and connectors"] ,
+    "subtopic" : {
+        "location" : {
+            "help" : [
+             "location outside - outdoors",
+             "location inside - inside a building/cave", 
+             "location dark - in a dark room (require light)", 
+             "location ship - aboard a ship", 
+             "location bottomless - in a room with no floor (chasm)"
+            ]
+        },
+        "item" : {
+            "help" : [
+            "take <item> - place an item in the actors inventory",
+            "drop <item> - place an item in the current location", 
+            "drop <item> in/on/behind/under <item> - place item relative to another item", 
+            "put <item> in/on/behind/under <item> - place item relative to another item", 
+            "hide <item> in/on/behind/under <item> - hide item relative to another item",
+            "eat <item> - indicates that the item is food", 
+            "wear <item> - indicates that the item can be worn", 
+            "light <item> - indicates that the item is a light source", 
+            "read <item>   - read text of item (book/letter) create text if none exists",                             
+            "affix <item> - the item is a fixture (attached / cannot be moved)"]
+        },
+        "door" : {
+            "help" :[ "door <n/s/e/w> - add a door in the direction specified"]
+        }
+    }
+}
