@@ -11,7 +11,6 @@ module.exports = function ltbl(settings) {
     var lastLocation = null;
     var lastDirection = null;
     var describeItem = null;
-    var location = null;
     var fs = require("fs");
     var partOfSp = require("./en-parts.json");
     var helpText = require("./en-help.json");
@@ -42,10 +41,48 @@ module.exports = function ltbl(settings) {
         "eat" : "eat",
         "wear" : "wear",
         "light": "light",
-        "affix" : "affix"
+        "affix" : "affix",
+        "sit" : "sit",
+        "stand" : "stand",
+        "pov" :  "pov"
         },
         firstTwoWord : {
-            "talk to" : "!talkto"
+            "talk to" : "!talkto",
+            "sit down" : "sit",
+            "lie down" : "lie",
+            "stand up" : "stand"
+        },
+        postures : {
+            "stand" : {
+                "participle" : "standing",
+                "past" : "stood"
+            },
+            "sit" : {
+                "participle" : "sitting",
+                "past" : "sat"
+            },
+            "lie" : {
+                "participle" : "lying",
+                "past" : "lay"
+            },
+        },
+        posturePrep : {
+            "on" : "on" , 
+            "in" : "in"
+        },
+        nestedrooms : {
+            "chair" : {
+                "postures" : ["sit","stand"],
+                "posture" : "sit"
+            },
+            "platform" : {
+                "postures" : ["stand","sit","lie"],
+                "posture" : "stand"
+            },
+            "bed" : {
+                "postures" : ["stand","sit","lie"],
+                "posture" : "lie"
+            }
         }
     };
     var verbTopic = null;
@@ -58,8 +95,18 @@ module.exports = function ltbl(settings) {
         IFID: null
     };
     var actor = {
-        inventory: []
+        name : "me",
+        inventory: [],
+        location : null
     };
+    var god = {
+        name : "god",
+        isGod : true,
+        inventory: [],
+        location : null
+    };
+    var pov = actor;
+    var allowGodMode = true;
     var locations = {
     };
     var doors = {
@@ -131,7 +178,7 @@ module.exports = function ltbl(settings) {
             startCol: 0,
             endCol: 0
         };
-        createMapLow(0, 0, 0, location, bounds, function (row, col, level, loc, bounds) { });
+        createMapLow(0, 0, 0, pov.location, bounds, function (row, col, level, loc, bounds) { });
         visited = {};
         var nLevel = (bounds.endLevel - bounds.startLevel + 1);
         var nRow = (bounds.endRow - bounds.startRow + 1);
@@ -148,10 +195,10 @@ module.exports = function ltbl(settings) {
             }
             levels.push(rows);
         }
-        createMapLow(0, 0, 0, location, bounds, function (row, col, level, loc, bounds) {
+        createMapLow(0, 0, 0, pov.location, bounds, function (row, col, level, loc, bounds) {
             levels[level - bounds.startLevel][row - bounds.startRow][col - bounds.startCol] = loc;
         });
-        return { levels: levels, location: { room: location, level: -bounds.startLevel, row: -bounds.startRow, col: - bounds.startCol } };
+        return { levels: levels, location: { room: pov.location, level: -bounds.startLevel, row: -bounds.startRow, col: - bounds.startCol } };
     };
     var recalcLocation = function (map, location) {
         for (var l = 0; l < map.levels.length; ++l) {
@@ -353,7 +400,6 @@ module.exports = function ltbl(settings) {
             actor: actor, 
             locations: locations, 
             doors: doors, 
-            location: location, 
             items: items, 
             npc: npc , 
             topics : topics 
@@ -523,10 +569,10 @@ module.exports = function ltbl(settings) {
         } else if (!metadata.authorEmail) {
             console.log("What is you email?");
             mode = "getemail";
-        } else if (location) {
-            render(locations[location],location, 0);
+        } else if (pov.location) {
+            render(locations[pov.location],pov.location, 0);
             mode = "what";
-        } else {
+        } else {            
             if (lastLocation && lastDirection) {
                 console.log("You traveled " + lastDirection + " from " + locations[lastLocation].description + ".( b for back)");
             }
@@ -537,7 +583,7 @@ module.exports = function ltbl(settings) {
     var lookupItem = function (command, flags) {
         var itemName = null;
         if (command != "") {
-            var where = locations[location];
+            var where = locations[pov.location];
             var candidates = [];
             var what = command;
             command = command.toLowerCase();
@@ -663,8 +709,20 @@ module.exports = function ltbl(settings) {
                 // TBD - also look for items (for verbs like push/pull etc)...
                 if( _npc ) {
                     if( verbsWithTopics[verbAction] ) {
-                        console.log( "TBD - implement convo - ["+verbAction+","+verbNPC+","+propositionAction+","+verbTopic+"] => "+command );
-                    } else {
+                        if( verbAction && verbTopic ) {
+                            if( !_npc.conversation ) {
+                                _npc.conversation = {};
+                            }                            
+                            if( !_npc.conversation[verbAction] ) {
+                                _npc.conversation[verbAction] = {};
+                            }
+                            if( propositionAction ) {
+                                _npc.conversation[verbAction][verbTopic] = { proposition : propositionAction , response : command };
+                            } else {
+                                _npc.conversation[verbAction][verbTopic] = { response : command };
+                            }
+                        }
+                    } else if( verbAction ) {
                         console.log( "TBD - implement verb - ["+verbAction+","+verbNPC+","+propositionAction+","+verbTopic+"] => "+command );
                     }
                     return true;                    
@@ -674,7 +732,7 @@ module.exports = function ltbl(settings) {
                     npc[camelCase(newNPC)] = {
                         name : newNPC ,
                         description : command ,
-                        location : location 
+                        location : pov.location 
                     };
                 }
             }
@@ -706,7 +764,40 @@ module.exports = function ltbl(settings) {
             }
         }
         return false;
-    }
+    };
+
+    var allowPosture = function(itemptr,posture) {
+        if( itemptr.postures ) {
+            for( var i = 0 ; i < itemptr.postures.length ; ++i ) {
+                if( itemptr.postures[i] == posture ) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    };
+    var setLocationType = function(ltype) {
+        if (pov.location) {
+            if( pov.isGod ) {
+                if( ltype == "inside"  ) {
+                    delete locations[pov.location].type;
+                } else {
+                    locations[pov.location].type = ltype;
+                }
+            } else if( !locations[pov.location].type && ltype == "inside" ) {
+                console.log("Yes it is.");
+            } else if( locations[pov.location].type == ltype ) {
+                console.log("Yes it is.");
+            } else {
+                console.log("No, it isn't.");
+            }
+        } else {
+            console.log("You are nowhere.");
+        }
+    };
+    var noUnderstand = function() {
+        console.log("What was that?");
+    };
 
     var parseCommand = function (command) {
         if (mode == "gettitle") {
@@ -750,33 +841,33 @@ module.exports = function ltbl(settings) {
                 describe();
             } else if (mode == 'where') {
                 if (lCase == 'b') {
-                    location = lastLocation;
+                    pov.location = lastLocation;
                     describe();
                 } else if (lCase.length > 2) {
                     var roomName = extractNounAndAdj(command);
                     console.log(roomName);
                     if (roomName) {
-                        location = roomName;
-                        if (locations[location]) {
-                            location = "room" + roomNum;
+                        pov.location = roomName;
+                        if (locations[pov.location]) {
+                            pov.location = "room" + roomNum;
                             roomNum = roomNum + 1;
                         }
                     } else {
-                        location = "room" + roomNum;
+                        pov.location = "room" + roomNum;
                         roomNum = roomNum + 1;
                     }
                     var name = command;
                     var parts = getPartsOfSpeech(command);
-                    locations[location] = { name: parts.name, description: command };
+                    locations[pov.location] = { name: parts.name, description: command };
                     map = null; // need to recalc the map 
                     if (lastLocation) {
                         if (locations[lastLocation].type) {
-                            locations[location].type = locations[lastLocation].type;
+                            locations[pov.location].type = locations[lastLocation].type;
                         }
                     }
                     if (lastLocation && lastDirection) {
-                        locations[lastLocation][lastDirection] = { location: location };
-                        locations[location][reverseDirection(lastDirection)] = { location: lastLocation };
+                        locations[lastLocation][lastDirection] = { location: pov.location };
+                        locations[pov.location][reverseDirection(lastDirection)] = { location: lastLocation };
                     }
                     console.log("Door name (blank or 'n' for no door, 's' for stairs, 'p' for path/passage )");
                     mode = "door?";
@@ -785,14 +876,14 @@ module.exports = function ltbl(settings) {
                 lCase = lCase.trim();
                 if (lCase == "s") {
                     locations[lastLocation][lastDirection].type = "stairs";
-                    locations[location][reverseDirection(lastDirection)].type = "stairs";
+                    locations[pov.location][reverseDirection(lastDirection)].type = "stairs";
                 } else if (lCase == "p") {
                     if (locations[lastLocation].type == "outside") {
                         locations[lastLocation][lastDirection].type = "path";
-                        locations[location][reverseDirection(lastDirection)].type = "path";
+                        locations[pov.location][reverseDirection(lastDirection)].type = "path";
                     } else {
                         locations[lastLocation][lastDirection].type = "passage";
-                        locations[location][reverseDirection(lastDirection)].type = "passage";
+                        locations[pov.location][reverseDirection(lastDirection)].type = "passage";
                     }
                 } else if (lCase != ""
                     && lCase != "n"
@@ -805,7 +896,7 @@ module.exports = function ltbl(settings) {
                     }
                     doors[name] = { name: command };
                     locations[lastLocation][lastDirection].door = name;
-                    locations[location][reverseDirection(lastDirection)].door = name;
+                    locations[pov.location][reverseDirection(lastDirection)].door = name;
                 }
                 mode = "what";
                 describe();
@@ -820,7 +911,7 @@ module.exports = function ltbl(settings) {
                 items[describeItem].content = command;
                 mode = "what";
             } else if (mode == 'describe_location') {
-                locations[location].description = command;
+                locations[pov.location].description = command;
                 mode = "what";
             } else if (mode == 'what') {
                 // navigate the map
@@ -844,7 +935,7 @@ module.exports = function ltbl(settings) {
                         console.log("what do you want to examine?");
                     }
                 } else if (firstWord == "examine") {
-                    var where = locations[location];
+                    var where = locations[pov.location];
                     if (where.description) {
                         console.log(where.description);
                     } else {
@@ -868,7 +959,7 @@ module.exports = function ltbl(settings) {
                     // Hide adds the 'hidden' property requires the player to inspect the container
                     command = subSentence( command , 1);
                     if (command != "") {
-                        var where = locations[location];
+                        var where = locations[pov.location];
                         var what = command;
                         var holder = "contains";
                         var existingItem = lookupItem(what, "actor");
@@ -938,7 +1029,7 @@ module.exports = function ltbl(settings) {
                                         }
                                     }
                                 }
-                            } else {
+                            } else if( pov.isGod ) {                            
                                 var name = extractNounAndAdj(what);
                                 if (!name) {
                                     name = "item" + itemNum;
@@ -955,6 +1046,8 @@ module.exports = function ltbl(settings) {
                                     itemEnv.hidden = true;
                                 }
                                 where[holder].push(itemEnv);
+                            } else {
+                                console.log("You see no " + what);
                             }
                         }
                     }
@@ -966,10 +1059,12 @@ module.exports = function ltbl(settings) {
                             if (item != "?") {
                                 if (items[item].content) {
                                     console.log(items[item].content);
-                                } else {
+                                } else if( pov.isGod ) {
                                     describeItem = item;
                                     console.log("What do you see written in " + items[item].name + "?");
                                     mode = "write";
+                                } else {
+                                    console.log("There is nothing written on the "+items[item].name);
                                 }
                             }
                         } else {
@@ -982,7 +1077,7 @@ module.exports = function ltbl(settings) {
                         var item = lookupItem(command, "noactor");
                         if (item) {
                             if (item != "?") {
-                                var where = locations[location];
+                                var where = locations[pov.location];
                                 for (var i = 0; i < where.contains.length; ++i) {
                                     if (where.contains[i].item == item) {
                                         actor.inventory.push(where.contains[i]);
@@ -1015,18 +1110,25 @@ module.exports = function ltbl(settings) {
                     }
                     command = subSentence( command , 1);
                     if (command != "") {
-                        var where = locations[location];
+                        var where = locations[pov.location];
                         var what = command;
                         if (!where.contains) {
                             where.contains = [];
                         }
                         var existingItem = lookupItem(what);
                         if (existingItem && existingItem != "?") {
-                            if (!items[existingItem].type) {
+                            if (pov.isGod && !items[existingItem].type) {
                                 items[existingItem].type = thingType;
                                 console.log(command + " is " + thingType + ".");
                             } else if (items[existingItem].type != thingType) {
                                 console.log("You cannot " + firstWord + " " + command);
+                            } else {
+                                if( !pov.isGod ) {
+                                    // TBD - add bookkeeping
+                                    console.log("You " + firstWord + " " + command);
+                                } else {
+                                    console.log(command + " is " + thingType + ".");
+                                }
                             }
                         } else if (existingItem != "?") {
                             console.log("You see no " + command);
@@ -1034,113 +1136,105 @@ module.exports = function ltbl(settings) {
                     }
                 } else if (isDirection(lCase)) {
                     lCase = isDirection(lCase).primary;
-                    if (locations[location]) {
-                        var nextLoc = locations[location][lCase];
+                    if (locations[pov.location]) {
+                        var nextLoc = locations[pov.location][lCase];
                         if (!nextLoc) {
-                            if (!map) {
-                                map = createMap();
-                            } else if (map.location.room != location) {
-                                recalcLocation(map, location);
-                            }
-                            var level = map.location.level;
-                            var row = map.location.row;
-                            var col = map.location.col;
-                            if (lCase == "n") {
-                                row = row - 1;
-                            } else if (lCase == "s") {
-                                row = row + 1;
-                            } else if (lCase == "e") {
-                                col = col + 1;
-                            } else if (lCase == "w") {
-                                col = col - 1;
-                            } else if (lCase == "u") {
-                                level = level + 1;
-                            } else if (lCase == "d") {
-                                level = level - 1;
-                            } else if (lCase == "se") {
-                                row = row + 1;
-                                col = col + 1;
-                            } else if (lCase == "sw") {
-                                row = row + 1;
-                                col = col - 1;
-                            } else if (lCase == "ne") {
-                                row = row - 1;
-                                col = col + 1;
-                            } else if (lCase == "nw") {
-                                row = row - 1;
-                                col = col - 1;
-                            }
-                            var posCell = null;
-                            if (0 <= level && level < map.levels.length
-                                && 0 <= row && row < map.levels[level].length
-                                && 0 <= col && col < map.levels[level][row].length
-                            ) {
-                                posCell = map.levels[level][row][col];
-                            }
-                            if (posCell) {
-                                locations[location][lCase] = { location: posCell };
-                                location = posCell;
+                            if( pov.isGod ) {
+                                if (!map) {
+                                    map = createMap();
+                                } else if (map.location.room != pov.location) {
+                                    recalcLocation(map, pov.location);
+                                }
+                                var level = map.location.level;
+                                var row = map.location.row;
+                                var col = map.location.col;
+                                if (lCase == "n") {
+                                    row = row - 1;
+                                } else if (lCase == "s") {
+                                    row = row + 1;
+                                } else if (lCase == "e") {
+                                    col = col + 1;
+                                } else if (lCase == "w") {
+                                    col = col - 1;
+                                } else if (lCase == "u") {
+                                    level = level + 1;
+                                } else if (lCase == "d") {
+                                    level = level - 1;
+                                } else if (lCase == "se") {
+                                    row = row + 1;
+                                    col = col + 1;
+                                } else if (lCase == "sw") {
+                                    row = row + 1;
+                                    col = col - 1;
+                                } else if (lCase == "ne") {
+                                    row = row - 1;
+                                    col = col + 1;
+                                } else if (lCase == "nw") {
+                                    row = row - 1;
+                                    col = col - 1;
+                                }
+                                var posCell = null;
+                                if (0 <= level && level < map.levels.length
+                                    && 0 <= row && row < map.levels[level].length
+                                    && 0 <= col && col < map.levels[level][row].length
+                                ) {
+                                    posCell = map.levels[level][row][col];
+                                }
+                                if (posCell) {
+                                    locations[pov.location][lCase] = { location: posCell };
+                                    pov.location = posCell;
+                                } else {
+                                    lastLocation = pov.location;
+                                    pov.location = null;
+                                    lastDirection = lCase;
+                                }
                             } else {
-                                lastLocation = location;
-                                location = null;
-                                lastDirection = lCase;
+                                console.log("You cannot go that way.");
                             }
                         } else {
-                            location = nextLoc.location;
+                            pov.location = nextLoc.location;
                         }
                     }
                     describe();
                 } else if (firstWord == "door" && isDirection(subSentence( command , 1))) {
-                    command = subSentence( command , 1);
-                    lCase = isDirection(command).primary;
-                    if (locations[location]) {
-                        var nextLoc = locations[location][lCase];
-                        if (nextLoc) {
-                            lastDirection = lCase;
-                            lastLocation = location;
-                            location = nextLoc.location;
-                            console.log("Door name (blank or 'n' for no door)");
-                            mode = "door?";
+                    if( pov.isGod ) {
+                        command = subSentence( command , 1);
+                        lCase = isDirection(command).primary;
+                        if (locations[pov.location]) {
+                            var nextLoc = locations[pov.location][lCase];
+                            if (nextLoc) {
+                                lastDirection = lCase;
+                                lastLocation = pov.location;
+                                pov.location = nextLoc.location;
+                                console.log("Door name (blank or 'n' for no door)");
+                                mode = "door?";
+                            } else {
+                                console.log("There is no ending location.");
+                            }
                         } else {
-                            console.log("There is no ending location.");
+                            console.log("There is no starting location.");
                         }
                     } else {
-                        console.log("There is no starting location.");
+                        noUnderstand();
                     }
-                } else if (lCase == "location outside" || lCase == "is outside") {
-                    if (location) {
-                        locations[location].type = "outside";
-                    } else {
-                        console.log("You are nowhere.");
-                    }
+                } else if (lCase == "location outside" || lCase == "is outside") {                    
+                    setLocationType("outside");
                 } else if (lCase == "location ship" || lCase == "is ship") {
-                    if (location) {
-                        locations[location].type = "ship";
-                    } else {
-                        console.log("You are nowhere.");
-                    }
+                    setLocationType("ship");
                 } else if (lCase == "location dark" || lCase == "is dark") {
-                    if (location) {
-                        locations[location].type = "dark";
-                    } else {
-                        console.log("You are nowhere.");
-                    }
+                    setLocationType("dark");
                 } else if (lCase == "location bottomless" || lCase == "is bottomless" ) {
-                    if (location) {
-                        locations[location].type = "bottomless";
-                    } else {
-                        console.log("You are nowhere.");
-                    }
+                    setLocationType("bottomless");
                 } else if (lCase == "location inside" || lCase == "is inside" ) {
-                    if (location) {
-                        delete locations[location].type;
+                    if( pov.isGod && pov.location ) {
+                        delete locations[pov.location].type;
                     } else {
-                        console.log("You are nowhere.");
+                        setLocationType("inside");
                     }
                 } else if (lCase == "location") {
-                    if (location) {
-                        if (locations[location].type) {
-                            console.log("Location is " + locations[location].type + ".");
+                    if (pov.location) {
+                        if (locations[pov.location].type) {
+                            console.log("Location is " + locations[pov.location].type + ".");
                         } else {
                             console.log("Location is inside.");
                         }
@@ -1150,15 +1244,23 @@ module.exports = function ltbl(settings) {
 
                 } else if( firstWord == "then") {
                     // linear script
-                    if( verbAction ) {
-                        command = subSentence( command , 1);
-                        console.log("TBD continue [then] "+verbAction+" - "+command)
+                    if (pov.isGod ) {
+                        if( verbAction ) {
+                            command = subSentence( command , 1);
+                            console.log("TBD continue [then] "+verbAction+" - "+command)
+                        }
+                    } else {
+                        console.log("then what?");
                     }
                 } else if( firstWord == "or" ) {
                     // alt script
-                    if( verbAction ) {
-                        command = subSentence( command , 1);
-                        console.log("TBD continue [or] "+verbAction+" - "+command)
+                    if (pov.isGod ) {
+                        if( verbAction ) {
+                            command = subSentence( command , 1);
+                            console.log("TBD continue [or] "+verbAction+" - "+command)
+                        }
+                    } else {
+                        console.log("or not.");
                     }
                 } else if ( firstWord == "hi" 
                          || firstWord == "bye" 
@@ -1194,22 +1296,77 @@ module.exports = function ltbl(settings) {
                         verbTopic = "";
                     }
                     if( !processScript("") ) {
-                        mode = "script?";
+                        if (pov.isGod ) {
+                            mode = "script?";
+                        } else {
+                            noUnderstand();
+                        }
+                    }
+                } else if ( 
+                    firstWord == "sit" 
+                 || firstWord == "lie" 
+                 || firstWord == "stand" 
+                ) {
+                    command = subSentence( command , 1);
+                    propositionAction = wordMap.posturePrep[command.split(" ")[0]];
+                    if( propositionAction ) {
+                        command = subSentence( command , 1);
+                    }
+                    if( command.length ) {
+                        var existingItem = lookupItem(command);
+                        if (existingItem && existingItem != "?") {
+                            if( allowPosture(items[existingItem],firstWord) ) {
+                                console.log("You "+firstWord + " on " + items[existingItem].name + ".");
+                            } else if( pov.isGod ) {
+                                if( !items[existingItem].postures ) {
+                                    items[existingItem].postures = [];
+                                }
+                                items[existingItem].postures.push(firstWord);
+                                console.log("You can now "+firstWord + " on " + items[existingItem].name + ".");
+                            } else {
+                                console.log("You cannot "+firstWord + " on " + items[existingItem].name + ".");
+                            }
+                        } else if (existingItem != "?") {
+                            console.log("You see no " + command);
+                        }
                     }
                 } else if (lCase == "dump") {
-                    console.log(JSON.stringify(metadata, null, "  "));
-                    console.log(JSON.stringify(locations, null, "  "));
-                    console.log(JSON.stringify(items, null, "  "));
-                } else if (lCase == "map") {
-                    if (!map) {
-                        map = createMap();
-                    } else if (location && map.location.room != location) {
-                        recalcLocation(map, location);
+                    if( pov.isGod ) {
+                        console.log(JSON.stringify(metadata, null, "  "));
+                        console.log(JSON.stringify(locations, null, "  "));
+                        console.log(JSON.stringify(items, null, "  "));
+                    } else {
+                        console.log("dump what?");
                     }
-                    renderMapLevelText(map);
+                } else if (lCase == "map") {
+                    if( pov.isGod ) {
+                        if (!map) {
+                            map = createMap();
+                        } else if (pov.location && map.location.room != pov.location) {
+                            recalcLocation(map, pov.location);
+                        }
+                        renderMapLevelText(map);
+                    } else {
+                        console.log("You don't have a map");
+                    }
+                } else if (firstWord == "pov") {
+                    command = subSentence( command , 1);
+                    if( command && command.length ) {
+                        if( command == god.name ) {
+                            if( allowGodMode ) {
+                                pov = god;
+                            } else {
+                                console.log("God mode not available.")
+                            }
+                        } else if( command == actor.name ) {
+                            pov = actor;
+                        }
+                    } else {
+                        console.log("You are "+pov.name);
+                    }
                 } else if (lCase == "save") {
                     saveFile();
-                } else if (lCase.split(" ")[0] == "help") {
+                } else if (firstWord == "help") {
                     if (lCase.split(" ").length > 1) {
                         lCase = lCase.split(" ")[1];
                         if( helpText.subtopic[lCase]) {
@@ -1249,14 +1406,20 @@ module.exports = function ltbl(settings) {
             if (!err) {
                 var obj = JSON.parse(data);
                 metadata = obj.metadata;
-                actor = obj.actor;
+                actor = obj.actor;                
                 locations = obj.locations;
                 items = obj.items;
                 doors = obj.doors;
                 npc = obj.npc;
                 topics = obj.topics;
-                location = obj.location;
-
+                if( obj.god ) {
+                    allowGodMode = true;
+                    god = obj.god;
+                    pov = god;
+                } else {
+                    allowGodMode = false;
+                    pov = actor;
+                }
                 while (locations["room" + roomNum]) {
                     roomNum = roomNum + 1;
                 }
@@ -1276,7 +1439,7 @@ module.exports = function ltbl(settings) {
     // Generate a TADs source file....
     var generateTads = function (tadsSrc) {
         var main = path.parse(settings.filename).name + ".t";
-        var roomDObj = location;
+        var roomDObj = pov.location;
         if (reservedNames[roomDObj]) {
             roomDObj = reservedNames[roomDObj];
         }
@@ -1501,13 +1664,13 @@ module.exports = function ltbl(settings) {
             if (reservedNames[roomDObj]) {
                 roomDObj = reservedNames[roomDObj];
             }
-            if (locations[location].type == "outside") {
+            if (locations[pov.location].type == "outside") {
                 srcLines.push(roomDObj + ": OutdoorRoom");
-            } else if (locations[location].type == "dark") {
+            } else if (locations[pov.location].type == "dark") {
                 srcLines.push(roomDObj + ": DarkRoom");
-            } else if (locations[location].type == "ship") {
+            } else if (locations[pov.location].type == "ship") {
                 srcLines.push(roomDObj + ": ShipboardRoom");
-            } else if (locations[location].type == "bottomless") {
+            } else if (locations[pov.location].type == "bottomless") {
                 srcLines.push(roomDObj + ": FloorlessRoom");
             } else {
                 srcLines.push(roomDObj + ": Room");
