@@ -1,7 +1,4 @@
-const { doesNotReject } = require("assert");
-const { findSourceMap } = require("module");
 const path = require("path");
-const { isAsyncFunction } = require("util/types");
 
 module.exports = function ltbl(settings) {
     var roomNum = 1;
@@ -18,7 +15,7 @@ module.exports = function ltbl(settings) {
     var verbAction = null;
     var propositionAction = null;
     var verbNPC = null;
-    var verbsWithTopics = { "ask" : true , "tell" : true };
+    var verbsWithTopics = { "ask" : true , "tell" : true , "show" : true , "give" : true };
     var wordMap = {
         firstWord : {
         "hello" : "hi",
@@ -741,7 +738,11 @@ module.exports = function ltbl(settings) {
             console.log( verbAction +" who? (n/no to stop defining)" );
             return false;
         } else if( !findNPC(verbNPC) ) {
-            console.log( "Describe non player character named '"+verbNPC+"': (n/no for stop)" );
+            if( pov.isGod ) {
+                console.log( "Describe non player character named '"+verbNPC+"': (n/no for stop)" );
+            } else {
+                console.log( "You see no "+verbNPC+"." );
+            }
             return false;
         } else if( verbsWithTopics[verbAction] && !verbTopic ) {
             if( propositionAction )
@@ -756,11 +757,30 @@ module.exports = function ltbl(settings) {
                         verbTopic = verbTopic.substring(6).trim();
                     }
                 }
-                if( propositionAction ) {
-                    console.log( "what is response? (n/no for stop)" );                    
+                var _npc = findNPC(verbNPC);
+                if( _npc.conversation ) {
+                    _npc = _npc.conversation[verbAction];
+                    if( _npc ) {
+                        _npc = _npc[verbTopic];
+                    }
+                } else {
+                   _npc = null;
                 }
-            } else {
+                if( _npc ) {
+                    if( _npc.response ) {
+                        console.log( _npc.response );
+                    }
+                } else if(pov.isGod) {
+                    if( propositionAction ) {
+                        console.log( "what is response? (n/no for stop)" );                    
+                    }
+                } else {
+                    noUnderstand();
+                }
+            } else if(pov.isGod) {
                 console.log( "what is response? (n/no for stop)" );
+            } else {
+                noUnderstand();
             }
         }
         return false;
@@ -947,8 +967,8 @@ module.exports = function ltbl(settings) {
                         console.log("You are carrying nothing.");
                     } else {
                         console.log("You are carrying:");
-                        for (var i = 0; i < actor.inventory.length; ++i) {
-                            console.log(items[actor.inventory[i].item].name);
+                        for (var i = 0; i < pov.inventory.length; ++i) {
+                            console.log(items[pov.inventory[i].item].name);
                         }
                     }
                 } else if ( firstWord == "drop"
@@ -1013,18 +1033,18 @@ module.exports = function ltbl(settings) {
                         if (where) {
                             if (existingItem) {
                                 if (existingItem != "?") {
-                                    for (var i = 0; i < actor.inventory.length; ++i) {
-                                        if (actor.inventory[i].item == existingItem) {
+                                    for (var i = 0; i < pov.inventory.length; ++i) {
+                                        if (pov.inventory[i].item == existingItem) {
                                             if (!where[holder]) {
                                                 where[holder] = [];
                                             }
                                             if (hidden) {
-                                                actor.inventory[i].hidden = true;
-                                            } else if (actor.inventory[i].hidden) {
-                                                delete actor.inventory[i].hidden;
+                                                pov.inventory[i].hidden = true;
+                                            } else if (pov.inventory[i].hidden) {
+                                                delete pov.inventory[i].hidden;
                                             }
-                                            where[holder].push(actor.inventory[i]);
-                                            actor.inventory.splice(i, 1);
+                                            where[holder].push(pov.inventory[i]);
+                                            pov.inventory.splice(i, 1);
                                             break;
                                         }
                                     }
@@ -1080,11 +1100,12 @@ module.exports = function ltbl(settings) {
                                 var where = locations[pov.location];
                                 for (var i = 0; i < where.contains.length; ++i) {
                                     if (where.contains[i].item == item) {
-                                        actor.inventory.push(where.contains[i]);
+                                        pov.inventory.push(where.contains[i]);
                                         where.contains.splice(i, 1);
                                         if (where.contains.length == 0) {
                                             delete where.contains;
                                         }
+                                        console.log("Taken.");
                                         break;
                                     }
                                 }
@@ -1270,21 +1291,40 @@ module.exports = function ltbl(settings) {
                     command = subSentence( command , 1);
                 } else if ( firstWord == "ask" 
                          || firstWord == "tell"  
+                         || firstWord == "give"  
+                         || firstWord == "show"  
                          || firstWord == "!talkto"
                           ) {
                     // TBD - register NPCs & topics
                     command = subSentence( command , 1);
-                    command = command.split(" about ");
-                    if( command.length == 1 ) {
-                        command = command[0].split(" for ");
-                        if( command.length != 1 ) {
-                            propositionAction = "for";
-                        } else {
-                            propositionAction = null;
+                    if( firstWord == "give" || firstWord == "show" ) {
+                        command = command.split(" the ");
+                        if( command.length == 1 ) {
+                            command = command.split(" my ");
+                            if( command.length == 1 ) {
+                                command = command.split(" ");
+                                if( command.length > 2 ) {
+                                    if( findNPC(command[0]) ) {
+                                        verbNPC = command[0];
+                                        command[0] = "";
+                                        command = [verbNPC,command.join(" ").trim()];
+                                    }
+                                }
+                            }
                         }
                     } else {
-                        propositionAction = "about";
-                    }                
+                        command = command.split(" about ");
+                        if( command.length == 1 ) {
+                            command = command[0].split(" for ");
+                            if( command.length != 1 ) {
+                                propositionAction = "for";
+                            } else {
+                                propositionAction = null;
+                            }
+                        } else {
+                            propositionAction = "about";
+                        }
+                    }
                     verbAction = firstWord;
                     verbNPC = null;
                     verbTopic = null;                
@@ -1439,10 +1479,7 @@ module.exports = function ltbl(settings) {
     // Generate a TADs source file....
     var generateTads = function (tadsSrc) {
         var main = path.parse(settings.filename).name + ".t";
-        var roomDObj = pov.location;
-        if (reservedNames[roomDObj]) {
-            roomDObj = reservedNames[roomDObj];
-        }
+        var roomDObj;
         var srcLines = [
             '#charset "us-ascii"',
             '#include <adv3.h>',
@@ -1455,11 +1492,7 @@ module.exports = function ltbl(settings) {
             ";"
             , ""
             , "gameMain: GameMainDef"
-            , "\tinitialPlayerChar = me"
-            , ";"
-            , ""
-            , "me: Actor"
-            , "\tlocation = " + roomDObj
+            , "\tinitialPlayerChar = "+actor.name
             , ";"
             , ""
         ];
@@ -1558,10 +1591,56 @@ module.exports = function ltbl(settings) {
             return _srcLines.join("\n");
         };
         var itemEmitted = {};
-        for (var i = 0; i < actor.inventory.length; ++i) {
-            itemEmitted[actor.inventory[i].item] = true;
-            srcLines.push(emitItem(actor.inventory[i].item, 1, actor.inventory[i]));
-        }
+        var emitCharacter = function (_actor) {
+            var roomDObj = _actor.location;
+            if (reservedNames[roomDObj]) {
+                roomDObj = reservedNames[roomDObj];
+            }
+            var actorType = "Person";            
+            if( _actor.name == actor.name ) {
+                actorType = "Actor";
+            }
+            var _lines = [ _actor.name + ": "+actorType ];
+            if( _actor.description ) {
+                _lines.push('\t"'+_actor.description+'"');
+            }
+            _lines.push("\tlocation = " + roomDObj +"\n;\n");
+            if( _actor.inventory ) {
+                for (var i = 0; i < _actor.inventory.length; ++i) {
+                    itemEmitted[_actor.inventory[i].item] = true;
+                    _lines.push(emitItem(_actor.inventory[i].item, 1, _actor.inventory[i]));
+                }
+            }
+            if( _actor.conversation ) {
+                for( var  verb in _actor.conversation  ) {
+                    var vc = _actor.conversation[verb];
+                    for( var  topic in vc  ) {
+                        var topicType = "AskTopic";
+                        var tc = vc[topic];
+                        if( verb == "tell" ) {
+                            topicType = "TellTopic";
+                        } else if( verb == "give" ) {
+                            topicType = "GiveTopic";
+                        } else if( verb == "show" ) {
+                            topicType = "ShowTopic";
+                        } else {
+                            if( tc.proposition == "for" ) {
+                                topicType = "AskForTopic";
+                            }
+                        }    
+                    }
+                    _lines.push("+"+topicType);
+                    var match = topic;                    
+                    _lines.push("\tmatchObject = "+match);
+                    if( tc.response ) {
+                        _lines.push('\ttopicResponse = "'+tc.response+'"');
+                    }
+                    _lines.push("\t;\n");
+                }
+            }
+            return _lines.join("\n");
+        };
+        srcLines.push(emitCharacter(actor));
         var masterDoors = {};
         var locationHandled = {};
         var addDoors = null;
@@ -1734,6 +1813,9 @@ module.exports = function ltbl(settings) {
                 }
             }
             locationHandled[loc] = true;
+        }
+        for( var npcName in npc) {
+            srcLines.push(emitCharacter(npc[npcName]));
         }
         // Leftover items (not directly owned or contained)
         for (it in items) {
