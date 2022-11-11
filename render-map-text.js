@@ -1,3 +1,4 @@
+const chalk = require("chalk");
 module.exports = function(args) {
     var map = args.map;
     var locations = args.locations;
@@ -8,25 +9,71 @@ module.exports = function(args) {
         for (var ch = 0; ch < 5; ++ch) {
             var line = "";
             for (var c = 0; c < cols.length; ++c) {
-                var cell = cols[c];
+                var cell = cols[c] , otherCell;
                 if (cell) {
                     cell = locations[cell];
                 }
                 text = "          ";
+                var hasLeft = false, hasTop = false;
+                if( c > 0 ) {
+                    otherCell = cols[c-1];
+                    if( otherCell ) {
+                        otherCell = locations[otherCell];
+                        if( otherCell ) {
+                            if (otherCell.type != "outside") {
+                                hasLeft = true;
+                            }
+                        }
+                    }
+                }
+                if( r > 0 ) {
+                    otherCell = rows[r-1][c];
+                    if( otherCell ) {
+                        otherCell = locations[otherCell];
+                        if( otherCell ) {
+                            if (otherCell.type != "outside") {
+                                hasTop = true;
+                            }
+                        }
+                    }
+                }
+                if (!cell) {
+                    if( hasLeft || hasTop ) {
+                        cell = { type : "outside" };
+                    }
+                }
                 if (cell) {
                     if (cell.type != "outside") {
-                        if (ch == 0 || ch == 4) {
-                            text = "+--------+";
-                        } else {
-                            text = "|        |";
+                        hasLeft = true;
+                        hasTop = true;
+                    }
+                    if (hasTop) {
+                        if (ch == 0 ) {
+                            if( hasLeft ) {
+                                text = "█▀▀▀▀▀▀▀▀▀";
+                            } else {
+                                text = "▀▀▀▀▀▀▀▀▀▀";
+                            }
+                        } else if( hasLeft ) {
+                            text = "█         ";
                         }
+                    } else if( hasLeft ) {
+                        text = "█         ";
                     }
                     if (ch == 0) {
                         if (cell.n) {
-                            if (cell.type == "outside") {
-                                text = "    .     ";
+                            if( hasTop ) {
+                                if( hasLeft ) {
+                                    text = "█▀▀▀▀ ▀▀▀▀";
+                                } else {
+                                    text = "▀▀▀▀▀ ▀▀▀▀";
+                                }
                             } else {
-                                text = "+---|----+";
+                                if( hasLeft ) {
+                                    text = "█         ";
+                                } else {
+                                    text = "          ";
+                                }                               
                             }
                         }
                     } else if (1 <= ch && ch < 4) {
@@ -52,31 +99,41 @@ module.exports = function(args) {
                         if (ch == 2) {
                             if (cell.w) {
                                 if (cell.type == "outside") {
-                                    text = "." + text.substring(1);
+                                    text = " " + text.substring(1);
                                 } else {
-                                    text = "=" + text.substring(1);
+                                    text = " " + text.substring(1);
                                 }
                             }
                             if (cell.e) {
                                 if (cell.type == "outside") {
-                                    text = text.substring(0, 9) + ".";
+                                    text = text.substring(0, 9) + " ";
                                 } else {
-                                    text = text.substring(0, 9) + "=";
+                                    text = text.substring(0, 9) + " ";
                                 }
                             }
                         }
                     } else if (ch == 4) {
                         if (cell.s) {
-                            if (cell.type == "outside") {
-                                text = "    .     ";
+                            if (hasLeft) {
+                                text = "█         ";
                             } else {
-                                text = "+---|----+";
+                                text = "          ";
                             }
                         }
                     }
+                    if( (c+1) == cols.length ) {
+                        if (cell.type != "outside") {
+                            text += "█";
+                        } else if( hasTop && ch == 0) {
+                            text += "▀";
+                        }
+                    }
                 }
-                if (map.location.row == r && map.location.col == c) {
-                    text = text.split(" ").join(".");
+                if (ch == 2) {
+                    if ( map.location.row == r 
+                      && map.location.col == c) {
+                        text = text.substring(0,4) + '☺' + text.substring(5);
+                    }
                 }
                 line += text;
             }
