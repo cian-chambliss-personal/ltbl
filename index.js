@@ -131,6 +131,9 @@ module.exports = function ltbl(settings) {
                 if (col > bounds.endCol)
                     bounds.endCol = col;
                 var loc = locations[_loc];
+                if( !loc ) {
+                    loc = { name : "undefined"};
+                }
                 if (loc.w) {
                     createMapLow(row, col - 1, level, loc.w.location, bounds, emitRooms);
                 }
@@ -213,9 +216,10 @@ module.exports = function ltbl(settings) {
     }
     var renderMapLevelText = function (map) {
         var render = require("./render-map-text.js");
-        return render( { map : map , locations : locations } );
+        return render( { map : map , locations : locations , viewportHeight : 15 , viewportWidth : 70 } );
     };
     var map = null;
+    var renderMap = null;
     var helper = require("./helper.js")();
     var camelCase = helper.camelCase;
     var extractNounAndAdj = helper.extractNounAndAdj;
@@ -386,6 +390,18 @@ module.exports = function ltbl(settings) {
     };
 
     var describe = function () {
+        if( renderMap ) {
+            if( !map || map.location.room != pov.location ) {
+                if (!map) {
+                    map = createMap();
+                } else if (pov.location && map.location.room != pov.location) {
+                    recalcLocation(map, pov.location);
+                }
+                renderMap =  renderMapLevelText(map);
+            }            
+            console.clear();
+            console.log(renderMap.lines.join("\n"));
+        }
         if (!metadata.title) {
             console.log("What is the title of your interactive fiction?");
             mode = "gettitle";
@@ -1209,15 +1225,27 @@ module.exports = function ltbl(settings) {
                     } else {
                         console.log("dump what?");
                     }
-                } else if (lCase == "map") {
+                } else if (firstWord == "map") {
                     if( pov.isGod ) {
-                        if (!map) {
-                            map = createMap();
-                        } else if (pov.location && map.location.room != pov.location) {
-                            recalcLocation(map, pov.location);
+                        command = subSentence( command , 1).toLowerCase();
+                        if( command == "show" )
+                        {
+                            if( !renderMap ) {
+                                if (!map) {
+                                    map = createMap();
+                                } else if (pov.location && map.location.room != pov.location) {
+                                    recalcLocation(map, pov.location);
+                                }
+                                renderMap =  renderMapLevelText(map);
+                            }
                         }
-                        var renderMap =  renderMapLevelText(map);
-                        console.log(renderMap.lines.join("\n"));
+                        else if( command == "hide" )
+                        {
+                            if( renderMap ) {
+                                renderMap = null;
+                                console.clear();
+                            }
+                        }
                     } else {
                         console.log("You don't have a map");
                     }
