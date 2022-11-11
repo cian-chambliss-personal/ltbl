@@ -4,11 +4,59 @@ module.exports = function(args) {
     var locations = args.locations;
     var rows = map.levels[map.location.level];
     var output = [];
+    var viewRows = 0;
+    var viewCols = 0;
+    if( args.viewportHeight > 0 ) {
+        viewRows = Math.round(args.viewportHeight / 5);
+        if( viewRows == 0 ) {
+            viewRows = 1;
+        }
+    }
+    if( args.viewportWidth > 0 ) {
+        viewCols = Math.round(args.viewportWidth / 10);
+        if( viewCols == 0 ) {
+            viewCols = 1;
+        }
+    }
+    var startRow = 0 , endRow = rows.length;
+    var startCol = 0 , endCol = 0;
     for (var r = 0; r < rows.length; ++r) {
+        var cols = rows[r];
+        if( cols.length > endCol ) {
+            endCol = cols.length;
+        }
+    }
+    if( viewRows > 0 ) {
+        if( viewRows < rows.length ) {
+            startRow = map.location.row - Math.round((viewRows/2));
+            if( startRow < 0 ) {
+                startRow = 0;
+            }
+            endRow = startRow+viewRows;
+            if( endRow > rows.length ) {
+                startRow = startRow - (endRow - rows.length );
+                endRow = rows.length;
+            }
+        }
+    }
+    if( viewCols > 0 ) {
+        if( viewCols < endCol ) {
+            startCol = map.location.col - Math.round((viewCols/2));
+            if( startCol < 0 ) {
+                startCol = 0;
+            }
+            if( (startCol+viewCols) < endCol ) {
+                endCol = startCol+viewCols;
+            } else {
+                startCol = endCol - viewCols;
+            }
+        }        
+    }
+    for (var r = startRow; r < endRow; ++r) {
         var cols = rows[r];
         for (var ch = 0; ch < 5; ++ch) {
             var line = "";
-            for (var c = 0; c < cols.length; ++c) {
+            for (var c = startCol; c < endCol && c < cols.length; ++c) {
                 var cell = cols[c] , otherCell;
                 if (cell) {
                     cell = locations[cell];
@@ -37,12 +85,19 @@ module.exports = function(args) {
                         }
                     }
                 }
+                var color = null;
                 if (!cell) {
                     if( hasLeft || hasTop ) {
                         cell = { type : "outside" };
                     }
+                } else {
+                    if (cell.type != "outside") {
+                        color = chalk.bgRgb(128,128,128);
+                    } else {
+                        color = chalk.bgRgb(0,255,0);
+                    }
                 }
-                if (cell) {
+                if (cell) {                    
                     if (cell.type != "outside") {
                         hasLeft = true;
                         hasTop = true;
@@ -125,7 +180,7 @@ module.exports = function(args) {
                         if (cell.type != "outside") {
                             text += "█";
                         } else if( hasTop && ch == 0) {
-                            text += "▀";
+                            text += "▀";                        
                         }
                     }
                 }
@@ -135,9 +190,13 @@ module.exports = function(args) {
                         text = text.substring(0,4) + '☺' + text.substring(5);
                     }
                 }
-                line += text;
+                if( color ) {
+                    line += color(text.split(" ").join("\u00A0"));
+                } else {
+                    line += text;
+                }
             }
-            output.push(line);
+            output.push(line+" ");
         }
     }
     return { lines : output };
