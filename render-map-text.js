@@ -68,7 +68,7 @@ module.exports = function(args) {
                     if( otherCell ) {
                         otherCell = locations[otherCell];
                         if( otherCell ) {
-                            if (otherCell.type != "outside") {
+                            if (otherCell.type != "outside" && otherCell.type != "void" ) {
                                 hasLeft = true;
                             }
                         }
@@ -79,7 +79,7 @@ module.exports = function(args) {
                     if( otherCell ) {
                         otherCell = locations[otherCell];
                         if( otherCell ) {
-                            if (otherCell.type != "outside") {
+                            if (otherCell.type != "outside" && otherCell.type != "void" ) {
                                 hasTop = true;
                             }
                         }
@@ -88,17 +88,21 @@ module.exports = function(args) {
                 var color = null;
                 if (!cell) {
                     if( hasLeft || hasTop ) {
-                        cell = { type : "outside" };
+                        cell = { type : "void" };
                     }
                 } else {
                     if (cell.type != "outside") {
-                        color = chalk.bgRgb(128,128,128);
+                        if (cell.type == "dark" || cell.type == "void" ) {
+                            color = chalk.bgRgb(0,0,0);
+                        } else {
+                            color = chalk.bgRgb(128,128,128);
+                        }
                     } else {
                         color = chalk.bgRgb(0,255,0);
                     }
                 }
                 if (cell) {                    
-                    if (cell.type != "outside") {
+                    if (cell.type != "outside" && cell.type != "void" ) {
                         hasLeft = true;
                         hasTop = true;
                     }
@@ -151,7 +155,7 @@ module.exports = function(args) {
                             var leadChr = (10 - nameParts.length) / 2;
                             text = text.substring(0, leadChr) + nameParts + text.substring(nameParts.length + leadChr);
                         }
-                        if (ch == 2) {
+                        if (ch == 2 && cell.type != "void" ) {
                             if (cell.w) {
                                 if (cell.type == "outside") {
                                     text = " " + text.substring(1);
@@ -177,7 +181,7 @@ module.exports = function(args) {
                         }
                     }
                     if( (c+1) == cols.length ) {
-                        if (cell.type != "outside") {
+                        if (cell.type != "outside" && cell.type != "void" ) {
                             text += "█";
                         } else if( hasTop && ch == 0) {
                             text += "▀";                        
