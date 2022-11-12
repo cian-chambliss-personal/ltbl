@@ -237,6 +237,9 @@ module.exports = function ltbl(settings) {
             npc: npc , 
             topics : topics 
         };
+        if( allowGodMode ) {
+            obj.god = god;
+        }
         fs.writeFile(settings.filename, JSON.stringify(obj, null, "  "), function (err, data) { });
     };
 
@@ -291,6 +294,9 @@ module.exports = function ltbl(settings) {
                 console.log("To the " + name + " is " + (locations[dir.location].name || locations[dir.location].description) + ".");
             }
         };
+        if( !loc ) {
+            console.log("Null for "+locationId);
+        }
         if (loc.description) {
             console.log(loc.description);
         } else if (loc.name) {
@@ -389,7 +395,7 @@ module.exports = function ltbl(settings) {
         return null;
     };
 
-    var describe = function () {
+    var describe = function (noVoid) {
         if( renderMap ) {
             if( !map || map.location.room != pov.location ) {
                 if (!map) {
@@ -401,6 +407,13 @@ module.exports = function ltbl(settings) {
             }            
             console.clear();
             console.log(renderMap.lines.join("\n"));
+        }
+        if( noVoid ) {
+            if(pov.location) {
+                if( locations[pov.location].type != "void" ) {
+                    noVoid = false;
+                }
+            }
         }
         if (!metadata.title) {
             console.log("What is the title of your interactive fiction?");
@@ -414,13 +427,10 @@ module.exports = function ltbl(settings) {
         } else if (!metadata.authorEmail) {
             console.log("What is you email?");
             mode = "getemail";
-        } else if (pov.location) {
+        } else if (pov.location && !noVoid ) {
             render(locations[pov.location],pov.location, 0);
             mode = "what";
         } else {            
-            if (lastLocation && lastDirection) {
-                console.log("You traveled " + lastDirection + " from " + locations[lastLocation].description + ".( b for back)");
-            }
             console.log("Where are you?");
             mode = 'where';
         }
@@ -665,20 +675,27 @@ module.exports = function ltbl(settings) {
     var noUnderstand = function() {
         console.log("What was that?");
     };
-
+    var clearVoid = function() {
+        var voidCounter = 1;
+        while( locations["void"+voidCounter] ) {
+            delete locations["void"+voidCounter];
+            voidCounter = voidCounter + 1;
+        }
+        map = null; // force regen without the voids....
+    }
     var parseCommand = function (command) {
         if (mode == "gettitle") {
             metadata.title = command;
-            describe();
+            describe(false);
         } else if (mode == "getdescription") {
             metadata.description = command;
-            describe();
+            describe(false);
         } else if (mode == "getauthor") {
             metadata.author = command;
-            describe();
+            describe(false);
         } else if (mode == "getemail") {
             metadata.authorEmail = command;
-            describe();
+            describe(false);
             saveFile();
         } else if (lCase == 'quit' || lCase == 'exit') {
             return false;
@@ -707,12 +724,18 @@ module.exports = function ltbl(settings) {
                 console.log("Pardon?");
                 describe();
             } else if (mode == 'where') {
-                if (lCase == 'b') {
+                if (lCase == 'b' && lastLocation ) {
                     pov.location = lastLocation;
                     describe();
                 } else if (lCase.length > 2) {
                     var roomName = extractNounAndAdj(command);
                     console.log(roomName);
+                    if( pov.location ) {
+                        if( locations[pov.location].type == "void" ) {
+                            // TBD - check for more than one void to make bigger rooms
+                            clearVoid();
+                        }
+                    }
                     if (roomName) {
                         pov.location = roomName;
                         if (locations[pov.location]) {
@@ -735,9 +758,9 @@ module.exports = function ltbl(settings) {
                     if (lastLocation && lastDirection) {
                         locations[lastLocation][lastDirection] = { location: pov.location };
                         locations[pov.location][reverseDirection(lastDirection)] = { location: lastLocation };
+                        //console.log("Door name (blank or 'n' for no door, 's' for stairs, 'p' for path/passage )");
+                        mode = "what";
                     }
-                    console.log("Door name (blank or 'n' for no door, 's' for stairs, 'p' for path/passage )");
-                    mode = "door?";
                 }
             } else if (mode == 'door?') {
                 lCase = lCase.trim();
@@ -783,7 +806,7 @@ module.exports = function ltbl(settings) {
             } else if (mode == 'what') {
                 // navigate the map
                 if (firstWord == "look" && lCase.indexOf(" ") < 0 ) {
-                    describe();
+                    describe(true);
                 } else if ( firstWord == "examine") {
                     command = subSentence( command , 1);
                     if (command != "") {
@@ -1049,32 +1072,49 @@ module.exports = function ltbl(settings) {
                                     posCell = map.levels[level][row][col];
                                 }
                                 if (posCell) {
-                                    locations[pov.location][lCase] = { location: posCell };
+                                    if( locations[pov.location].type == "void" && locations[posCell].type != "void" ) {
+                                        // clean up all the voids
+                                        clearVoid();
+                                    }
                                     pov.location = posCell;
                                 } else {
-                                    lastLocation = pov.location;
-                                    pov.location = null;
+                                    lastLocation = pov.location;                                    
+                                    var voidCounter = 1;
+                                    while( locations["void"+voidCounter] ) {
+                                        voidCounter = voidCounter + 1;
+                                    }
+                                    pov.location = "void"+voidCounter;
+                                    // Single link void back to cell
+                                    locations[pov.location] = { name : "void" , type : "void" , description : "void" };
+                                    locations[pov.location][reverseDirection(lCase)] = { location: lastLocation };
                                     lastDirection = lCase;
+                                    map = null;
                                 }
                             } else {
                                 console.log("You cannot go that way.");
                             }
                         } else {
+                            lastLocation = pov.location;
+                            lastDirection = lCase;
                             pov.location = nextLoc.location;
                         }
                     }
-                    describe();
-                } else if (firstWord == "door" && isDirection(subSentence( command , 1))) {
+                    describe(false);
+                } else if (firstWord == "door" ) {
                     if( pov.isGod ) {
                         command = subSentence( command , 1);
-                        lCase = isDirection(command).primary;
+                        if( isDirection(command) ) {
+                            lCase = isDirection(command).primary;
+                        } else {
+                            lCase = lastDirection;
+                        }
                         if (locations[pov.location]) {
                             var nextLoc = locations[pov.location][lCase];
                             if (nextLoc) {
                                 lastDirection = lCase;
                                 lastLocation = pov.location;
                                 pov.location = nextLoc.location;
-                                console.log("Door name (blank or 'n' for no door)");
+                                console.log("Door name (blank or 'n' for no door, 's' for stairs, 'p' for path/passage )");
                                 mode = "door?";
                             } else {
                                 console.log("There is no ending location.");
@@ -1237,6 +1277,7 @@ module.exports = function ltbl(settings) {
                                     recalcLocation(map, pov.location);
                                 }
                                 renderMap =  renderMapLevelText(map);
+                                describe(false);
                             }
                         }
                         else if( command == "hide" )
@@ -1329,8 +1370,22 @@ module.exports = function ltbl(settings) {
                 while (locations["door" + doorNum]) {
                     doorNum = doorNum + 1;
                 }
+                if( allowGodMode ) {
+                    if (!map) {
+                        map = createMap();
+                    } else if (pov.location && map.location.room != pov.location) {
+                        recalcLocation(map, pov.location);
+                    }
+                    renderMap =  renderMapLevelText(map);
+                    describe(false);
+                }                
                 onComplete(null, true);
             } else {
+                god.location = "void1";
+                pov = god;
+                locations[god.location] = { "type" : "void" , "name" : "void" , "description" : "void" };
+                map = createMap();
+                renderMap =  renderMapLevelText(map);
                 onComplete(err, false);
             }
         });
