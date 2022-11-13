@@ -682,7 +682,136 @@ module.exports = function ltbl(settings) {
             voidCounter = voidCounter + 1;
         }
         map = null; // force regen without the voids....
-    }
+    };
+    var gatherVoid = function() {
+        var  collectedVoid = {};
+        var voidCounter = 1;
+        while( locations["void"+voidCounter] ) {
+            collectedVoid["void"+voidCounter] = locations["void"+voidCounter];
+            voidCounter = voidCounter + 1;
+        }
+        return { voids : collectedVoid , count : voidCounter };
+    };
+    var autoConnectVoids = function(map,collectedVoid) {
+        // Connect all voids to other adjecent voids - defines a big room.
+        var rows = map.levels[map.location.level];
+        var visitedVoid = {};
+        var minRow = map.location.row;
+        var minCol = map.location.col;
+        var maxRow = map.location.row;
+        var maxCol = map.location.col;
+        var connectAllVoid = function (r,c) {
+            var room = rows[r][c] , otherRoom;
+            if( visitedVoid[room] ) {
+                return room;
+            } else {
+                if( room ) {
+                    var roomPtr = locations[room];
+                    if( roomPtr ) {
+                        if( roomPtr.type == "void" ) {
+                            // look for other connection
+                            roomPtr.row = r;
+                            roomPtr.col = c;
+                            if( r < minRow ) {
+                                minRow = r;
+                            }
+                            if( maxRow < r ) {
+                                maxRow = r;
+                            }
+                            if( c < minCol ) {
+                                minCol = c;
+                            }
+                            if( maxCol < c ) {
+                                maxCol = c;
+                            }
+                            visitedVoid[room] = roomPtr;
+                            if( c > 0 ) {
+                                if( roomPtr.w ) {
+                                    if( locations[ roomPtr.w.location ].type == "void" ) {
+                                        roomPtr.w.nowall = true;
+                                    }                                    
+                                } else {
+                                    otherRoom = connectAllVoid(r,c-1);
+                                    if( otherRoom ) {
+                                        roomPtr.w = { location : otherRoom , nowall : true };
+                                        locations[otherRoom].e = { location : room , nowall : true};
+                                    }
+                                }
+                            }
+                            if( (c + 1) < rows[r].length ) {
+                                if( roomPtr.e ) {
+                                    if( locations[ roomPtr.e.location ].type == "void" ) {
+                                        roomPtr.e.nowall = true;
+                                    }                                    
+                                } else {
+                                    otherRoom = connectAllVoid(r,c+1);
+                                    if( otherRoom ) {
+                                        roomPtr.e = { location : otherRoom , nowall : true};
+                                        locations[otherRoom].w = { location : room , nowall : true};
+                                    }
+                                }
+                            }
+                            if( r > 0 ) {
+                                if( roomPtr.n ) {
+                                    if( locations[ roomPtr.n.location ].type == "void" ) {
+                                        roomPtr.n.nowall = true;
+                                    }
+                                } else {
+                                    otherRoom = connectAllVoid(r-1,c);
+                                    if( otherRoom ) {
+                                        roomPtr.n = { location : otherRoom , nowall : true};
+                                        locations[otherRoom].s = { location : room , nowall : true};
+                                    }
+                                }
+                            }
+                            if( (r + 1) < rows.length  ) {
+                                if( roomPtr.s ) {
+                                    if( locations[ roomPtr.s.location ].type == "void" ) {
+                                        roomPtr.s.nowall = true;
+                                    }
+                                } else {
+                                    otherRoom = connectAllVoid(r+1,c);
+                                    if( otherRoom ) {
+                                        roomPtr.s = { location : otherRoom , nowall : true};
+                                        locations[otherRoom].n = { location : room , nowall : true};
+                                    }
+                                }
+                            }
+                            return room;
+                        }
+                    }
+                }
+            }
+            return null;
+        };
+        connectAllVoid(map.location.row,map.location.col);
+        // Optional 'edge' modifier
+        for( var room in visitedVoid ) {
+            var roomPtr = visitedVoid[room];
+            if( minRow < maxRow ) {
+                if( roomPtr.row == minRow ) {
+                    roomPtr.edge = "n";
+                } else if( roomPtr.row == maxRow ) {
+                    roomPtr.edge = "s";
+                }
+            }
+            if( minCol < maxCol ) {
+                if( roomPtr.col == minCol ) {
+                    if( roomPtr.edge ) {
+                        roomPtr.edge = roomPtr.edge+"w";
+                    } else {
+                        roomPtr.edge = "w";
+                    }
+                } else if( roomPtr.col == maxCol ) {
+                    if( roomPtr.edge ) {
+                        roomPtr.edge = roomPtr.edge+"e";
+                    } else {
+                        roomPtr.edge = "e";
+                    }
+                }
+            }
+        }
+    };
     var parseCommand = function (command) {
         if (mode == "gettitle") {
             metadata.title = command;
@@ -728,38 +857,134 @@ module.exports = function ltbl(settings) {
                     pov.location = lastLocation;
                     describe();
                 } else if (lCase.length > 2) {
-                    var roomName = extractNounAndAdj(command);
-                    console.log(roomName);
+                    var connectedVoid = { count : 0 };
                     if( pov.location ) {
                         if( locations[pov.location].type == "void" ) {
-                            // TBD - check for more than one void to make bigger rooms
-                            clearVoid();
+                            connectedVoid = gatherVoid();
+                            if( connectedVoid.count  > 1 ) {
+                                autoConnectVoids(map,connectedVoid.collectedVoid);
+                            }
                         }
                     }
-                    if (roomName) {
-                        pov.location = roomName;
-                        if (locations[pov.location]) {
-                            pov.location = "room" + roomNum;
+                    var calcRoomName = function() {
+                        var roomName = extractNounAndAdj(command);
+                        if (roomName) {
+                            // add # to the orginal room (libary,library1,library2...)
+                            if (locations[roomName]) {
+                                var extactCount = 1;
+                                while( locations[roomName+extactCount] ) {
+                                    extactCount = extactCount + 1;
+                                }
+                                roomName = roomName+extactCount
+                            }
+                        } else {
+                            roomName = "room" + roomNum;
                             roomNum = roomNum + 1;
                         }
-                    } else {
-                        pov.location = "room" + roomNum;
-                        roomNum = roomNum + 1;
-                    }
+                        return roomName;
+                    };
+                    var roomName;
                     var name = command;
                     var parts = getPartsOfSpeech(command);
-                    locations[pov.location] = { name: parts.name, description: command };
                     map = null; // need to recalc the map 
-                    if (lastLocation) {
-                        if (locations[lastLocation].type) {
-                            locations[pov.location].type = locations[lastLocation].type;
+                    if( connectedVoid.count > 1 ) {
+                        var newRoomMap = {};
+                        // Create rooms for all the voids....
+                        for( var voidRoom in connectedVoid.voids ) {
+                            var _name = parts.name;
+                            var roomDesc = command;
+                            var roomName = calcRoomName();
+                            var srcRoom = connectedVoid.voids[voidRoom];
+                            newRoomMap[voidRoom] = roomName;
+                            if( srcRoom.edge ) {
+                                var edgeName = friendlyDir(srcRoom.edge);
+                                _name = edgeName+" "+_name;
+                                command = edgeName+" "+roomDesc;
+                            }
+                            locations[roomName] = { name: _name, description: roomDesc };
                         }
-                    }
-                    if (lastLocation && lastDirection) {
-                        locations[lastLocation][lastDirection] = { location: pov.location };
-                        locations[pov.location][reverseDirection(lastDirection)] = { location: lastLocation };
-                        //console.log("Door name (blank or 'n' for no door, 's' for stairs, 'p' for path/passage )");
+                        // Now connect voids (and rooms)
+                        for( var voidRoom in connectedVoid.voids ) {
+                            var roomName = newRoomMap[voidRoom];
+                            var srcRoom = connectedVoid.voids[voidRoom];
+                            var dstRoom = locations[roomName];
+                            var otherLocation;
+                            if( srcRoom.n && !dstRoom.n ) {
+                                if( newRoomMap[srcRoom.n.location] ) {
+                                    dstRoom.n = { location : newRoomMap[srcRoom.n.location] };
+                                } else {
+                                    dstRoom.n = { location : srcRoom.n.location };
+                                }
+                                otherLocation = { location : roomName };
+                                if( srcRoom.n.nowall ) {
+                                    dstRoom.n.nowall = true;
+                                    otherLocation.nowall = true;
+                                }
+                                locations[dstRoom.n.location].s = otherLocation;
+                            }
+                            if( srcRoom.s && !dstRoom.s ) {
+                                if( newRoomMap[srcRoom.s.location] ) {
+                                    dstRoom.s = { location : newRoomMap[srcRoom.s.location] };
+                                } else {
+                                    dstRoom.s = { location : srcRoom.s.location };
+                                }
+                                otherLocation = { location : roomName };
+                                if( srcRoom.s.nowall ) {
+                                    dstRoom.s.nowall = true;
+                                    otherLocation.nowall = true;
+                                }
+                                locations[dstRoom.s.location].n = otherLocation;
+                            }
+                            if( srcRoom.e && !dstRoom.e ) {
+                                if( newRoomMap[srcRoom.e.location] ) {
+                                    dstRoom.e = { location : newRoomMap[srcRoom.e.location] };
+                                } else {
+                                    dstRoom.e = { location : srcRoom.e.location };
+                                }
+                                otherLocation = { location : roomName };
+                                if( srcRoom.e.nowall ) {
+                                    dstRoom.e.nowall = true;
+                                    otherLocation.nowall = true;
+                                }
+                                locations[dstRoom.e.location].w = otherLocation;
+                            }
+                            if( srcRoom.w && !dstRoom.w ) {
+                                if( newRoomMap[srcRoom.w.location] ) {
+                                    dstRoom.w = { location : newRoomMap[srcRoom.w.location] };
+                                } else {
+                                    dstRoom.w = { location : srcRoom.w.location };
+                                }
+                                otherLocation = { location : roomName };
+                                if( srcRoom.w.nowall ) {
+                                    dstRoom.w.nowall = true;
+                                    otherLocation.nowall = true;
+                                }
+                                locations[dstRoom.w.location].e = otherLocation;
+                            }
+                        }
+                        pov.location = newRoomMap[pov.location];
+                        lastLocation = null;
+                        lastDirection = null;                    
+                        clearVoid();
                         mode = "what";
+                    }  else {
+                        roomName = calcRoomName();
+                        pov.location = roomName;
+                        locations[pov.location] = { name: parts.name, description: command };
+                        if( connectedVoid.count > 0 ) {
+                            clearVoid();
+                        }
+                        if (lastLocation) {
+                            if (locations[lastLocation].type) {
+                                locations[pov.location].type = locations[lastLocation].type;
+                            }
+                        }
+                        if (lastLocation && lastDirection) {
+                            locations[lastLocation][lastDirection] = { location: pov.location };
+                            locations[pov.location][reverseDirection(lastDirection)] = { location: lastLocation };
+                            //console.log("Door name (blank or 'n' for no door, 's' for stairs, 'p' for path/passage )");
+                            mode = "what";
+                        }
                     }
                 }
             } else if (mode == 'door?') {
