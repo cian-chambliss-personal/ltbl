@@ -106,6 +106,16 @@ module.exports = function(args) {
                         hasLeft = true;
                         hasTop = true;
                     }
+                    if( hasLeft && cell.w ) {
+                        if( cell.w.nowall ) {
+                            hasLeft = false;
+                        }
+                    }
+                    if( hasTop && cell.n ) {
+                        if( cell.n.nowall ) {
+                            hasTop = false;
+                        }
+                    }
                     if (hasTop) {
                         if (ch == 0 ) {
                             if( hasLeft ) {
