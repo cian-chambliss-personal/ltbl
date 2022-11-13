@@ -107,12 +107,12 @@ module.exports = function(args) {
                         hasTop = true;
                     }
                     if( hasLeft && cell.w ) {
-                        if( cell.w.nowall ) {
+                        if( cell.w.wall == "none" ) {
                             hasLeft = false;
                         }
                     }
                     if( hasTop && cell.n ) {
-                        if( cell.n.nowall ) {
+                        if( cell.n.wall == "none" ) {
                             hasTop = false;
                         }
                     }
