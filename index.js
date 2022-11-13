@@ -899,7 +899,7 @@ module.exports = function ltbl(settings) {
                             if( srcRoom.edge ) {
                                 var edgeName = friendlyDir(srcRoom.edge);
                                 _name = edgeName+" "+_name;
-                                command = edgeName+" "+roomDesc;
+                                roomDesc = edgeName+" "+roomDesc;
                             }
                             locations[roomName] = { name: _name, description: roomDesc };
                         }
@@ -1047,15 +1047,13 @@ module.exports = function ltbl(settings) {
                             }
                         }
                     } else {
-                        console.log("what do you want to examine?");
-                    }
-                } else if (firstWord == "examine") {
-                    var where = locations[pov.location];
-                    if (where.description) {
-                        console.log(where.description);
-                    } else {
-                        mode = "describe_location";
-                        console.log("How would you describe the " + where.name + "?")
+                        var where = locations[pov.location];
+                        if (where.description) {
+                            console.log(where.description);
+                        } else {
+                            mode = "describe_location";
+                            console.log("How would you describe the " + where.name + "?")
+                        }
                     }
                 } else if (firstWord == "inventory") {
                     if (actor.inventory.length == 0) {
