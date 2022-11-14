@@ -114,6 +114,16 @@ module.exports = function ltbl(settings) {
     // Create a spacial map of from the logical description
     var createMap = function () {
         var visited = {};
+        var adjustLevel = function(dir,level) {
+            if( dir.direction ) {
+                if( dir.direction == "u" ) {
+                    return level+1;
+                } else if( dir.direction == "d" ) {
+                    return level-1;
+                }
+            }
+            return level;
+        }
         var createMapLow = function (row, col, level, _loc, bounds, emitRooms) {
             if (!visited[_loc]) {
                 visited[_loc] = true;
@@ -135,34 +145,54 @@ module.exports = function ltbl(settings) {
                     loc = { name : "undefined"};
                 }
                 if (loc.w) {
-                    createMapLow(row, col - 1, level, loc.w.location, bounds, emitRooms);
+                    if( !loc.w.teleport ) {
+                        createMapLow(row, col - 1, adjustLevel(loc.w,level), loc.w.location, bounds, emitRooms);
+                    }
                 }
                 if (loc.e) {
-                    createMapLow(row, col + 1, level, loc.e.location, bounds, emitRooms);
+                    if( !loc.e.teleport ) {
+                        createMapLow(row, col + 1, adjustLevel(loc.e,level), loc.e.location, bounds, emitRooms);
+                    }
                 }
                 if (loc.n) {
-                    createMapLow(row - 1, col, level, loc.n.location, bounds, emitRooms);
+                    if( !loc.n.teleport ) {
+                        createMapLow(row - 1, col, adjustLevel(loc.n,level), loc.n.location, bounds, emitRooms);
+                    }
                 }
                 if (loc.nw) {
-                    createMapLow(row - 1, col - 1, level, loc.nw.location, bounds, emitRooms);
+                    if( !loc.nw.teleport ) {
+                        createMapLow(row - 1, col - 1, adjustLevel(loc.nw,level), loc.nw.location, bounds, emitRooms);
+                    }
                 }
                 if (loc.ne) {
-                    createMapLow(row - 1, col + 1, level, loc.ne.location, bounds, emitRooms);
+                    if( !loc.ne.teleport ) {
+                        createMapLow(row - 1, col + 1, adjustLevel(loc.ne,level), loc.ne.location, bounds, emitRooms);
+                    }
                 }
                 if (loc.s) {
-                    createMapLow(row + 1, col, level, loc.s.location, bounds, emitRooms);
+                    if( !loc.s.teleport ) {
+                        createMapLow(row + 1, col, adjustLevel(loc.s,level), loc.s.location, bounds, emitRooms);
+                    }
                 }
                 if (loc.sw) {
-                    createMapLow(row + 1, col - 1, level, loc.sw.location, bounds, emitRooms);
+                    if( !loc.sw.teleport ) {
+                        createMapLow(row + 1, col - 1, adjustLevel(loc.sw,level), loc.sw.location, bounds, emitRooms);
+                    }
                 }
                 if (loc.se) {
-                    createMapLow(row + 1, col + 1, level, loc.se.location, bounds, emitRooms);
+                    if( !loc.se.teleport ) {
+                        createMapLow(row + 1, col + 1, adjustLevel(loc.se,level), loc.se.location, bounds, emitRooms);
+                    }
                 }
                 if (loc.d) {
-                    createMapLow(row, col, level - 1, loc.d.location, bounds, emitRooms);
+                    if( !loc.d.teleport ) {
+                        createMapLow(row, col, level - 1, loc.d.location, bounds, emitRooms);
+                    }
                 }
                 if (loc.u) {
-                    createMapLow(row, col, level + 1, loc.u.location, bounds, emitRooms);
+                    if( !loc.u.teleport ) {
+                        createMapLow(row, col, level + 1, loc.u.location, bounds, emitRooms);
+                    }
                 }
             }
         };
@@ -1000,6 +1030,27 @@ module.exports = function ltbl(settings) {
                         locations[lastLocation][lastDirection].type = "passage";
                         locations[pov.location][reverseDirection(lastDirection)].type = "passage";
                     }
+                } else if (lCase == "u") {
+                    locations[lastLocation][lastDirection].direction = "d";
+                    locations[pov.location][reverseDirection(lastDirection)].direction = "u";
+                    map = null;
+                } else if (lCase == "d") {
+                    locations[lastLocation][lastDirection].direction = "u";
+                    locations[pov.location][reverseDirection(lastDirection)].direction = "d";
+                    map = null;
+                } else if (lCase == "-") {
+                    locations[lastLocation][lastDirection].teleport = true;
+                    locations[pov.location][reverseDirection(lastDirection)].teleport = true;
+                    map = null;
+                } else if (lCase == "+") {
+                    // TBD - we need to make sure that the maps do *not* overlap
+                    if( locations[lastLocation][lastDirection].teleport ) {
+                        delete locations[lastLocation][lastDirection].teleport;
+                    }
+                    if( locations[pov.location][reverseDirection(lastDirection)].teleport ) {
+                        delete locations[pov.location][reverseDirection(lastDirection)].teleport;
+                    }
+                    map = null;
                 } else if (lCase != ""
                     && lCase != "n"
                     && lCase != "no"
@@ -1325,6 +1376,8 @@ module.exports = function ltbl(settings) {
                                 if( locations[pov.location].type == "void" && locations[nextLoc.location].type != "void" ) {
                                     // clean up all the voids
                                     clearVoid();
+                                } else if( nextLoc.teleport ) {
+                                    map = null;
                                 }
                             }
                             lastLocation = pov.location;
