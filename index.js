@@ -1,8 +1,11 @@
+const chalk = require("chalk");
+
 module.exports = function ltbl(settings) {
     var roomNum = 1;
     var itemNum = 1;
     var doorNum = 1;
     var mode = 'where';
+    var statusLine = null;
     var lastLocation = null;
     var lastDirection = null;
     var lastNonVoid = null;
@@ -514,6 +517,9 @@ module.exports = function ltbl(settings) {
                     screen.push("│"+infoLine+"│"+mapLine+"│");
                 }
                 screen.push("└"+("─".repeat(infoWidth))+"┴"+("─".repeat(mapWidth))+"┘");
+                if( statusLine != null ) {
+                    screen.push(statusLine);
+                }
                 console.log(screen.join("\n"));
             }
         }
@@ -1024,6 +1030,7 @@ module.exports = function ltbl(settings) {
                     var name = command;
                     var parts = getPartsOfSpeech(command);
                     map = null; // need to recalc the map 
+
                     if( connectedVoid.count > 1 ) {
                         var newRoomMap = {};
                         // Create rooms for all the voids....
@@ -1102,6 +1109,32 @@ module.exports = function ltbl(settings) {
                                     otherLocation.wall = srcRoom.w.wall;
                                 }
                                 locations[dstRoom.w.location].e = otherLocation;
+                            }
+                            if( srcRoom.u && !dstRoom.u ) {
+                                if( newRoomMap[srcRoom.u.location] ) {
+                                    dstRoom.u = { location : newRoomMap[srcRoom.u.location] };
+                                } else {
+                                    dstRoom.u = { location : srcRoom.u.location };
+                                }
+                                otherLocation = { location : roomName };
+                                if( srcRoom.u.wall ) {
+                                    dstRoom.u.wall = srcRoom.u.wall;
+                                    otherLocation.wall = srcRoom.u.wall;
+                                }
+                                locations[dstRoom.u.location].d = otherLocation;
+                            }
+                            if( srcRoom.d && !dstRoom.d ) {
+                                if( newRoomMap[srcRoom.d.location] ) {
+                                    dstRoom.d = { location : newRoomMap[srcRoom.d.location] };
+                                } else {
+                                    dstRoom.d = { location : srcRoom.d.location };
+                                }
+                                otherLocation = { location : roomName };
+                                if( srcRoom.d.wall ) {
+                                    dstRoom.d.wall = srcRoom.d.wall;
+                                    otherLocation.wall = srcRoom.d.wall;
+                                }
+                                locations[dstRoom.d.location].u = otherLocation;
                             }
                         }
                         pov.location = newRoomMap[pov.location];
@@ -1469,6 +1502,8 @@ module.exports = function ltbl(settings) {
                                         // clean up all the voids
                                         clearVoid();
                                     }
+                                    lastLocation = pov.location
+                                    lastDirection = lCase;
                                     pov.location = posCell;
                                 } else {
                                     lastLocation = pov.location;                                    
@@ -1522,7 +1557,22 @@ module.exports = function ltbl(settings) {
                                 console.log("Door name (blank or 'n' for no door, 's' for stairs, 'p' for path/passage )");
                                 mode = "door?";
                             } else {
-                                console.log("There is no ending location.");
+                                statusLine = "lastLocation = "+lastLocation+" lastDirection = "+lastDirection;
+                                if( lastDirection 
+                                 && lastLocation 
+                                 && lCase == lastDirection
+                                 && !locations[lastLocation][lastDirection]
+                                 && !locations[pov.location][reverseDirection(lastDirection)]
+                                  ) {
+                                    locations[lastLocation][lastDirection] = { location : pov.location };
+                                    locations[pov.location][reverseDirection(lastDirection)] = { location : lastLocation };
+                                    map = null;
+                                    describe();
+                                    console.log("Door name (blank or 'n' for no door, 's' for stairs, 'p' for path/passage )");
+                                    mode = "door?";
+                                } else {
+                                    console.log("There is no ending location.");
+                                }
                             }
                         } else {
                             console.log("There is no starting location.");
