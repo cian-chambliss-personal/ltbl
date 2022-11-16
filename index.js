@@ -5,6 +5,7 @@ module.exports = function ltbl(settings) {
     var mode = 'where';
     var lastLocation = null;
     var lastDirection = null;
+    var lastNonVoid = null;
     var describeItem = null;
     var fs = require("fs");
     var helpText = require("./en-help.json");
@@ -76,6 +77,48 @@ module.exports = function ltbl(settings) {
             "bed" : {
                 "postures" : ["stand","sit","lie"],
                 "posture" : "lie"
+            }
+        }
+    };
+    var editStates = {
+        noLocation : {
+            "1" : { description : "create room" }
+        },
+        location : {
+            "1" : { description : "edit room" ,
+                states : {
+                    "1" : { description : "Change name" },
+                    "2" : { description : "Change description" },
+                    "3" : { description : "Change location type" }
+                }
+            },
+            "2" : { description : "edit connections" ,
+                    states : {
+                    "1" : { description : "Add connection" },
+                    "2" : { description : "Edit connection" },
+                    "3" : { description : "Remove connection" }
+                   }
+            },
+            "3" : { description : "item" ,
+                states : {
+                    "1" : { description : "Add item" },
+                    "2" : { description : "Edit item" ,
+                            states : {
+                                "1" : { description : "Change name" },
+                                "2" : { description : "Change description" },
+                                "3" : { description : "Change item type" ,
+                                        states : {
+                                            "1" : { description : "Item is a fixture" },
+                                            "2" : { description : "Item is a container" },
+                                            "3" : { description : "Item is readable" },
+                                            "4" : { description : "Item is a lightsource" },
+                                            "5" : { description : "Item is eatable" },
+                                        }
+                                    }
+                            }
+                          },
+                    "3" : { description : "Remove item" }
+                }
             }
         }
     };
@@ -996,6 +1039,11 @@ module.exports = function ltbl(settings) {
                                 roomDesc = edgeName+" "+roomDesc;
                             }
                             locations[roomName] = { name: _name, description: roomDesc };
+                            if( lastNonVoid ) {
+                                if( locations[lastNonVoid].type ) {
+                                    locations[roomName].type = locations[lastNonVoid].type;
+                                }
+                            }
                         }
                         // Now connect voids (and rooms)
                         for( var voidRoom in connectedVoid.voids ) {
@@ -1060,6 +1108,7 @@ module.exports = function ltbl(settings) {
                         lastLocation = null;
                         lastDirection = null;                    
                         clearVoid();
+                        describe();
                         mode = "what";
                     }  else {
                         roomName = calcRoomName();
@@ -1079,6 +1128,7 @@ module.exports = function ltbl(settings) {
                             //console.log("Door name (blank or 'n' for no door, 's' for stairs, 'p' for path/passage )");
                             mode = "what";
                         }
+                        describe();
                     }
                 }
             } else if (mode == 'door?') {
@@ -1409,6 +1459,11 @@ module.exports = function ltbl(settings) {
                                 ) {
                                     posCell = map.levels[level][row][col];
                                 }
+                                if( pov.location ) {
+                                    if( locations[pov.location].type != "void" ) {
+                                        lastNonVoid = pov.location;
+                                    }
+                                }
                                 if (posCell) {
                                     if( locations[pov.location].type == "void" && locations[posCell].type != "void" ) {
                                         // clean up all the voids
@@ -1679,6 +1734,16 @@ module.exports = function ltbl(settings) {
                         }
                     } else {
                         console.log("You don't have a map");
+                    }
+                } else if ( firstWord == "b" ) {
+                    if( pov.isGod ) {
+                        if( lastNonVoid && pov.location ) {
+                            if( locations[pov.location].type == "void" ) {
+                                clearVoid();
+                                pov.location = lastNonVoid;
+                                describe();
+                            }
+                        }
                     }
                 } else if (firstWord == "pov") {
                     command = subSentence( command , 1);
