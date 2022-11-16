@@ -12,6 +12,7 @@ module.exports = function ltbl(settings) {
     var propositionAction = null;
     var verbNPC = null;
     var verbsWithTopics = { "ask" : true , "tell" : true , "show" : true , "give" : true };
+    var convoState = {};
     var wordMap = {
         firstWord : {
         "hello" : "hi",
@@ -246,7 +247,7 @@ module.exports = function ltbl(settings) {
     }
     var renderMapLevelText = function (map) {
         var render = require("./render-map-text.js");
-        return render( { map : map , locations : locations , viewportHeight : 15 , viewportWidth : 70 } );
+        return render( { map : map , locations : locations , viewportHeight : 15 , viewportWidth : 40 } );
     };
     var map = null;
     var renderMap = null;
@@ -435,8 +436,43 @@ module.exports = function ltbl(settings) {
                 }
                 renderMap =  renderMapLevelText(map);
             }            
+        }
+        if( pov.isGod ) {
             console.clear();
-            console.log(renderMap.lines.join("\n"));
+            if( renderMap ) {
+                var mapWidth = 40;
+                var infoWidth = 79 - mapWidth - 3;
+                var screen = [];
+                var maxLines = renderMap.lines.length;
+                var infoLines = [];
+                if( !infoWidth || infoWidth < 1 ) {
+                    infoWidth = 20;
+                }
+                if( renderMap.legend ) {
+                    infoLines =renderMap.legend;
+                }
+                screen.push("┌"+("─".repeat(infoWidth))+"┬"+("─".repeat(mapWidth))+"┐");
+                for( var i = 0 ; i < maxLines ; ++i ) {
+                    var mapLine = null;
+                    var infoLine = null;
+                    if( i < renderMap.lines.length )
+                        mapLine = renderMap.lines[i];
+                    else
+                        mapLine = (" ".repeat(mapWidth));
+                    if( i < infoLines.length ) {
+                        infoLine = infoLines[i];
+                        if( infoLine.length > infoWidth ) {
+                            infoLine = infoLine.substring(0,infoWidth);
+                        } else if( infoLine.length < infoWidth ) {
+                            infoLine = infoLine + " ".repeat(infoWidth-infoLine.length)
+                        }                        
+                    } else 
+                        infoLine = (" ".repeat(infoWidth));
+                    screen.push("│"+infoLine+"│"+mapLine+"│");
+                }
+                screen.push("└"+("─".repeat(infoWidth))+"┴"+("─".repeat(mapWidth))+"┘");
+                console.log(screen.join("\n"));
+            }
         }
         if( noVoid ) {
             if(pov.location) {
@@ -654,8 +690,36 @@ module.exports = function ltbl(settings) {
                    _npc = null;
                 }
                 if( _npc ) {
-                    if( _npc.response ) {
-                        console.log( _npc.response );
+                    if( typeof(_npc.response) == "string" ) {
+                        console.log( _npc.response );                        
+                    } else if( _npc.response.then ) {
+                        var responseIndex = convoState[verbNPC+verbAction+verbTopic+".then"];
+                        if( responseIndex ) {
+                            console.log( _npc.response.then[responseIndex] );
+                            if( _npc.response.then.length > (responseIndex+1) ) {
+                                convoState[verbNPC+verbAction+verbTopic+".then"] = (responseIndex+1);
+                            }
+                        } else {
+                            console.log( _npc.response.then[0] );
+                            if( _npc.response.then.length > 1 ) {
+                                convoState[verbNPC+verbAction+verbTopic+".then"] = 1;
+                            }
+                        }
+                    } else if( _npc.response.or ) {
+                        var responseIndex = convoState[verbNPC+verbAction+verbTopic+".or"];
+                        if( responseIndex ) {
+                            console.log( _npc.response.or[responseIndex] );
+                            if( _npc.response.or.length > (responseIndex+1) ) {
+                                convoState[verbNPC+verbAction+verbTopic+".or"] = (responseIndex+1);
+                            } else {
+                                convoState[verbNPC+verbAction+verbTopic+".or"] = 0;
+                            }
+                        } else {
+                            console.log( _npc.response.then[0] );
+                            if( _npc.response.or.length > 1 ) {
+                                convoState[verbNPC+verbAction+verbTopic+".or"] = 1;
+                            }
+                        }
                     }
                 } else if(pov.isGod) {
                     if( propositionAction ) {
@@ -1441,7 +1505,28 @@ module.exports = function ltbl(settings) {
                     if (pov.isGod ) {
                         if( verbAction ) {
                             command = subSentence( command , 1);
-                            console.log("TBD continue [then] "+verbAction+" - "+command)
+                            if( command.length > 0 ) {
+                                var _npc = findNPC(verbNPC);
+                                // TBD - also look for items (for verbs like push/pull etc)...
+                                if( _npc ) {
+                                    if( _npc.conversation[verbAction] ) {
+                                        if( _npc.conversation[verbAction][verbTopic] ) {
+                                            var modResponse = _npc.conversation[verbAction][verbTopic].response;
+                                            if( typeof(modResponse) == "string" ) {
+                                                modResponse = { "then" : [modResponse,command] };
+                                            } else {
+                                                if( !modResponse.then ) {
+                                                    modResponse.then = [];
+                                                }
+                                                modResponse.then.push(command);
+                                            }
+                                            _npc.conversation[verbAction][verbTopic].response = modResponse;
+                                        }
+                                    }
+                                }
+                            }
+                        } else {
+                            console.log("then requires a prior action");    
                         }
                     } else {
                         console.log("then what?");
@@ -1451,7 +1536,26 @@ module.exports = function ltbl(settings) {
                     if (pov.isGod ) {
                         if( verbAction ) {
                             command = subSentence( command , 1);
-                            console.log("TBD continue [or] "+verbAction+" - "+command)
+                            if( command.length > 0 ) {
+                                var _npc = findNPC(verbNPC);
+                                // TBD - also look for items (for verbs like push/pull etc)...
+                                if( _npc ) {
+                                    if( _npc.conversation[verbAction] ) {
+                                        if( _npc.conversation[verbAction][verbTopic] ) {
+                                            var modResponse = _npc.conversation[verbAction][verbTopic].response;
+                                            if( typeof(modResponse) == "string" ) {
+                                                modResponse = { "or" : [modResponse,command] };
+                                            } else {
+                                                if( !modResponse.or ) {
+                                                    modResponse.or = [];
+                                                }
+                                                modResponse.or.push(command);
+                                            }
+                                            _npc.conversation[verbAction][verbTopic].response = modResponse;
+                                        }
+                                    }
+                                }
+                            }
                         }
                     } else {
                         console.log("or not.");
@@ -1586,6 +1690,9 @@ module.exports = function ltbl(settings) {
                                 console.log("God mode not available.")
                             }
                         } else if( command == actor.name ) {
+                            if( pov.isGod ) {
+                                convoState = {};
+                            }
                             pov = actor;
                         }
                     } else {
