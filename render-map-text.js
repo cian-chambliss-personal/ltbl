@@ -6,6 +6,8 @@ module.exports = function(args) {
     var output = [];
     var viewRows = 0;
     var viewCols = 0;
+    var legend = [];
+    var legendIndex = 65;
     if( args.viewportHeight > 0 ) {
         viewRows = Math.round(args.viewportHeight / 5);
         if( viewRows == 0 ) {
@@ -51,6 +53,7 @@ module.exports = function(args) {
                 startCol = endCol - viewCols;
             }
         }        
+        var widthTaken = (endCol - startCol) * 10;
     }
     for (var r = startRow; r < endRow; ++r) {
         var cols = rows[r];
@@ -146,25 +149,6 @@ module.exports = function(args) {
                             }
                         }
                     } else if (1 <= ch && ch < 4) {
-                        var nameParts = "";
-                        if (cell.name) {
-                            nameParts = cell.name;
-                        } else if (cell.description) {
-                            nameParts = cell.description;
-                        }
-                        nameParts = nameParts.split(" ");
-                        if (ch <= nameParts.length) {
-                            nameParts = nameParts[ch - 1];
-                        } else {
-                            nameParts = "";
-                        }
-                        if (nameParts.length > 8) {
-                            nameParts = nameParts.substring(0, 8);
-                        }
-                        if (nameParts != "") {
-                            var leadChr = (10 - nameParts.length) / 2;
-                            text = text.substring(0, leadChr) + nameParts + text.substring(nameParts.length + leadChr);
-                        }
                         if (ch == 2 && cell.type != "void" ) {
                             if (cell.w) {
                                 if (cell.type == "outside") {
@@ -190,18 +174,37 @@ module.exports = function(args) {
                             }
                         }
                     }
-                    if( (c+1) == cols.length ) {
+                    /*if( (c+1) == cols.length ) {
                         if (cell.type != "outside" && cell.type != "void" ) {
                             text += "█";
                         } else if( hasTop && ch == 0) {
                             text += "▀";                        
                         }
-                    }
+                    }*/
                 }
                 if (ch == 2) {
+                    var roomNameDesc = "";
+                    if( cell ) {
+                        if (cell.type != "void") {
+                            if (cell.name) {
+                                roomNameDesc = cell.name;
+                            } else if (cell.description) {
+                                roomNameDesc = cell.description;
+                            }
+                        }
+                    }
                     if ( map.location.row == r 
                       && map.location.col == c) {
-                        text = text.substring(0,4) + '☺' + text.substring(5);
+                        text = text.substring(0,4) + chalk.yellowBright('☺') + text.substring(5);
+                        if( roomNameDesc.length > 0 ) {
+                            legend.push( '☺ - '+roomNameDesc )
+                        }
+                    } else if( roomNameDesc.length > 0 ) {
+                        text = text.substring(0,4) + chalk.blueBright( String.fromCharCode(legendIndex)) + text.substring(5);
+                        if( roomNameDesc.length > 0 ) {
+                            legend.push( String.fromCharCode(legendIndex) + ' - '+roomNameDesc );
+                            legendIndex = legendIndex + 1;
+                        }
                     }
                 }
                 if( color ) {
@@ -210,8 +213,15 @@ module.exports = function(args) {
                     line += text;
                 }
             }
-            output.push(line+" ");
+            if( widthTaken < args.viewportWidth ) {            
+                if( (args.viewportWidth-widthTaken) > 1 ) {
+                    line = (" ".repeat((args.viewportWidth-widthTaken)/2))+line+(" ".repeat((args.viewportWidth-widthTaken) - ((args.viewportWidth-widthTaken)/2)));
+                } else {
+                    line = line + " ";
+                }
+            }
+            output.push(line);
         }
     }
-    return { lines : output };
+    return { lines : output , legend : legend };
 };
