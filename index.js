@@ -9,6 +9,9 @@ module.exports = function ltbl(settings) {
     var lastLocation = null;
     var lastDirection = null;
     var lastNonVoid = null;
+    var lastNonVoidDirection = null;
+    var lastNonVoidDelta = 0;
+    var lastNonVoidPendingVoid = null;
     var describeItem = null;
     var fs = require("fs");
     var helpText = require("./en-help.json");
@@ -163,11 +166,8 @@ module.exports = function ltbl(settings) {
         var visited = {};
         var adjustLevel = function(dir,level) {
             if( dir.direction ) {
-                if( dir.direction == "u" ) {
-                    return level+1;
-                } else if( dir.direction == "d" ) {
-                    return level-1;
-                }
+                // Delta to level 
+                return level+dir.direction;
             }
             return level;
         }
@@ -368,7 +368,15 @@ module.exports = function ltbl(settings) {
                     console.log("To the " + name + " is " + doors[dir.door].name);
                 }
             } else {
-                console.log("To the " + name + " is " + (locations[dir.location].name || locations[dir.location].description) + ".");
+                if( dir.direction ) {
+                    if( dir.direction > 0 ) {
+                        console.log("To the " + name + " is passage leading up.");
+                    } else {
+                        console.log("To the " + name + " is passage leading down.");
+                    }
+                } else {                
+                    console.log("To the " + name + " is " + (locations[dir.location].name || locations[dir.location].description) + ".");
+                }
             }
         };
         if( !loc ) {
@@ -1139,7 +1147,12 @@ module.exports = function ltbl(settings) {
                         }
                         pov.location = newRoomMap[pov.location];
                         lastLocation = null;
-                        lastDirection = null;                    
+                        lastDirection = null;
+                        // Drop or raise voids
+                        if( lastNonVoid && lastNonVoidDelta != 0 ) {
+                            locations[lastNonVoid][lastNonVoidDirection].direction = lastNonVoidDelta;
+                            locations[locations[lastNonVoid][lastNonVoidDirection].location][reverseDirection(lastNonVoidDirection)].direction = -lastNonVoidDelta;
+                        }
                         clearVoid();
                         describe();
                         mode = "what";
@@ -1158,6 +1171,10 @@ module.exports = function ltbl(settings) {
                         if (lastLocation && lastDirection) {
                             locations[lastLocation][lastDirection] = { location: pov.location };
                             locations[pov.location][reverseDirection(lastDirection)] = { location: lastLocation };
+                            if( lastNonVoidDelta != 0 ) {
+                                locations[lastLocation][lastDirection].direction = lastNonVoidDelta;
+                                locations[pov.location][reverseDirection(lastDirection)].direction = -lastNonVoidDelta;
+                            }
                             //console.log("Door name (blank or 'n' for no door, 's' for stairs, 'p' for path/passage )");
                             mode = "what";
                         }
@@ -1178,12 +1195,12 @@ module.exports = function ltbl(settings) {
                         locations[pov.location][reverseDirection(lastDirection)].type = "passage";
                     }
                 } else if (lCase == "u") {
-                    locations[lastLocation][lastDirection].direction = "d";
-                    locations[pov.location][reverseDirection(lastDirection)].direction = "u";
+                    locations[lastLocation][lastDirection].direction = -1;
+                    locations[pov.location][reverseDirection(lastDirection)].direction = 1;
                     map = null;
                 } else if (lCase == "d") {
-                    locations[lastLocation][lastDirection].direction = "u";
-                    locations[pov.location][reverseDirection(lastDirection)].direction = "d";
+                    locations[lastLocation][lastDirection].direction = 1;
+                    locations[pov.location][reverseDirection(lastDirection)].direction = -1;
                     map = null;
                 } else if (lCase == "-") {
                     locations[lastLocation][lastDirection].teleport = true;
@@ -1460,67 +1477,97 @@ module.exports = function ltbl(settings) {
                                 var level = map.location.level;
                                 var row = map.location.row;
                                 var col = map.location.col;
-                                if (lCase == "n") {
-                                    row = row - 1;
-                                } else if (lCase == "s") {
-                                    row = row + 1;
-                                } else if (lCase == "e") {
-                                    col = col + 1;
-                                } else if (lCase == "w") {
-                                    col = col - 1;
-                                } else if (lCase == "u") {
-                                    level = level + 1;
-                                } else if (lCase == "d") {
-                                    level = level - 1;
-                                } else if (lCase == "se") {
-                                    row = row + 1;
-                                    col = col + 1;
-                                } else if (lCase == "sw") {
-                                    row = row + 1;
-                                    col = col - 1;
-                                } else if (lCase == "ne") {
-                                    row = row - 1;
-                                    col = col + 1;
-                                } else if (lCase == "nw") {
-                                    row = row - 1;
-                                    col = col - 1;
-                                }
-                                var posCell = null;
-                                if (0 <= level && level < map.levels.length
-                                    && 0 <= row && row < map.levels[level].length
-                                    && 0 <= col && col < map.levels[level][row].length
-                                ) {
-                                    posCell = map.levels[level][row][col];
-                                }
-                                if( pov.location ) {
-                                    if( locations[pov.location].type != "void" ) {
-                                        lastNonVoid = pov.location;
+
+                                if( pov.location && lastNonVoid ) {
+                                    if( locations[pov.location].type == "void" ) {
+                                        if (lCase == "u") {
+                                            lCase = "+";
+                                        } else if (lCase == "d") {
+                                            lCase = "-";
+                                        }
                                     }
                                 }
-                                if (posCell) {
-                                    if( locations[pov.location].type == "void" && locations[posCell].type != "void" ) {
-                                        // clean up all the voids
-                                        clearVoid();
+                                if( lCase == "+" ||  lCase == "-" ) {
+                                    if( lastNonVoid && lastNonVoidPendingVoid ) {
+                                        if( lCase == "+" ) {
+                                            lastNonVoidDelta = lastNonVoidDelta + 1;
+                                        } else {
+                                            lastNonVoidDelta = lastNonVoidDelta - 1;
+                                        }
+                                        locations[lastNonVoidPendingVoid][reverseDirection(lastNonVoidDirection)].direction = -lastNonVoidDelta;
+                                        map = null;
+                                        describe();
                                     }
-                                    lastLocation = pov.location
-                                    lastDirection = lCase;
-                                    pov.location = posCell;
                                 } else {
-                                    lastLocation = pov.location;                                    
-                                    var voidCounter = 1;
-                                    while( locations["void"+voidCounter] ) {
-                                        voidCounter = voidCounter + 1;
+                                    if (lCase == "n") {
+                                        row = row - 1;
+                                    } else if (lCase == "s") {
+                                        row = row + 1;
+                                    } else if (lCase == "e") {
+                                        col = col + 1;
+                                    } else if (lCase == "w") {
+                                        col = col - 1;
+                                    } else if (lCase == "u") {
+                                        level = level + 1;
+                                    } else if (lCase == "d") {
+                                        level = level - 1;
+                                    } else if (lCase == "se") {
+                                        row = row + 1;
+                                        col = col + 1;
+                                    } else if (lCase == "sw") {
+                                        row = row + 1;
+                                        col = col - 1;
+                                    } else if (lCase == "ne") {
+                                        row = row - 1;
+                                        col = col + 1;
+                                    } else if (lCase == "nw") {
+                                        row = row - 1;
+                                        col = col - 1;
                                     }
-                                    pov.location = "void"+voidCounter;
-                                    // Single link void back to cell
-                                    locations[pov.location] = { name : "void" , type : "void" , description : "void" };
-                                    if( lastLocation && locations[lastLocation].type == "void" ) {
-                                        locations[pov.location][reverseDirection(lCase)] = { location: lastLocation , "wall" : "none" };
+                                    var posCell = null;
+                                    if (0 <= level && level < map.levels.length
+                                        && 0 <= row && row < map.levels[level].length
+                                        && 0 <= col && col < map.levels[level][row].length
+                                    ) {
+                                        posCell = map.levels[level][row][col];
+                                    }
+                                    if( pov.location ) {
+                                        if( locations[pov.location].type != "void" ) {
+                                            lastNonVoid = pov.location;
+                                            lastNonVoidDirection = lCase;
+                                            lastNonVoidDelta = 0;
+                                            lastNonVoidPendingVoid = null;
+                                        }
+                                    }
+                                    if (posCell) {
+                                        if( locations[pov.location].type == "void" && locations[posCell].type != "void" ) {
+                                            // clean up all the voids
+                                            clearVoid();
+                                        }
+                                        lastLocation = pov.location
+                                        lastDirection = lCase;
+                                        pov.location = posCell;
                                     } else {
-                                        locations[pov.location][reverseDirection(lCase)] = { location: lastLocation };
+                                        lastLocation = pov.location;                                    
+                                        var voidCounter = 1;
+                                        while( locations["void"+voidCounter] ) {
+                                            voidCounter = voidCounter + 1;
+                                        }
+                                        pov.location = "void"+voidCounter;
+                                        // Single link void back to cell
+                                        locations[pov.location] = { name : "void" , type : "void" , description : "void" };
+                                        if( lastLocation && locations[lastLocation].type == "void" ) {
+                                            locations[pov.location][reverseDirection(lCase)] = { location: lastLocation , "wall" : "none" };
+                                        } else {
+                                            locations[pov.location][reverseDirection(lCase)] = { location: lastLocation };
+                                        }
+                                        lastDirection = lCase;
+                                        if( !lastNonVoidPendingVoid ) {
+                                            lastNonVoidPendingVoid = pov.location;
+                                        }
+                                        map = null;
+                                        describe();
                                     }
-                                    lastDirection = lCase;
-                                    map = null;
                                 }
                             } else {
                                 console.log("You cannot go that way.");
@@ -1557,7 +1604,6 @@ module.exports = function ltbl(settings) {
                                 console.log("Door name (blank or 'n' for no door, 's' for stairs, 'p' for path/passage )");
                                 mode = "door?";
                             } else {
-                                statusLine = "lastLocation = "+lastLocation+" lastDirection = "+lastDirection;
                                 if( lastDirection 
                                  && lastLocation 
                                  && lCase == lastDirection
