@@ -66,6 +66,7 @@ module.exports = function(args) {
                 }
                 text = "          ";
                 var hasLeft = false, hasTop = false;
+                var rowAbove = null , rowLeft = null;
                 if( c > 0 ) {
                     otherCell = cols[c-1];
                     if( otherCell ) {
@@ -73,6 +74,7 @@ module.exports = function(args) {
                         if( otherCell ) {
                             if (otherCell.type != "outside" && otherCell.type != "void" ) {
                                 hasLeft = true;
+                                rowLeft = cols[c-1];
                             }
                         }
                     }
@@ -84,6 +86,7 @@ module.exports = function(args) {
                         if( otherCell ) {
                             if (otherCell.type != "outside" && otherCell.type != "void" ) {
                                 hasTop = true;
+                                rowAbove = rows[r-1][c];
                             }
                         }
                     }
@@ -92,6 +95,12 @@ module.exports = function(args) {
                 if (!cell) {
                     if( hasLeft || hasTop ) {
                         cell = { type : "void" };
+                        if( rowAbove && locations[rowAbove].s ) {
+                            cell.n = { location : rowAbove };
+                        }
+                        if( rowLeft && locations[rowLeft].e ) {
+                            cell.w = { location : rowLeft };
+                        }
                     }
                 } else {
                     if (cell.type != "outside") {
@@ -156,14 +165,7 @@ module.exports = function(args) {
                                 } else {
                                     text = " " + text.substring(1);
                                 }
-                            }
-                            if (cell.e) {
-                                if (cell.type == "outside") {
-                                    text = text.substring(0, 9) + " ";
-                                } else {
-                                    text = text.substring(0, 9) + " ";
-                                }
-                            }
+                            }                            
                         }
                     } else if (ch == 4) {
                         if (cell.s) {
@@ -174,13 +176,6 @@ module.exports = function(args) {
                             }
                         }
                     }
-                    /*if( (c+1) == cols.length ) {
-                        if (cell.type != "outside" && cell.type != "void" ) {
-                            text += "█";
-                        } else if( hasTop && ch == 0) {
-                            text += "▀";                        
-                        }
-                    }*/
                 }
                 if (ch == 2) {
                     var roomNameDesc = "";
