@@ -160,6 +160,50 @@ module.exports = function ltbl(settings) {
     };
     var topics = {
     };
+    var getLocation = function(name) {
+        var location = null;
+        name = name.split(".");
+        location = locations[name[0]];
+        if( name.length > 1 ) {
+            for( var i = 1 ; location && i < name.length ; ++i ) {
+                if( location.locations ) {
+                    location = location.locations[name[i]];
+                } else {
+                    location = null;
+                }
+            }
+        }
+        return location;
+    };
+    var setLocation = function(name,room) {
+        var location = null;
+        name = name.split(".");
+        location = locations[name[0]];
+        if( !location ) {
+            if( name.length > 1 ) {
+                locations[name[0]] = {};
+            } else {
+                locations[name[0]] = room;
+            }
+        }
+        if( name.length > 1 ) {
+            for( var i = 1 ; location && i < name.length ; ++i ) {
+                if( !location.locations ) {
+                    location.locations = {};
+                }
+                if( i == name.length - 1) {
+                    location.locations[name[i]] = room;
+                    break
+                } else {
+                    if( !location.locations[name[i]] ) {
+                        location.locations[name[i]] = {};
+                    }
+                    location = location.locations[name[i]];
+                }
+            }
+        }
+        return location;
+    };
     //---------------------------------------------------------------------------
     // Create a spacial map of from the logical description
     var createMap = function () {
@@ -187,7 +231,7 @@ module.exports = function ltbl(settings) {
                     bounds.startCol = col;
                 if (col > bounds.endCol)
                     bounds.endCol = col;
-                var loc = locations[_loc];
+                var loc = getLocation(_loc);
                 if( !loc ) {
                     loc = { name : "undefined"};
                 }
@@ -293,7 +337,7 @@ module.exports = function ltbl(settings) {
     }
     var renderMapLevelText = function (map) {
         var render = require("./render-map-text.js");
-        return render( { map : map , locations : locations , viewportHeight : 15 , viewportWidth : 40 } );
+        return render( { map : map , getLocation : getLocation , viewportHeight : 15 , viewportWidth : 40 } );
     };
     var map = null;
     var renderMap = null;
@@ -375,7 +419,7 @@ module.exports = function ltbl(settings) {
                         console.log("To the " + name + " is passage leading down.");
                     }
                 } else {                
-                    console.log("To the " + name + " is " + (locations[dir.location].name || locations[dir.location].description) + ".");
+                    console.log("To the " + name + " is " + (getLocation(dir.location).name || getLocation(dir.location).description) + ".");
                 }
             }
         };
@@ -533,7 +577,7 @@ module.exports = function ltbl(settings) {
         }
         if( noVoid ) {
             if(pov.location) {
-                if( locations[pov.location].type != "void" ) {
+                if( getLocation(pov.location).type != "void" ) {
                     noVoid = false;
                 }
             }
@@ -551,7 +595,7 @@ module.exports = function ltbl(settings) {
             console.log("What is you email?");
             mode = "getemail";
         } else if (pov.location && !noVoid ) {
-            render(locations[pov.location],pov.location, 0);
+            render(getLocation(pov.location),pov.location, 0);
             mode = "what";
         } else {            
             console.log("Where are you?");
@@ -561,7 +605,7 @@ module.exports = function ltbl(settings) {
     var lookupItem = function (command, flags) {
         var itemName = null;
         if (command != "") {
-            var where = locations[pov.location];
+            var where = getLocation(pov.location);
             var candidates = [];
             var what = command;
             command = command.toLowerCase();
@@ -806,15 +850,16 @@ module.exports = function ltbl(settings) {
     };
     var setLocationType = function(ltype) {
         if (pov.location) {
+            var roomPtr = getLocation(pov.location);
             if( pov.isGod ) {
                 if( ltype == "inside"  ) {
-                    delete locations[pov.location].type;
+                    delete roomPtr.type;
                 } else {
-                    locations[pov.location].type = ltype;
+                    roomPtr.type = ltype;
                 }
-            } else if( !locations[pov.location].type && ltype == "inside" ) {
+            } else if( !roomPtr.type && ltype == "inside" ) {
                 console.log("Yes it is.");
-            } else if( locations[pov.location].type == ltype ) {
+            } else if( roomPtr.type == ltype ) {
                 console.log("Yes it is.");
             } else {
                 console.log("No, it isn't.");
@@ -857,7 +902,7 @@ module.exports = function ltbl(settings) {
                 return room;
             } else {
                 if( room ) {
-                    var roomPtr = locations[room];
+                    var roomPtr = getLocation(room);
                     if( roomPtr ) {
                         if( roomPtr.type == "void" ) {
                             // look for other connection
@@ -878,53 +923,53 @@ module.exports = function ltbl(settings) {
                             visitedVoid[room] = roomPtr;
                             if( c > 0 ) {
                                 if( roomPtr.w ) {
-                                    if( locations[ roomPtr.w.location ].type == "void" ) {
+                                    if( getLocation( roomPtr.w.location ).type == "void" ) {
                                         roomPtr.w.wall = "none";
                                     }                                    
                                 } else {
                                     otherRoom = connectAllVoid(r,c-1);
                                     if( otherRoom ) {
                                         roomPtr.w = { location : otherRoom , wall : "none" };
-                                        locations[otherRoom].e = { location : room , wall : "none"};
+                                        getLocation(otherRoom).e = { location : room , wall : "none"};
                                     }
                                 }
                             }
                             if( (c + 1) < rows[r].length ) {
                                 if( roomPtr.e ) {
-                                    if( locations[ roomPtr.e.location ].type == "void" ) {
+                                    if( getLocation( roomPtr.e.location ).type == "void" ) {
                                         roomPtr.e.wall = "none";
                                     }                                    
                                 } else {
                                     otherRoom = connectAllVoid(r,c+1);
                                     if( otherRoom ) {
                                         roomPtr.e = { location : otherRoom , wall : "none"};
-                                        locations[otherRoom].w = { location : room , wall : "none"};
+                                        getLocation(otherRoom).w = { location : room , wall : "none"};
                                     }
                                 }
                             }
                             if( r > 0 ) {
                                 if( roomPtr.n ) {
-                                    if( locations[ roomPtr.n.location ].type == "void" ) {
+                                    if( getLocation( roomPtr.n.location ).type == "void" ) {
                                         roomPtr.n.wall = "none";
                                     }
                                 } else {
                                     otherRoom = connectAllVoid(r-1,c);
                                     if( otherRoom ) {
                                         roomPtr.n = { location : otherRoom , wall : "none"};
-                                        locations[otherRoom].s = { location : room , wall : "none"};
+                                        getLocation(otherRoom).s = { location : room , wall : "none"};
                                     }
                                 }
                             }
                             if( (r + 1) < rows.length  ) {
                                 if( roomPtr.s ) {
-                                    if( locations[ roomPtr.s.location ].type == "void" ) {
+                                    if( getLocation( roomPtr.s.location ).type == "void" ) {
                                         roomPtr.s.wall = "none";
                                     }
                                 } else {
                                     otherRoom = connectAllVoid(r+1,c);
                                     if( otherRoom ) {
                                         roomPtr.s = { location : otherRoom , wall : "none"};
-                                        locations[otherRoom].n = { location : room , wall : "none"};
+                                        getLocation(otherRoom).n = { location : room , wall : "none"};
                                     }
                                 }
                             }
@@ -1010,20 +1055,23 @@ module.exports = function ltbl(settings) {
                 } else if (lCase.length > 2) {
                     var connectedVoid = { count : 0 };
                     if( pov.location ) {
-                        if( locations[pov.location].type == "void" ) {
+                        if( getLocation(pov.location).type == "void" ) {
                             connectedVoid = gatherVoid();
                             if( connectedVoid.count  > 1 ) {
                                 autoConnectVoids(map,connectedVoid.collectedVoid);
                             }
                         }
                     }
-                    var calcRoomName = function() {
+                    var calcRoomName = function(suffix) {
                         var roomName = extractNounAndAdj(command);
                         if (roomName) {
+                            if( suffix ) {
+                                roomName = roomName + "."+ suffix;
+                            }
                             // add # to the orginal room (libary,library1,library2...)
-                            if (locations[roomName]) {
+                            if (getLocation(roomName)) {
                                 var extactCount = 1;
-                                while( locations[roomName+extactCount] ) {
+                                while( getLocation(roomName+extactCount) ) {
                                     extactCount = extactCount + 1;
                                 }
                                 roomName = roomName+extactCount
@@ -1045,18 +1093,24 @@ module.exports = function ltbl(settings) {
                         for( var voidRoom in connectedVoid.voids ) {
                             var _name = parts.name;
                             var roomDesc = command;
-                            var roomName = calcRoomName();
                             var srcRoom = connectedVoid.voids[voidRoom];
+                            var suffix = srcRoom.edge;
+                            if( !suffix && Number.isFinite(srcRoom.row) && Number.isFinite(srcRoom.col) ) {
+                                suffix = "r"+srcRoom.row+"c"+srcRoom.col;
+                            } else {
+                                suffix = "part";
+                            }
+                            var roomName = calcRoomName(suffix);
                             newRoomMap[voidRoom] = roomName;
                             if( srcRoom.edge ) {
                                 var edgeName = friendlyDir(srcRoom.edge);
                                 _name = edgeName+" "+_name;
                                 roomDesc = edgeName+" "+roomDesc;
                             }
-                            locations[roomName] = { name: _name, description: roomDesc };
+                            setLocation(roomName,{ name: _name, description: roomDesc });
                             if( lastNonVoid ) {
-                                if( locations[lastNonVoid].type ) {
-                                    locations[roomName].type = locations[lastNonVoid].type;
+                                if( getLocation(lastNonVoid).type ) {
+                                    getLocation(roomName).type = getLocation(lastNonVoid).type;
                                 }
                             }
                         }
@@ -1064,7 +1118,7 @@ module.exports = function ltbl(settings) {
                         for( var voidRoom in connectedVoid.voids ) {
                             var roomName = newRoomMap[voidRoom];
                             var srcRoom = connectedVoid.voids[voidRoom];
-                            var dstRoom = locations[roomName];
+                            var dstRoom = getLocation(roomName);
                             var otherLocation;
                             if( srcRoom.n && !dstRoom.n ) {
                                 if( newRoomMap[srcRoom.n.location] ) {
@@ -1077,7 +1131,7 @@ module.exports = function ltbl(settings) {
                                     dstRoom.n.wall = srcRoom.n.wall;
                                     otherLocation.wall = srcRoom.n.wall;
                                 }
-                                locations[dstRoom.n.location].s = otherLocation;
+                                getLocation(dstRoom.n.location).s = otherLocation;
                             }
                             if( srcRoom.s && !dstRoom.s ) {
                                 if( newRoomMap[srcRoom.s.location] ) {
@@ -1090,7 +1144,7 @@ module.exports = function ltbl(settings) {
                                     dstRoom.s.wall = srcRoom.s.wall;
                                     otherLocation.wall = srcRoom.s.wall;
                                 }
-                                locations[dstRoom.s.location].n = otherLocation;
+                                getLocation(dstRoom.s.location).n = otherLocation;
                             }
                             if( srcRoom.e && !dstRoom.e ) {
                                 if( newRoomMap[srcRoom.e.location] ) {
@@ -1103,7 +1157,7 @@ module.exports = function ltbl(settings) {
                                     dstRoom.e.wall = srcRoom.e.wall;
                                     otherLocation.wall = srcRoom.e.wall;
                                 }
-                                locations[dstRoom.e.location].w = otherLocation;
+                                getLocation(dstRoom.e.location).w = otherLocation;
                             }
                             if( srcRoom.w && !dstRoom.w ) {
                                 if( newRoomMap[srcRoom.w.location] ) {
@@ -1116,7 +1170,7 @@ module.exports = function ltbl(settings) {
                                     dstRoom.w.wall = srcRoom.w.wall;
                                     otherLocation.wall = srcRoom.w.wall;
                                 }
-                                locations[dstRoom.w.location].e = otherLocation;
+                                getLocation(dstRoom.w.location).e = otherLocation;
                             }
                             if( srcRoom.u && !dstRoom.u ) {
                                 if( newRoomMap[srcRoom.u.location] ) {
@@ -1129,7 +1183,7 @@ module.exports = function ltbl(settings) {
                                     dstRoom.u.wall = srcRoom.u.wall;
                                     otherLocation.wall = srcRoom.u.wall;
                                 }
-                                locations[dstRoom.u.location].d = otherLocation;
+                                getLocation(dstRoom.u.location).d = otherLocation;
                             }
                             if( srcRoom.d && !dstRoom.d ) {
                                 if( newRoomMap[srcRoom.d.location] ) {
@@ -1142,7 +1196,7 @@ module.exports = function ltbl(settings) {
                                     dstRoom.d.wall = srcRoom.d.wall;
                                     otherLocation.wall = srcRoom.d.wall;
                                 }
-                                locations[dstRoom.d.location].u = otherLocation;
+                                getLocation(dstRoom.d.location).u = otherLocation;
                             }
                         }
                         pov.location = newRoomMap[pov.location];
@@ -1150,30 +1204,30 @@ module.exports = function ltbl(settings) {
                         lastDirection = null;
                         // Drop or raise voids
                         if( lastNonVoid && lastNonVoidDelta != 0 ) {
-                            locations[lastNonVoid][lastNonVoidDirection].direction = lastNonVoidDelta;
-                            locations[locations[lastNonVoid][lastNonVoidDirection].location][reverseDirection(lastNonVoidDirection)].direction = -lastNonVoidDelta;
+                            getLocation(lastNonVoid)[lastNonVoidDirection].direction = lastNonVoidDelta;
+                            getLocation(getLocation(lastNonVoid)[lastNonVoidDirection].location)[reverseDirection(lastNonVoidDirection)].direction = -lastNonVoidDelta;
                         }
                         clearVoid();
                         describe();
                         mode = "what";
                     }  else {
-                        roomName = calcRoomName();
+                        roomName = calcRoomName(null);
                         pov.location = roomName;
-                        locations[pov.location] = { name: parts.name, description: command };
+                        getLocation(pov.location) = { name: parts.name, description: command };
                         if( connectedVoid.count > 0 ) {
                             clearVoid();
                         }
                         if (lastLocation) {
-                            if (locations[lastLocation].type) {
-                                locations[pov.location].type = locations[lastLocation].type;
+                            if (getLocation(lastLocation).type) {
+                                getLocation(pov.location).type = getLocation(lastLocation).type;
                             }
                         }
                         if (lastLocation && lastDirection) {
-                            locations[lastLocation][lastDirection] = { location: pov.location };
-                            locations[pov.location][reverseDirection(lastDirection)] = { location: lastLocation };
+                            getLocation(lastLocation)[lastDirection] = { location: pov.location };
+                            getLocation(pov.location)[reverseDirection(lastDirection)] = { location: lastLocation };
                             if( lastNonVoidDelta != 0 ) {
-                                locations[lastLocation][lastDirection].direction = lastNonVoidDelta;
-                                locations[pov.location][reverseDirection(lastDirection)].direction = -lastNonVoidDelta;
+                                getLocation(lastLocation)[lastDirection].direction = lastNonVoidDelta;
+                                getLocation(pov.location)[reverseDirection(lastDirection)].direction = -lastNonVoidDelta;
                             }
                             //console.log("Door name (blank or 'n' for no door, 's' for stairs, 'p' for path/passage )");
                             mode = "what";
@@ -1184,35 +1238,35 @@ module.exports = function ltbl(settings) {
             } else if (mode == 'door?') {
                 lCase = lCase.trim();
                 if (lCase == "s") {
-                    locations[lastLocation][lastDirection].type = "stairs";
-                    locations[pov.location][reverseDirection(lastDirection)].type = "stairs";
+                    getLocation(lastLocation)[lastDirection].type = "stairs";
+                    getLocation(pov.location)[reverseDirection(lastDirection)].type = "stairs";
                 } else if (lCase == "p") {
-                    if (locations[lastLocation].type == "outside") {
-                        locations[lastLocation][lastDirection].type = "path";
-                        locations[pov.location][reverseDirection(lastDirection)].type = "path";
+                    if (getLocation(lastLocation).type == "outside") {
+                        getLocation(lastLocation)[lastDirection].type = "path";
+                        getLocation(pov.location)[reverseDirection(lastDirection)].type = "path";
                     } else {
-                        locations[lastLocation][lastDirection].type = "passage";
-                        locations[pov.location][reverseDirection(lastDirection)].type = "passage";
+                        getLocation(lastLocation)[lastDirection].type = "passage";
+                        getLocation(pov.location)[reverseDirection(lastDirection)].type = "passage";
                     }
                 } else if (lCase == "u") {
-                    locations[lastLocation][lastDirection].direction = -1;
-                    locations[pov.location][reverseDirection(lastDirection)].direction = 1;
+                    getLocation(lastLocation)[lastDirection].direction = -1;
+                    getLocation(pov.location)[reverseDirection(lastDirection)].direction = 1;
                     map = null;
                 } else if (lCase == "d") {
-                    locations[lastLocation][lastDirection].direction = 1;
-                    locations[pov.location][reverseDirection(lastDirection)].direction = -1;
+                    getLocation(lastLocation)[lastDirection].direction = 1;
+                    getLocation(pov.location)[reverseDirection(lastDirection)].direction = -1;
                     map = null;
                 } else if (lCase == "-") {
-                    locations[lastLocation][lastDirection].teleport = true;
-                    locations[pov.location][reverseDirection(lastDirection)].teleport = true;
+                    getLocation(lastLocation)[lastDirection].teleport = true;
+                    getLocation(pov.location)[reverseDirection(lastDirection)].teleport = true;
                     map = null;
                 } else if (lCase == "+") {
                     // TBD - we need to make sure that the maps do *not* overlap
-                    if( locations[lastLocation][lastDirection].teleport ) {
-                        delete locations[lastLocation][lastDirection].teleport;
+                    if( getLocation(lastLocation)[lastDirection].teleport ) {
+                        delete getLocation(lastLocation)[lastDirection].teleport;
                     }
-                    if( locations[pov.location][reverseDirection(lastDirection)].teleport ) {
-                        delete locations[pov.location][reverseDirection(lastDirection)].teleport;
+                    if( getLocation(pov.location)[reverseDirection(lastDirection)].teleport ) {
+                        delete getLocation(pov.location)[reverseDirection(lastDirection)].teleport;
                     }
                     map = null;
                 } else if (lCase != ""
@@ -1225,8 +1279,8 @@ module.exports = function ltbl(settings) {
                         itemNum = itemNum + 1;
                     }
                     doors[name] = { name: command };
-                    locations[lastLocation][lastDirection].door = name;
-                    locations[pov.location][reverseDirection(lastDirection)].door = name;
+                    getLocation(lastLocation)[lastDirection].door = name;
+                    getLocation(pov.location)[reverseDirection(lastDirection)].door = name;
                 }
                 mode = "what";
                 describe();
@@ -1241,7 +1295,7 @@ module.exports = function ltbl(settings) {
                 items[describeItem].content = command;
                 mode = "what";
             } else if (mode == 'describe_location') {
-                locations[pov.location].description = command;
+                getLocation(pov.location).description = command;
                 mode = "what";
             } else if (mode == 'what') {
                 // navigate the map
@@ -1262,7 +1316,7 @@ module.exports = function ltbl(settings) {
                             }
                         }
                     } else {
-                        var where = locations[pov.location];
+                        var where = getLocation(pov.location);
                         if (where.description) {
                             console.log(where.description);
                         } else {
@@ -1287,7 +1341,7 @@ module.exports = function ltbl(settings) {
                     // Hide adds the 'hidden' property requires the player to inspect the container
                     command = subSentence( command , 1);
                     if (command != "") {
-                        var where = locations[pov.location];
+                        var where = getLocation(pov.location);
                         var what = command;
                         var holder = "contains";
                         var existingItem = lookupItem(what, "actor");
@@ -1405,7 +1459,7 @@ module.exports = function ltbl(settings) {
                         var item = lookupItem(command, "noactor");
                         if (item) {
                             if (item != "?") {
-                                var where = locations[pov.location];
+                                var where = getLocation(pov.location);
                                 for (var i = 0; i < where.contains.length; ++i) {
                                     if (where.contains[i].item == item) {
                                         pov.inventory.push(where.contains[i]);
@@ -1439,7 +1493,7 @@ module.exports = function ltbl(settings) {
                     }
                     command = subSentence( command , 1);
                     if (command != "") {
-                        var where = locations[pov.location];
+                        var where = getLocation(pov.location);
                         var what = command;
                         if (!where.contains) {
                             where.contains = [];
@@ -1465,8 +1519,8 @@ module.exports = function ltbl(settings) {
                     }
                 } else if (isDirection(lCase)) {
                     lCase = isDirection(lCase).primary;
-                    if (locations[pov.location]) {
-                        var nextLoc = locations[pov.location][lCase];
+                    if (getLocation(pov.location)) {
+                        var nextLoc = getLocation(pov.location)[lCase];
                         if (!nextLoc) {
                             if( pov.isGod ) {
                                 if (!map) {
@@ -1479,7 +1533,7 @@ module.exports = function ltbl(settings) {
                                 var col = map.location.col;
 
                                 if( pov.location && lastNonVoid ) {
-                                    if( locations[pov.location].type == "void" ) {
+                                    if( getLocation(pov.location).type == "void" ) {
                                         if (lCase == "u") {
                                             lCase = "+";
                                         } else if (lCase == "d") {
@@ -1494,7 +1548,7 @@ module.exports = function ltbl(settings) {
                                         } else {
                                             lastNonVoidDelta = lastNonVoidDelta - 1;
                                         }
-                                        locations[lastNonVoidPendingVoid][reverseDirection(lastNonVoidDirection)].direction = -lastNonVoidDelta;
+                                        getLocation(lastNonVoidPendingVoid)[reverseDirection(lastNonVoidDirection)].direction = -lastNonVoidDelta;
                                         map = null;
                                         describe();
                                     }
@@ -1532,7 +1586,7 @@ module.exports = function ltbl(settings) {
                                         posCell = map.levels[level][row][col];
                                     }
                                     if( pov.location ) {
-                                        if( locations[pov.location].type != "void" ) {
+                                        if( getLocation(pov.location).type != "void" ) {
                                             lastNonVoid = pov.location;
                                             lastNonVoidDirection = lCase;
                                             lastNonVoidDelta = 0;
@@ -1540,7 +1594,7 @@ module.exports = function ltbl(settings) {
                                         }
                                     }
                                     if (posCell) {
-                                        if( locations[pov.location].type == "void" && locations[posCell].type != "void" ) {
+                                        if( getLocation(pov.location).type == "void" && getLocation(posCell).type != "void" ) {
                                             // clean up all the voids
                                             clearVoid();
                                         }
@@ -1550,16 +1604,16 @@ module.exports = function ltbl(settings) {
                                     } else {
                                         lastLocation = pov.location;                                    
                                         var voidCounter = 1;
-                                        while( locations["void"+voidCounter] ) {
+                                        while( getLocation("void"+voidCounter) ) {
                                             voidCounter = voidCounter + 1;
                                         }
                                         pov.location = "void"+voidCounter;
                                         // Single link void back to cell
-                                        locations[pov.location] = { name : "void" , type : "void" , description : "void" };
-                                        if( lastLocation && locations[lastLocation].type == "void" ) {
-                                            locations[pov.location][reverseDirection(lCase)] = { location: lastLocation , "wall" : "none" };
+                                        setLocation(pov.location,{ name : "void" , type : "void" , description : "void" });
+                                        if( lastLocation && getLocation(lastLocation).type == "void" ) {
+                                            getLocation(pov.location)[reverseDirection(lCase)] = { location: lastLocation , "wall" : "none" };
                                         } else {
-                                            locations[pov.location][reverseDirection(lCase)] = { location: lastLocation };
+                                            getLocation(pov.location)[reverseDirection(lCase)] = { location: lastLocation };
                                         }
                                         lastDirection = lCase;
                                         if( !lastNonVoidPendingVoid ) {
@@ -1574,7 +1628,7 @@ module.exports = function ltbl(settings) {
                             }
                         } else {
                             if( pov.location ) {
-                                if( locations[pov.location].type == "void" && locations[nextLoc.location].type != "void" ) {
+                                if( getLocation(pov.location).type == "void" && getLocation(nextLoc.location).type != "void" ) {
                                     // clean up all the voids
                                     clearVoid();
                                 } else if( nextLoc.teleport ) {
@@ -1595,8 +1649,8 @@ module.exports = function ltbl(settings) {
                         } else {
                             lCase = lastDirection;
                         }
-                        if (locations[pov.location]) {
-                            var nextLoc = locations[pov.location][lCase];
+                        if (getLocation(pov.location)) {
+                            var nextLoc = getLocation(pov.location)[lCase];
                             if (nextLoc) {
                                 lastDirection = lCase;
                                 lastLocation = pov.location;
@@ -1607,17 +1661,17 @@ module.exports = function ltbl(settings) {
                                 if( lastDirection 
                                  && lastLocation 
                                  && lCase == lastDirection
-                                 && !locations[lastLocation][lastDirection]
-                                 && !locations[pov.location][reverseDirection(lastDirection)]
+                                 && !getLocation(lastLocation)[lastDirection]
+                                 && !getLocation(pov.location)[reverseDirection(lastDirection)]
                                   ) {
-                                    locations[lastLocation][lastDirection] = { location : pov.location };
-                                    locations[pov.location][reverseDirection(lastDirection)] = { location : lastLocation };
+                                    getLocation(lastLocation)[lastDirection] = { location : pov.location };
+                                    getLocation(pov.location)[reverseDirection(lastDirection)] = { location : lastLocation };
                                     map = null;
                                     describe();
                                     console.log("Door name (blank or 'n' for no door, 's' for stairs, 'p' for path/passage )");
                                     mode = "door?";
                                 } else {
-                                    console.log("There is no ending location.");
+                                    console.log("There is no ending location. lastLocation="+lastLocation+" lastDirection="+lastDirection+ " pov.location="+pov.location);
                                 }
                             }
                         } else {
@@ -1636,14 +1690,14 @@ module.exports = function ltbl(settings) {
                     setLocationType("bottomless");
                 } else if (lCase == "location inside" || lCase == "is inside" ) {
                     if( pov.isGod && pov.location ) {
-                        delete locations[pov.location].type;
+                        delete getLocation(pov.location).type;
                     } else {
                         setLocationType("inside");
                     }
                 } else if (lCase == "location") {
                     if (pov.location) {
-                        if (locations[pov.location].type) {
-                            console.log("Location is " + locations[pov.location].type + ".");
+                        if (getLocation(pov.location).type) {
+                            console.log("Location is " + getLocation(pov.location).type + ".");
                         } else {
                             console.log("Location is inside.");
                         }
@@ -1834,7 +1888,7 @@ module.exports = function ltbl(settings) {
                 } else if ( firstWord == "b" ) {
                     if( pov.isGod ) {
                         if( lastNonVoid && pov.location ) {
-                            if( locations[pov.location].type == "void" ) {
+                            if( getLocation(pov.location).type == "void" ) {
                                 clearVoid();
                                 pov.location = lastNonVoid;
                                 describe();
@@ -1915,13 +1969,13 @@ module.exports = function ltbl(settings) {
                     allowGodMode = false;
                     pov = actor;
                 }
-                while (locations["room" + roomNum]) {
+                while (getLocation("room" + roomNum)) {
                     roomNum = roomNum + 1;
                 }
                 while (items["item" + itemNum]) {
                     itemNum = itemNum + 1;
                 }
-                while (locations["door" + doorNum]) {
+                while (doors["door" + doorNum]) {
                     doorNum = doorNum + 1;
                 }
                 if( allowGodMode ) {
@@ -1937,7 +1991,7 @@ module.exports = function ltbl(settings) {
             } else {
                 god.location = "void1";
                 pov = god;
-                locations[god.location] = { "type" : "void" , "name" : "void" , "description" : "void" };
+                setLocation(god.location,{ "type" : "void" , "name" : "void" , "description" : "void" });
                 map = createMap();
                 renderMap =  renderMapLevelText(map);
                 onComplete(err, false);
@@ -1946,7 +2000,7 @@ module.exports = function ltbl(settings) {
     };
     var exportTads = function (folder) {
         var generate = require("./generate-tads");
-        generate({ folder : folder , settings : settings , metadata : metadata, actor : actor, locations : locations , doors : doors , items : items , npc : npc , topics : topics });
+        generate({ folder : folder , settings : settings , metadata : metadata, actor : actor, getLocation : getLocation , locations : locations , doors : doors , items : items , npc : npc , topics : topics });
     }
     return {
         describe: describe,
