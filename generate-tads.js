@@ -7,6 +7,7 @@ module.exports = function(args) {
     var settings = args.settings;
     var metadata = args.metadata;
     var actor = args.actor;
+    var getLocation = args.getLocation;
     var locations = args.locations;
     var doors = args.doors;
     var items = args.items;
@@ -256,7 +257,7 @@ module.exports = function(args) {
                             return connectorDef.name;
                         }
                     } else {
-                        var wayBack = locations[dir.location];
+                        var wayBack = getLocation(dir.location);
                         var wayDir = findLocationDir(wayBack, roomLoc);
                         if (wayDir) {
                             var connectorDefAlt = getConnector(wayBack[wayDir], dir.location, wayDir);
@@ -275,85 +276,94 @@ module.exports = function(args) {
             if (reservedNames[dir.location]) {
                 return reservedNames[dir.location];
             }
-            return dir.location;
+            return dir.location.split(".").join("");
         };
-        for (loc in locations) {
-            var room = locations[loc];
-            var roomDObj = loc;
-            if (reservedNames[roomDObj]) {
-                roomDObj = reservedNames[roomDObj];
-            }
-            if (room.type == "outside") {
-                srcLines.push(roomDObj + ": OutdoorRoom");
-            } else if (room.type == "dark") {
-                srcLines.push(roomDObj + ": DarkRoom");
-            } else if (room.type == "ship") {
-                srcLines.push(roomDObj + ": ShipboardRoom");
-            } else if (room.type == "bottomless") {
-                srcLines.push(roomDObj + ": FloorlessRoom");
-            } else {
-                srcLines.push(roomDObj + ": Room");
-            }
-            if (!room.name && room.description) {
-                var parts = getPartsOfSpeech(room.description);
-                if (parts.name.length > 0) {
-                    room.name = parts.name;
+        var  emitRooms = function( _locations , prefix) {
+            for (loc in _locations) {
+                var room = _locations[loc];
+                if( room.locations ) {
+                    emitRooms(room.locations,prefix+loc);
+                    if(!room.description ) {
+                        continue;
+                    }
                 }
-            }
-            if (room.name) {
-                srcLines.push("\troomName = '" + room.name + "'");
-            }
-            if (room.description) {
-                srcLines.push('\tdesc = "' + room.description + '"');
-            }
-            if (room.e) {
-                srcLines.push('\teast = ' + tadDirection(room.e, loc, "e"));
-            }
-            if (room.w) {
-                srcLines.push('\twest = ' + tadDirection(room.w, loc, "w"));
-            }
-            if (room.n) {
-                srcLines.push('\tnorth = ' + tadDirection(room.n, loc, "n"));
-            }
-            if (room.s) {
-                srcLines.push('\tsouth = ' + tadDirection(room.s, loc, "s"));
-            }
-            if (room.sw) {
-                srcLines.push('\tsouthwest = ' + tadDirection(room.sw, loc, "sw"));
-            }
-            if (room.se) {
-                srcLines.push('\tsoutheast = ' + tadDirection(room.se, loc, "se"));
-            }
-            if (room.nw) {
-                srcLines.push('\tnorthwest = ' + tadDirection(room.nw, loc, "nw"));
-            }
-            if (room.ne) {
-                srcLines.push('\tnortheast = ' + tadDirection(room.ne, loc, "ne"));
-            }
-            if (room.u) {
-                srcLines.push('\tup = ' + tadDirection(room.u, loc, "u"));
-            }
-            if (room.d) {
-                srcLines.push('\tdown = ' + tadDirection(room.d, loc, "d"));
-            }
-            srcLines.push(";");
-            srcLines.push("");
-            if (addDoors) {
-                srcLines.push(addDoors);
-                addDoors = null;
-            }
-            if (room.contains) {
-                for (var i = 0; i < room.contains.length; ++i) {
-                    itemEmitted[room.contains[i].item] = true;
-                    srcLines.push(emitItem(room.contains[i].item, 1, room.contains[i]));
+                var roomDObj = prefix+loc;
+                if (reservedNames[roomDObj]) {
+                    roomDObj = reservedNames[roomDObj];
                 }
-            }
-            if (room.wall) {
-                if (room.wall.n) {
+                if (room.type == "outside") {
+                    srcLines.push(roomDObj + ": OutdoorRoom");
+                } else if (room.type == "dark") {
+                    srcLines.push(roomDObj + ": DarkRoom");
+                } else if (room.type == "ship") {
+                    srcLines.push(roomDObj + ": ShipboardRoom");
+                } else if (room.type == "bottomless") {
+                    srcLines.push(roomDObj + ": FloorlessRoom");
+                } else {
+                    srcLines.push(roomDObj + ": Room");
                 }
+                if (!room.name && room.description) {
+                    var parts = getPartsOfSpeech(room.description);
+                    if (parts.name.length > 0) {
+                        room.name = parts.name;
+                    }
+                }
+                if (room.name) {
+                    srcLines.push("\troomName = '" + room.name + "'");
+                }
+                if (room.description) {
+                    srcLines.push('\tdesc = "' + room.description + '"');
+                }
+                if (room.e) {
+                    srcLines.push('\teast = ' + tadDirection(room.e, loc, "e"));
+                }
+                if (room.w) {
+                    srcLines.push('\twest = ' + tadDirection(room.w, loc, "w"));
+                }
+                if (room.n) {
+                    srcLines.push('\tnorth = ' + tadDirection(room.n, loc, "n"));
+                }
+                if (room.s) {
+                    srcLines.push('\tsouth = ' + tadDirection(room.s, loc, "s"));
+                }
+                if (room.sw) {
+                    srcLines.push('\tsouthwest = ' + tadDirection(room.sw, loc, "sw"));
+                }
+                if (room.se) {
+                    srcLines.push('\tsoutheast = ' + tadDirection(room.se, loc, "se"));
+                }
+                if (room.nw) {
+                    srcLines.push('\tnorthwest = ' + tadDirection(room.nw, loc, "nw"));
+                }
+                if (room.ne) {
+                    srcLines.push('\tnortheast = ' + tadDirection(room.ne, loc, "ne"));
+                }
+                if (room.u) {
+                    srcLines.push('\tup = ' + tadDirection(room.u, loc, "u"));
+                }
+                if (room.d) {
+                    srcLines.push('\tdown = ' + tadDirection(room.d, loc, "d"));
+                }
+                srcLines.push(";");
+                srcLines.push("");
+                if (addDoors) {
+                    srcLines.push(addDoors);
+                    addDoors = null;
+                }
+                if (room.contains) {
+                    for (var i = 0; i < room.contains.length; ++i) {
+                        itemEmitted[room.contains[i].item] = true;
+                        srcLines.push(emitItem(room.contains[i].item, 1, room.contains[i]));
+                    }
+                }
+                if (room.wall) {
+                    if (room.wall.n) {
+                    }
+                }
+                locationHandled[loc] = true;
             }
-            locationHandled[loc] = true;
         }
+        emitRooms(locations,"");
         for( var npcName in npc) {
             srcLines.push(emitCharacter(npc[npcName]));
         }
