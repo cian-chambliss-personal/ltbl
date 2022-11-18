@@ -1,7 +1,7 @@
 const chalk = require("chalk");
 module.exports = function(args) {
     var map = args.map;
-    var locations = args.locations;
+    var getLocation = args.getLocation;
     var rows = map.levels[map.location.level];
     var output = [];
     var viewRows = 0;
@@ -62,7 +62,7 @@ module.exports = function(args) {
             for (var c = startCol; c < endCol && c < cols.length; ++c) {
                 var cell = cols[c] , otherCell;
                 if (cell) {
-                    cell = locations[cell];
+                    cell = getLocation(cell);
                 }
                 text = "          ";
                 var hasLeft = false, hasTop = false;
@@ -70,7 +70,7 @@ module.exports = function(args) {
                 if( c > 0 ) {
                     otherCell = cols[c-1];
                     if( otherCell ) {
-                        otherCell = locations[otherCell];
+                        otherCell = getLocation(otherCell);
                         if( otherCell ) {
                             if (otherCell.type != "outside" && otherCell.type != "void" ) {
                                 hasLeft = true;
@@ -82,7 +82,7 @@ module.exports = function(args) {
                 if( r > 0 ) {
                     otherCell = rows[r-1][c];
                     if( otherCell ) {
-                        otherCell = locations[otherCell];
+                        otherCell = getLocation(otherCell);
                         if( otherCell ) {
                             if (otherCell.type != "outside" && otherCell.type != "void" ) {
                                 hasTop = true;
@@ -94,11 +94,11 @@ module.exports = function(args) {
                 var color = null;
                 if (!cell) {
                     if( hasLeft || hasTop ) {
-                        cell = { type : "void" };
-                        if( rowAbove && locations[rowAbove].s ) {
+                        cell = { type : "void" , wallgen : true };
+                        if( rowAbove && getLocation(rowAbove).s ) {
                             cell.n = { location : rowAbove };
                         }
-                        if( rowLeft && locations[rowLeft].e ) {
+                        if( rowLeft && getLocation(rowLeft).e ) {
                             cell.w = { location : rowLeft };
                         }
                     }
@@ -158,7 +158,7 @@ module.exports = function(args) {
                             }
                         }
                     } else if (1 <= ch && ch < 4) {
-                        if (ch == 2 && cell.type != "void" ) {
+                        if (ch == 2 && (cell.type != "void" || cell.wallgen) ) {
                             if (cell.w) {
                                 if (cell.type == "outside") {
                                     text = " " + text.substring(1);
