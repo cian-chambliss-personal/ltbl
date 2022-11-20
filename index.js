@@ -19,7 +19,7 @@ module.exports = function ltbl(settings) {
     var propositionAction = null;
     var verbNPC = null;
     var verbsWithTopics = { "ask" : true , "tell" : true , "show" : true , "give" : true };
-    var convoState = {};
+    var gameState = {};
     var wordMap = {
         firstWord : {
         "hello" : "hi",
@@ -162,7 +162,7 @@ module.exports = function ltbl(settings) {
     };
     var getLocation = function(name) {
         var location = null;
-        name = name.split(".");
+        name = name.split("/");
         location = locations[name[0]];
         if( name.length > 1 ) {
             for( var i = 1 ; location && i < name.length ; ++i ) {
@@ -177,7 +177,7 @@ module.exports = function ltbl(settings) {
     };
     var setLocation = function(name,room) {
         var location = null;
-        name = name.split(".");
+        name = name.split("/");
         location = locations[name[0]];
         if( !location ) {
             if( name.length > 1 ) {
@@ -602,6 +602,53 @@ module.exports = function ltbl(settings) {
             mode = 'where';
         }
     };
+    var lookupItemLow = function (arr,command,candidates) {
+        var itemName = null;
+        for (var i = 0; i < arr.length; ++i) {
+            var item = arr[i].item;
+            var ptr = items[item];
+            if (ptr) {
+                var lname = ptr.name;
+                if (command == lname.toLowerCase()) {
+                    itemName = item;
+                    break;
+                } else {
+                    var iparts = getPartsOfSpeech(lname);
+                    var foundPart = false;
+                    for (var j = 0; j < parts.noun.length; ++j) {
+                        for (var k = 0; k < iparts.noun.length; ++k) {
+                            if (iparts.noun[k] == parts.noun[j]) {
+                                foundPart = true;
+                                break;
+                            }
+                        }
+                        if (foundPart) {
+                            break;
+                        }
+                    }
+                    if (foundPart) {
+                        candidates.push(item);
+                    }
+                }
+            }
+        }
+        return itemName;
+    };
+    var lookupItemArr = function (command, arr) {
+        var itemName = null;
+        if (command != "") {
+            var candidates = [];
+            itemName = lookupItemLow(arr,command,candidates);
+            if( !itemName ) {
+                if( candidates.length > 0 ) {
+                    if( candidates.length == 1 ) {
+                        itemName = candidates[0];                       
+                    }
+                }
+            }
+        }
+        return itemName;
+    };
     var lookupItem = function (command, flags) {
         var itemName = null;
         if (command != "") {
@@ -610,61 +657,30 @@ module.exports = function ltbl(settings) {
             var what = command;
             command = command.toLowerCase();
             var parts = getPartsOfSpeech(command);
-            var lookupItemLow = function (arr) {
-                for (var i = 0; i < arr.length; ++i) {
-                    var item = arr[i].item;
-                    var ptr = items[item];
-                    if (ptr) {
-                        var lname = ptr.name;
-                        if (command == lname.toLowerCase()) {
-                            itemName = item;
-                            break;
-                        } else {
-                            var iparts = getPartsOfSpeech(lname);
-                            var foundPart = false;
-                            for (var j = 0; j < parts.noun.length; ++j) {
-                                for (var k = 0; k < iparts.noun.length; ++k) {
-                                    if (iparts.noun[k] == parts.noun[j]) {
-                                        foundPart = true;
-                                        break;
-                                    }
-                                }
-                                if (foundPart) {
-                                    break;
-                                }
-                            }
-                            if (foundPart) {
-                                candidates.push(item);
-                            }
-                        }
-                    }
-                }
-                return itemName;
-            };
             if (flags != "noactor")
-                itemName = lookupItemLow(actor.inventory);
+                itemName = lookupItemLow(actor.inventory,command,candidates);
             if (where.contains && !itemName && flags != "actor") {
-                itemName = lookupItemLow(where.contains);
+                itemName = lookupItemLow(where.contains,command,candidates);
             }
             if (!itemName && flags != "actor" && where.wall) {
                 if (!itemName && where.wall.n) {
                     if (where.wall.n.contains) {
-                        itemName = lookupItemLow(where.wall.n.contains);
+                        itemName = lookupItemLow(where.wall.n.contains,command,candidates);
                     }
                 }
                 if (!itemName && where.wall.s) {
                     if (where.wall.s.contains) {
-                        itemName = lookupItemLow(where.wall.s.contains);
+                        itemName = lookupItemLow(where.wall.s.contains,command,candidates);
                     }
                 }
                 if (!itemName && where.wall.e) {
                     if (where.wall.e.contains) {
-                        itemName = lookupItemLow(where.wall.e.contains);
+                        itemName = lookupItemLow(where.wall.e.contains,command,candidates);
                     }
                 }
                 if (!itemName && where.wall.w) {
                     if (where.wall.w.contains) {
-                        itemName = lookupItemLow(where.wall.w.contains);
+                        itemName = lookupItemLow(where.wall.w.contains,command,candidates);
                     }
                 }
             }
@@ -717,7 +733,105 @@ module.exports = function ltbl(settings) {
     var isDirection = function (command) {
         return directionsHash[command];
     };
+    var removeItem = function(inventory,command) {
+        var item = lookupItemArr(inventory,command);
+        if (item) {
+            for (var i = 0; i < pov.inventory.length; ++i) {
+                if (inventory[i].item == item) {
+                    inventory.splice(i, 1);
+                    return item;
+                }
+            }
+        }
+        return null;
+    };
     var processScript = function(command) {
+        var emitResponse = function(response,verbNPC,stateId) {
+            if( typeof(response) == "string" ) {
+                console.log( response );
+                return true;
+            } else if( response.then ) {
+                var responseIndex = gameState[stateId+".then"];
+                if( responseIndex ) {
+                    if( !emitResponse( response.then[responseIndex],verbNPC,stateId ) )
+                         return false;
+                    if( response.then.length > (responseIndex+1) ) {
+                        gameState[stateId+".then"] = (responseIndex+1);
+                    }
+                } else {
+                    if( !emitResponse( response.then[0],verbNPC,stateId ) )
+                        return false;
+                    if( response.then.length > 1 ) {
+                        gameState[stateId+".then"] = 1;
+                    }
+                }
+            } else if( response.or ) {
+                var responseIndex = gameState[stateId+".or"];
+                if( responseIndex ) {
+                    if( !emitResponse( response.or[responseIndex],verbNPC,stateId ) )
+                        return false;
+                    if( response.or.length > (responseIndex+1) ) {
+                        gameState[stateId+".or"] = (responseIndex+1);
+                    } else {
+                        gameState[stateId+".or"] = 0;
+                    }
+                } else {
+                    if( !emitResponse( response.then[0],verbNPC,stateId ) )
+                        return false;
+                    if( response.or.length > 1 ) {
+                        gameState[stateId+".or"] = 1;
+                    }
+                }
+            } else {
+                // All the actions
+                if( response.take ) {
+                    var npcPtr = npc[verbNPC];
+                    if( !npcPtr )
+                        return false;
+                    var item = removeItem(actor.inventory,response.take);
+                    if( !item ) 
+                        return false;
+                    if( npcPtr ) {
+                        if( !npcPtr.inventory ) {
+                            npcPtr.inventory = [];
+                        }
+                        npcPtr.inventory.push(item);
+                    }
+                }
+                if( response.consume ) {
+                    var item = removeItem(actor.inventory,response.consume);
+                    if( !item ) 
+                        return false;
+                }
+                if( response.give ) {
+                    var npcPtr = npc[verbNPC];
+                    if( !npcPtr )
+                        return false;
+                    if( !npcPtr.inventory ) 
+                        return false;
+                    var item = removeItem(npcPtr.inventory,response.give);
+                    if( !item ) 
+                        return false;
+                    actor.inventory.push(item);
+                }
+                if( response.say ) {
+                    console.log( response.say );
+                }
+                if( response.score ) {
+                    if( !gameState[stateId+".score"] ) {
+                        gameState[stateId+".score"] = true;
+                        if( !gameState.Score ) {
+                            gameState.Score = 0;
+                        }
+                        gameState.Score = gameState.Score + response.score;
+                        console.log("Score went up by "+response.score+" Points");
+                    }
+                }
+                //if( response.die ) {
+                //}
+            }
+            return true;
+        };
         if( command == "n" || command == "no" )
             return true;
         if( command && command.length > 0 ) {
@@ -743,6 +857,8 @@ module.exports = function ltbl(settings) {
                                 _npc.conversation[verbAction][verbTopic] = { response : command };
                             }
                         }
+                    } else if( verbAction == "!talkto" ) {
+                        _npc.conversation.talkto = { response : command };
                     } else if( verbAction ) {
                         console.log( "TBD - implement verb - ["+verbAction+","+verbNPC+","+propositionAction+","+verbTopic+"] => "+command );
                     }
@@ -791,48 +907,40 @@ module.exports = function ltbl(settings) {
                    _npc = null;
                 }
                 if( _npc ) {
-                    if( typeof(_npc.response) == "string" ) {
-                        console.log( _npc.response );                        
-                    } else if( _npc.response.then ) {
-                        var responseIndex = convoState[verbNPC+verbAction+verbTopic+".then"];
-                        if( responseIndex ) {
-                            console.log( _npc.response.then[responseIndex] );
-                            if( _npc.response.then.length > (responseIndex+1) ) {
-                                convoState[verbNPC+verbAction+verbTopic+".then"] = (responseIndex+1);
-                            }
-                        } else {
-                            console.log( _npc.response.then[0] );
-                            if( _npc.response.then.length > 1 ) {
-                                convoState[verbNPC+verbAction+verbTopic+".then"] = 1;
-                            }
-                        }
-                    } else if( _npc.response.or ) {
-                        var responseIndex = convoState[verbNPC+verbAction+verbTopic+".or"];
-                        if( responseIndex ) {
-                            console.log( _npc.response.or[responseIndex] );
-                            if( _npc.response.or.length > (responseIndex+1) ) {
-                                convoState[verbNPC+verbAction+verbTopic+".or"] = (responseIndex+1);
-                            } else {
-                                convoState[verbNPC+verbAction+verbTopic+".or"] = 0;
-                            }
-                        } else {
-                            console.log( _npc.response.then[0] );
-                            if( _npc.response.or.length > 1 ) {
-                                convoState[verbNPC+verbAction+verbTopic+".or"] = 1;
-                            }
-                        }
-                    }
+                    emitResponse(_npc.response,verbNPC,verbNPC+verbAction+verbTopic);
+                    return true;
                 } else if(pov.isGod) {
                     if( propositionAction ) {
                         console.log( "what is response? (n/no for stop)" );                    
                     }
                 } else {
                     noUnderstand();
+                    return true;
                 }
-            } else if(pov.isGod) {
-                console.log( "what is response? (n/no for stop)" );
             } else {
-                noUnderstand();
+                var _npc = findNPC(verbNPC);
+                if( _npc ) {
+                    if( _npc.conversation ) {
+                        if( verbAction == "!talkto" ) {
+                            _npc = _npc.conversation.talkto;
+                        } else if( _npc.conversation[verbAction] ) {
+                            _npc = _npc.conversation[verbAction];                            
+                        } else {
+                            _npc = null;
+                        }
+                    } else {
+                        _npc = null;
+                    }
+                }
+                if( _npc && _npc.response ) {
+                    emitResponse(_npc.response,verbNPC,verbNPC+verbAction+verbTopic);
+                    return true;
+                } else if(pov.isGod) {
+                    console.log( "what is response? (n/no for stop)" );
+                } else {
+                    noUnderstand();
+                    return true;
+                }
             }
         }
         return false;
@@ -1713,7 +1821,7 @@ module.exports = function ltbl(settings) {
                             if( command.length > 0 ) {
                                 var _npc = findNPC(verbNPC);
                                 // TBD - also look for items (for verbs like push/pull etc)...
-                                if( _npc ) {
+                                if( _npc && _npc.conversation ) {
                                     if( _npc.conversation[verbAction] ) {
                                         if( _npc.conversation[verbAction][verbTopic] ) {
                                             var modResponse = _npc.conversation[verbAction][verbTopic].response;
@@ -1726,6 +1834,19 @@ module.exports = function ltbl(settings) {
                                                 modResponse.then.push(command);
                                             }
                                             _npc.conversation[verbAction][verbTopic].response = modResponse;
+                                        }
+                                    } else if( verbAction == "!talkto") {
+                                        if( _npc.conversation.talkto ) {
+                                            var modResponse = _npc.conversation.talkto.response;
+                                            if( typeof(modResponse) == "string" ) {
+                                                modResponse = { "then" : [modResponse,command] };
+                                            } else {
+                                                if( !modResponse.then ) {
+                                                    modResponse.then = [];
+                                                }
+                                                modResponse.then.push(command);
+                                            }
+                                            _npc.conversation.talkto.response = modResponse;
                                         }
                                     }
                                 }
@@ -1906,7 +2027,7 @@ module.exports = function ltbl(settings) {
                             }
                         } else if( command == actor.name ) {
                             if( pov.isGod ) {
-                                convoState = {};
+                                gameState = {};
                             }
                             pov = actor;
                         }
