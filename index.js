@@ -1116,6 +1116,47 @@ module.exports = function ltbl(settings) {
             }
         }
     };
+
+    var getConvoObjectPtr = function(command) {
+        if( verbAction ) {        
+            var _npc = findNPC(verbNPC);
+            if( _npc ) {
+                var ptr = null;
+                if( verbAction == "!talkto")  {
+                    if( _npc.conversation.talkto ) {
+                        ptr =_npc.conversation.talkto.response;
+                    }
+                } else if( _npc.conversation[verbAction] ) {
+                    if( _npc.conversation[verbAction][verbTopic] ) {
+                         ptr = _npc.conversation[verbAction][verbTopic].response;
+                    }
+                }
+                if( ptr ) {
+                    if( typeof(ptr) == "string" ) {
+                        ptr = { "say" : ptr };
+                    } else if( ptr.then ) {
+                        if( typeof(ptr.then[ ptr.then.length - 1 ]) == "string" ) {
+                            ptr.then[ ptr.then.length - 1 ] = { "say" : ptr.then[ ptr.then.length - 1 ] };
+                            ptr = ptr.then[ ptr.then.length - 1 ];
+                        } else {
+                            ptr = ptr.then[ ptr.then.length - 1 ];
+                        }
+                    } else if( ptr.or ) {
+                        if( typeof(ptr.or[ ptr.or.length - 1 ]) == "string" ) {
+                            ptr.then[ ptr.or.length - 1 ] = { "say" : ptr.or[ ptr.or.length - 1 ] };
+                            ptr = ptr.or[ ptr.or.length - 1 ];
+                        } else {
+                            ptr = ptr.or[ ptr.or.length - 1 ];
+                        }
+                    }
+                    return ptr;
+                }
+            }            
+        }
+        return null;
+    };
+
+
     var parseCommand = function (command) {
         if (mode == "gettitle") {
             metadata.title = command;
@@ -1828,7 +1869,9 @@ module.exports = function ltbl(settings) {
                                             if( typeof(modResponse) == "string" ) {
                                                 modResponse = { "then" : [modResponse,command] };
                                             } else {
-                                                if( !modResponse.then ) {
+                                                if( !modResponse.then || !modResponse.or ) {
+                                                    modResponse = { "then" : [modResponse,command] };
+                                                } else if( !modResponse.then ) {
                                                     modResponse.then = [];
                                                 }
                                                 modResponse.then.push(command);
@@ -1841,7 +1884,9 @@ module.exports = function ltbl(settings) {
                                             if( typeof(modResponse) == "string" ) {
                                                 modResponse = { "then" : [modResponse,command] };
                                             } else {
-                                                if( !modResponse.then ) {
+                                                if( !modResponse.or && !modResponse.then) {
+                                                    modResponse = { "then" : [modResponse,command] };
+                                                } else if( !modResponse.then ) {
                                                     modResponse.then = [];
                                                 }
                                                 modResponse.then.push(command);
@@ -1872,7 +1917,9 @@ module.exports = function ltbl(settings) {
                                             if( typeof(modResponse) == "string" ) {
                                                 modResponse = { "or" : [modResponse,command] };
                                             } else {
-                                                if( !modResponse.or ) {
+                                                if( !modResponse.or && !modResponse.then) {
+                                                    modResponse = { "or" : [modResponse,command] };
+                                                } else if( !modResponse.or ) {
                                                     modResponse.or = [];
                                                 }
                                                 modResponse.or.push(command);
@@ -1885,6 +1932,30 @@ module.exports = function ltbl(settings) {
                         }
                     } else {
                         console.log("or not.");
+                    }
+                } else if( firstWord == "score") {
+                    // linear script
+                    command = subSentence( command , 1);
+                    if( command.length > 0 ) {
+                        if (pov.isGod ) {
+                            var value = Number.parseInt(command);
+                            if( value > 0 ) {
+                                var ptr = getConvoObjectPtr();
+                                if( ptr ) {
+                                    ptr.score = value; 
+                                } else {
+                                    console.log("Must have run a conversation to set an associated score");
+                                }
+                            }
+                        } else {
+                            console.log("Must be in god mode to set score");
+                        }
+                    } else {
+                        if( gameState.Score ) {
+                            console.log("Score: "+gameState.Score);
+                        } else {
+                            console.log("Score: 0");
+                        }
                     }
                 } else if ( firstWord == "hi" 
                          || firstWord == "bye" 
