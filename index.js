@@ -637,30 +637,40 @@ module.exports = function ltbl(settings) {
     };
     var lookupItemLow = function (parts,arr,command,candidates) {
         var itemName = null;
-        for (var i = 0; i < arr.length; ++i) {
-            var item = arr[i].item;
-            var ptr = items[item];
-            if (ptr) {
-                var lname = ptr.name;
-                if (command == lname.toLowerCase()) {
-                    itemName = item;
+        if( command[0] == '@' ) {
+            command = command.substring(1);
+            for (var i = 0; i < arr.length; ++i) {
+                 if( arr[i].item == command ) {
+                    itemName = command;
                     break;
-                } else {
-                    var iparts = getPartsOfSpeech(lname);
-                    var foundPart = false;
-                    for (var j = 0; j < parts.noun.length; ++j) {
-                        for (var k = 0; k < iparts.noun.length; ++k) {
-                            if (iparts.noun[k] == parts.noun[j]) {
-                                foundPart = true;
+                 }
+            }
+        } else {
+            for (var i = 0; i < arr.length; ++i) {
+                var item = arr[i].item;
+                var ptr = items[item];
+                if (ptr) {
+                    var lname = ptr.name;
+                    if (command == lname.toLowerCase()) {
+                        itemName = item;
+                        break;
+                    } else {
+                        var iparts = getPartsOfSpeech(lname);
+                        var foundPart = false;
+                        for (var j = 0; j < parts.noun.length; ++j) {
+                            for (var k = 0; k < iparts.noun.length; ++k) {
+                                if (iparts.noun[k] == parts.noun[j]) {
+                                    foundPart = true;
+                                    break;
+                                }
+                            }
+                            if (foundPart) {
                                 break;
                             }
                         }
                         if (foundPart) {
-                            break;
+                            candidates.push(item);
                         }
-                    }
-                    if (foundPart) {
-                        candidates.push(item);
                     }
                 }
             }
@@ -682,6 +692,22 @@ module.exports = function ltbl(settings) {
             }
         }
         return itemName;
+    };
+    var findItems = function (command) {
+        var candidates = [];
+        var allItems = [];
+        for(var _item in items ) {
+            allItems.push({ item : _item});
+        }
+        var parts = getPartsOfSpeech(command);
+        var item = lookupItemLow(parts,allItems,command,candidates);
+
+        if( item && item != "?" ) {
+            if( candidates.length < 1 ) {
+                candidates = [item];
+            }
+        }
+        return candidates;
     };
     var lookupItem = function (command, flags) {
         var itemName = null;
@@ -768,7 +794,7 @@ module.exports = function ltbl(settings) {
         return directionsHash[command];
     };
     var removeItem = function(inventory,command) {
-        var item = lookupItemArr(inventory,command);
+        var item = lookupItemArr(command,inventory);
         if (item) {
             for (var i = 0; i < pov.inventory.length; ++i) {
                 if (inventory[i].item == item) {
@@ -822,18 +848,18 @@ module.exports = function ltbl(settings) {
                     var npcPtr = npc[verbNPC];
                     if( !npcPtr )
                         return false;
-                    var item = removeItem(actor.inventory,response.take);
+                    var item = removeItem(actor.inventory,"@"+response.take);
                     if( !item ) 
                         return false;
                     if( npcPtr ) {
                         if( !npcPtr.inventory ) {
                             npcPtr.inventory = [];
                         }
-                        npcPtr.inventory.push(item);
+                        npcPtr.inventory.push({item:item});
                     }
                 }
                 if( response.consume ) {
-                    var item = removeItem(actor.inventory,response.consume);
+                    var item = removeItem(actor.inventory,"@"+response.consume);
                     if( !item ) 
                         return false;
                 }
@@ -843,10 +869,10 @@ module.exports = function ltbl(settings) {
                         return false;
                     if( !npcPtr.inventory ) 
                         return false;
-                    var item = removeItem(npcPtr.inventory,response.give);
+                    var item = removeItem(npcPtr.inventory,"@"+response.give);
                     if( !item ) 
-                        return false;
-                    actor.inventory.push(item);
+                        return false;                        
+                    actor.inventory.push({ item : item });
                 }
                 if( response.say ) {
                     console.log( response.say );
@@ -1159,18 +1185,24 @@ module.exports = function ltbl(settings) {
             var _npc = findNPC(verbNPC);
             if( _npc ) {
                 var ptr = null;
+                var rContainer = null;
                 if( verbAction == "!talkto")  {
                     if( _npc.conversation.talkto ) {
-                        ptr =_npc.conversation.talkto.response;
+                        rContainer = _npc.conversation.talkto;
+                        ptr = rContainer.response;
                     }
                 } else if( _npc.conversation[verbAction] ) {
                     if( _npc.conversation[verbAction][verbTopic] ) {
-                         ptr = _npc.conversation[verbAction][verbTopic].response;
+                         rContainer = _npc.conversation[verbAction][verbTopic];
+                         ptr = rContainer.response;
                     }
                 }
                 if( ptr ) {
                     if( typeof(ptr) == "string" ) {
                         ptr = { "say" : ptr };
+                        if( rContainer ) {
+                            rContainer.response = ptr;
+                        }
                     } else if( ptr.then ) {
                         if( typeof(ptr.then[ ptr.then.length - 1 ]) == "string" ) {
                             ptr.then[ ptr.then.length - 1 ] = { "say" : ptr.then[ ptr.then.length - 1 ] };
@@ -2109,12 +2141,16 @@ module.exports = function ltbl(settings) {
                             for( var i = 0 ; i < list.length ; ++i ) {
                                 console.log(JSON.stringify(locations[list[i]], null, "  "));
                             }
+                            list = findItems(command);
+                            for( var i = 0 ; i < list.length ; ++i ) {
+                                console.log(JSON.stringify(items[list[i]], null, "  "));
+                            }
                         }
                         else
                         {
                             console.log(JSON.stringify(metadata, null, "  "));
                             console.log(JSON.stringify(locations, null, "  "));
-                            console.log(JSON.stringify(npcs, null, "  "));
+                            console.log(JSON.stringify(npc, null, "  "));
                             console.log(JSON.stringify(items, null, "  "));
                         }
                     }
