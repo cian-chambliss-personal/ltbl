@@ -204,6 +204,39 @@ module.exports = function ltbl(settings) {
         }
         return location;
     };
+    var findLocations = function(name) {
+        var list = [];
+        var inexactList = [];
+        name = name.toLowerCase();
+        var _findLocations = function(_locations,name,prefix) {
+            for(var loc in _locations ) {
+                var _loc = _locations[loc];
+                if( _loc.name ) {
+                    var _lname = _loc.name;
+                    _lname = _lname.toLowerCase();
+                    if( name == _lname ) {
+                        list.push(loc);
+                    } else if( _lname.indexOf(name) >= 0 ) {
+                        inexactList.push(loc);
+                    }
+                } else if( _loc.description ) {
+                    var _lname = _loc.description;
+                    _lname = _lname.toLowerCase();
+                    if( _lname.indexOf(name) >= 0 ) {
+                        inexactList.push(loc);
+                    }
+                }
+                if( _loc.locations ) {
+                    _findLocations(_loc.locations,name,prefix+loc+"/");
+                }
+            }
+        };
+        _findLocations(locations,name,"");
+        if( list.length == 0 ) {
+            list = inexactList;
+        }
+        return list;
+    };
     //---------------------------------------------------------------------------
     // Create a spacial map of from the logical description
     var createMap = function () {
@@ -602,7 +635,7 @@ module.exports = function ltbl(settings) {
             mode = 'where';
         }
     };
-    var lookupItemLow = function (arr,command,candidates) {
+    var lookupItemLow = function (parts,arr,command,candidates) {
         var itemName = null;
         for (var i = 0; i < arr.length; ++i) {
             var item = arr[i].item;
@@ -638,7 +671,8 @@ module.exports = function ltbl(settings) {
         var itemName = null;
         if (command != "") {
             var candidates = [];
-            itemName = lookupItemLow(arr,command,candidates);
+            var parts = getPartsOfSpeech(command);
+            itemName = lookupItemLow(parts,arr,command,candidates);
             if( !itemName ) {
                 if( candidates.length > 0 ) {
                     if( candidates.length == 1 ) {
@@ -658,29 +692,29 @@ module.exports = function ltbl(settings) {
             command = command.toLowerCase();
             var parts = getPartsOfSpeech(command);
             if (flags != "noactor")
-                itemName = lookupItemLow(actor.inventory,command,candidates);
+                itemName = lookupItemLow(parts,actor.inventory,command,candidates);
             if (where.contains && !itemName && flags != "actor") {
-                itemName = lookupItemLow(where.contains,command,candidates);
+                itemName = lookupItemLow(parts,where.contains,command,candidates);
             }
             if (!itemName && flags != "actor" && where.wall) {
                 if (!itemName && where.wall.n) {
                     if (where.wall.n.contains) {
-                        itemName = lookupItemLow(where.wall.n.contains,command,candidates);
+                        itemName = lookupItemLow(parts,where.wall.n.contains,command,candidates);
                     }
                 }
                 if (!itemName && where.wall.s) {
                     if (where.wall.s.contains) {
-                        itemName = lookupItemLow(where.wall.s.contains,command,candidates);
+                        itemName = lookupItemLow(parts,where.wall.s.contains,command,candidates);
                     }
                 }
                 if (!itemName && where.wall.e) {
                     if (where.wall.e.contains) {
-                        itemName = lookupItemLow(where.wall.e.contains,command,candidates);
+                        itemName = lookupItemLow(parts,where.wall.e.contains,command,candidates);
                     }
                 }
                 if (!itemName && where.wall.w) {
                     if (where.wall.w.contains) {
-                        itemName = lookupItemLow(where.wall.w.contains,command,candidates);
+                        itemName = lookupItemLow(parts,where.wall.w.contains,command,candidates);
                     }
                 }
             }
@@ -858,6 +892,9 @@ module.exports = function ltbl(settings) {
                             }
                         }
                     } else if( verbAction == "!talkto" ) {
+                        if( !_npc.conversation ) {
+                            _npc.conversation = {};
+                        }
                         _npc.conversation.talkto = { response : command };
                     } else if( verbAction ) {
                         console.log( "TBD - implement verb - ["+verbAction+","+verbNPC+","+propositionAction+","+verbTopic+"] => "+command );
@@ -1611,6 +1648,9 @@ module.exports = function ltbl(settings) {
                                 var where = getLocation(pov.location);
                                 for (var i = 0; i < where.contains.length; ++i) {
                                     if (where.contains[i].item == item) {
+                                        if( !pov.inventory ) {
+                                            pov.inventory = [];
+                                        }
                                         pov.inventory.push(where.contains[i]);
                                         where.contains.splice(i, 1);
                                         if (where.contains.length == 0) {
@@ -1957,6 +1997,22 @@ module.exports = function ltbl(settings) {
                             console.log("Score: 0");
                         }
                     }
+                } else if ( firstWord == "acquire" && pov.isGod ) {
+                    // Be given an item
+                    command = subSentence( command , 1);
+                    var existingItem = lookupItem(command);
+                    if (existingItem && existingItem != "?") {
+                        var ptr = getConvoObjectPtr();
+                        if( ptr ) {
+                            ptr.give = existingItem; 
+                        } else {
+                            console.log("Must have run a conversation to acquire an item");
+                        }                
+                    } else if( existingItem != "?" ) {
+                        console.log(command+" does not exist");
+                    } else {
+                        console.log("????");
+                    }
                 } else if ( firstWord == "hi" 
                          || firstWord == "bye" 
                          || firstWord == "leave" 
@@ -2044,13 +2100,23 @@ module.exports = function ltbl(settings) {
                             console.log("You see no " + command);
                         }
                     }
-                } else if (lCase == "dump") {
+                } else if ( pov.isGod && firstWord == "dump") {
+                    command = subSentence( command , 1).toLowerCase();
                     if( pov.isGod ) {
-                        console.log(JSON.stringify(metadata, null, "  "));
-                        console.log(JSON.stringify(locations, null, "  "));
-                        console.log(JSON.stringify(items, null, "  "));
-                    } else {
-                        console.log("dump what?");
+                        if( command && command.length )
+                        {                            
+                            var list = findLocations(command);
+                            for( var i = 0 ; i < list.length ; ++i ) {
+                                console.log(JSON.stringify(locations[list[i]], null, "  "));
+                            }
+                        }
+                        else
+                        {
+                            console.log(JSON.stringify(metadata, null, "  "));
+                            console.log(JSON.stringify(locations, null, "  "));
+                            console.log(JSON.stringify(npcs, null, "  "));
+                            console.log(JSON.stringify(items, null, "  "));
+                        }
                     }
                 } else if (firstWord == "map") {
                     if( pov.isGod ) {
