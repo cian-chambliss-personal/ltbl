@@ -1,6 +1,35 @@
 const chalk = require("chalk");
 
 module.exports = function ltbl(settings) {
+    /*
+      State machine for parseCommand
+
+      stateMachine = {
+         state : 0 , // index
+         execute : function(statemachine,command) {
+                // return "retry";
+                // return "abort";
+                return "next";
+            
+         }
+      }
+     */
+    var stateMachine = null;
+    var stateMachineFillin = function(sm,command) {
+        if( !command || command.length == 0 ) {
+            console.log(sm.states[sm.state].msg);
+            return "retry";            
+        }
+        sm.data[sm.states[sm.state].prop] = command;
+        if( (sm.state+1) < sm.states.length ) {
+            console.log(sm.states[sm.state+1].msg);
+            return "next";
+        }
+        if( sm.done ) {
+            sm.done(sm);
+        }
+        return "abort";
+    };
     var roomNum = 1;
     var itemNum = 1;
     var doorNum = 1;
@@ -614,20 +643,23 @@ module.exports = function ltbl(settings) {
                     noVoid = false;
                 }
             }
-        }
-        if (!metadata.title) {
-            console.log("What is the title of your interactive fiction?");
-            mode = "gettitle";
-        } else if (!metadata.description) {
-            console.log("How would you describe this interactive fiction work?");
-            mode = "getdescription";
-        } else if (!metadata.author) {
-            console.log("What is you name (byline)?");
-            mode = "getauthor";
-        } else if (!metadata.authorEmail) {
-            console.log("What is you email?");
-            mode = "getemail";
-        } else if (pov.location && !noVoid ) {
+        }        
+        if (!metadata.title && !stateMachine ) {            
+            stateMachine = {
+                state : 0 ,
+                data : metadata ,
+                states : [
+                    { msg : "What is the title of your interactive fiction?" , prop : "title" },
+                    { msg : "How would you describe this interactive fiction work?" , prop : "description" },
+                    { msg : "What is you name (byline)?" , prop : "author"  },
+                    { msg : "What is you email?" , prop : "authorEmail" },
+                ],
+                execute : stateMachineFillin,
+                start: function(sm) { console.log(sm.states[0].msg); },
+                done: function(sm) { saveFile(); }
+            };
+            stateMachine.start(stateMachine);
+         } else if (pov.location && !noVoid ) {
             render(getLocation(pov.location),pov.location, 0);
             mode = "what";
         } else {            
@@ -1227,20 +1259,16 @@ module.exports = function ltbl(settings) {
 
 
     var parseCommand = function (command) {
-        if (mode == "gettitle") {
-            metadata.title = command;
-            describe(false);
-        } else if (mode == "getdescription") {
-            metadata.description = command;
-            describe(false);
-        } else if (mode == "getauthor") {
-            metadata.author = command;
-            describe(false);
-        } else if (mode == "getemail") {
-            metadata.authorEmail = command;
-            describe(false);
-            saveFile();
-        } else if (lCase == 'quit' || lCase == 'exit') {
+        if( stateMachine ) {
+            // Set of prompts....
+            var res = stateMachine.execute(stateMachine,command);
+            if( res == "next") {
+                stateMachine.state = stateMachine.state + 1;
+            } else if( res != "retry")
+                stateMachine = null;
+            return true;    
+        }       
+        if (lCase == 'quit' || lCase == 'exit') {
             return false;
         } else {
             var lCase = command;
