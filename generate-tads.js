@@ -153,6 +153,20 @@ module.exports = function(args) {
                 }
             }
             if( _actor.conversation ) {
+                var emitExtras = function(vr) {
+                    var topicResponse = '\n\t\t"'+vr.say+'"';
+                    if( vr.give ) {
+                        topicResponse = topicResponse + '\n\t\t'+vr.give+'.moveInto(me);\n';
+                    }
+                    if( vr.take ) {
+                        topicResponse = topicResponse + '\n\t\t'+vr.take+'.moveInto('+_actor.name+');\n';
+                    }
+                    if( vr.score ) {
+                        topicResponse = topicResponse + '\n\t\tachievement.addToScoreOnce('+vr.score+');\n';
+                    }
+                    topicResponse = topicResponse + '\n\t}';
+                    return topicResponse;
+                };
                 var emitOneReponse = function(vc,topicType) {
                     var topicResponse = null;
                     if( vc.response ) {
@@ -167,27 +181,25 @@ module.exports = function(args) {
                                 if( typeof(vc.response.then[i]) == "string" ) {
                                     topicResponse = topicResponse +  "\n\t'"+vc.response.then[i]+"'";
                                 } else if( vc.response.then[i].say ) {
-                                    topicResponse = topicResponse +  '\n\tnew function\n\t{\n\t\t"'+vc.response.then[i].say+'";\n';
-                                    if( vc.response.then[i].score ) {
-                                        topicResponse = topicResponse +  '\t\tachievement.addToScoreOnce('+vc.response.then[i].score+');\n'
-                                    }
-                                    topicResponse = topicResponse +  '\t}';
+                                    topicResponse = topicResponse +  '\n\tnew function\n\t{'+emitExtras(vc.response.then[i]);
                                 }
                             }
                             topicResponse = topicResponse + '\n\t]';
                         } else if( vc.response.or) {
+                            topicType = topicType + ", StopEventList"
+                            topicResponse = '\ttopicResponse = [';
+                            for( var i = 0 ; i < vc.response.or.length ; ++i ) {
+                                if( i > 0 )
+                                    topicResponse = topicResponse + ",";
+                                if( typeof(vc.response.or[i]) == "string" ) {
+                                    topicResponse = topicResponse +  "\n\t'"+vc.response.or[i]+"'";
+                                } else if( vc.response.or[i].say ) {
+                                    topicResponse = topicResponse +  '\n\tnew function\n\t{'+emitExtras(vc.response.or[i]);
+                                }
+                            }
+                            topicResponse = topicResponse + '\n\t]';                            
                         } else if( vc.response.say) {
-                            topicResponse = '\ttopicResponse() {\n\t\t"'+tc.response.say+'"';
-                            if( vc.response.give ) {
-                                topicResponse = topicResponse + '\n\t\t'+vc.response.give+'.moveInto(me);\n'
-                            }
-                            if( vc.response.take ) {
-                                topicResponse = topicResponse + '\n\t\t'+vc.response.take+'.moveInto('+_actor.name+');\n'
-                            }
-                            if( vc.response.score ) {
-                                topicResponse = topicResponse + '\t\tachievement.addToScoreOnce('+vc.response.then[i].score+');\n'
-                            }
-                            topicResponse = topicResponse + '\n\t}';
+                            topicResponse = '\ttopicResponse() {'+emitExtras(tc.response);
                         }
                     }
                     return { topicResponse : topicResponse , topicType : topicType };
