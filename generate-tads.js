@@ -153,35 +153,56 @@ module.exports = function(args) {
                 }
             }
             if( _actor.conversation ) {
+                var emitOneReponse = function(vc,topicType) {
+                    var topicResponse = null;
+                    if( vc.response ) {
+                        if( typeof(vc.response) == "string" ) {
+                            topicResponse = '\ttopicResponse = "'+vc.response+'"';
+                        } else if( vc.response.then ) {
+                            topicType = topicType + ", StopEventList"
+                            topicResponse = '\ttopicResponse = [';
+                            for( var i = 0 ; i < vc.response.then.length ; ++i ) {
+                                if( i > 0 )
+                                    topicResponse = topicResponse + ",";
+                                if( typeof(vc.response.then[i]) == "string" ) {
+                                    topicResponse = topicResponse +  "\n\t'"+vc.response.then[i]+"'";
+                                } else if( vc.response.then[i].say ) {
+                                    topicResponse = topicResponse +  '\n\tnew function\n\t{\n\t\t"'+vc.response.then[i].say+'";\n';
+                                    if( vc.response.then[i].score ) {
+                                        topicResponse = topicResponse +  '\t\tachievement.addToScoreOnce('+vc.response.then[i].score+');\n'
+                                    }
+                                    topicResponse = topicResponse +  '\t}';
+                                }
+                            }
+                            topicResponse = topicResponse + '\n\t]';
+                        } else if( vc.response.or) {
+                        } else if( vc.response.say) {
+                            topicResponse = '\ttopicResponse() {\n\t\t"'+tc.response.say+'"';
+                            if( vc.response.give ) {
+                                topicResponse = topicResponse + '\n\t\t'+vc.response.give+'.moveInto(me);\n'
+                            }
+                            if( vc.response.take ) {
+                                topicResponse = topicResponse + '\n\t\t'+vc.response.take+'.moveInto('+_actor.name+');\n'
+                            }
+                            if( vc.response.score ) {
+                                topicResponse = topicResponse + '\t\tachievement.addToScoreOnce('+vc.response.then[i].score+');\n'
+                            }
+                            topicResponse = topicResponse + '\n\t}';
+                        }
+                    }
+                    return { topicResponse : topicResponse , topicType : topicType };
+                };
                 for( var  verb in _actor.conversation  ) {
                     var vc = _actor.conversation[verb];
                     if( verb == "talkto" ) {
                         var tc = vc;
                         var topicType = "HelloTopic";
-                        var topicResponse = null;
-                        if( vc.response ) {
-                            if( typeof(vc.response) == "string" ) {
-                                topicResponse = '\ttopicResponse = "'+vc.response+'"';
-                            } else if( vc.response.then ) {
-                                topicType = topicType + ", StopEventList"
-                                topicResponse = '\ttopicResponse = [';
-                                for( var i = 0 ; i < vc.response.then.length ; ++i ) {
-                                    if( i > 0 )
-                                        topicResponse = topicResponse + ",";
-                                    topicResponse = topicResponse +  "\n\t'"+vc.response.then[i]+"'";
-                                }
-                                topicResponse = topicResponse + '\t]';
-                            } else if( vc.response.or) {
-                            } else if( vc.response.say) {
-                                topicResponse = '\ttopicResponse = "'+tc.response.say+'"';
-                            }
-                        }                        
-
-                        _lines.push("+"+topicType);
-                        if( topicResponse ) {
-                            _lines.push(topicResponse);
+                        var tr = emitOneReponse(vc,topicType);
+                        if( tr.topicResponse ) {
+                            _lines.push("+"+tr.topicType);
+                            _lines.push(tr.topicResponse);
+                            _lines.push("\t;\n");
                         }
-                        _lines.push("\t;\n");
                     } else {
                         for( var  topic in vc  ) {
                             var topicType = "AskTopic";
@@ -197,29 +218,12 @@ module.exports = function(args) {
                                     topicType = "AskForTopic";
                                 }
                             }
-                            var topicResponse = null;
-                            if( tc.response ) {
-                                if( typeof(tc.response) == "string" ) {
-                                    topicResponse = '\ttopicResponse = "'+tc.response+'"';
-                                } else if( tc.response.then ) {
-                                    topicType = topicType + ", StopEventList"
-                                    topicResponse = '\ttopicResponse = [';
-                                    for( var i = 0 ; i < tc.response.then.length ; ++i ) {
-                                        if( i > 0 )
-                                            topicResponse = topicResponse + ",";
-                                        topicResponse = topicResponse +  "\n\t'"+tc.response.then[i]+"'";
-                                    }
-                                    topicResponse = topicResponse + '\t]';
-                                } else if( tc.response.or) {
-                                } else if( tc.response.say) {
-                                    topicResponse = '\ttopicResponse = "'+tc.response.say+'"';
-                                }
-                            }
-                            _lines.push("+"+topicType);
+                            var tr = emitOneReponse(tc,topicType);                            
+                            _lines.push("+"+tr.topicType);
                             var match = topic;                    
                             _lines.push("\tmatchObject = "+match);
-                            if( topicResponse ) {
-                                _lines.push(topicResponse);
+                            if( tr.topicResponse ) {
+                                _lines.push(tr.topicResponse);
                             }
                             _lines.push("\t;\n");
                         }
