@@ -95,11 +95,24 @@ module.exports = function ltbl() {
             return true;
         return false;
     }
+    var superScript = function(txt) {
+        var fromCh = "0123456789()+-=";
+        var toCh = "⁰¹²³⁴⁵⁶⁷⁸⁹⁽⁾⁺⁻⁼";
+        for(var i = 0 ; i < txt.length ; ++i ) {
+            var index = fromCh.indexOf(txt[i]);
+            if( index >= 0 ) {
+                txt = txt.split(fromCh[index]).join(toCh[index]);
+            }
+        }
+        return txt;
+        //"₀₁₂₃₄₅₆₇₈₉₍₎₊₋₌"
+    };
     return {
         camelCase : camelCase,
         extractNounAndAdj : extractNounAndAdj,
         getPartsOfSpeech: getPartsOfSpeech,
         isVerb : isVerb,
+        superScript: superScript,
         directionTags : function() { return ["s", "n", "e", "w", "u", "d", "sw", "se", "nw", "ne"]; }
     }
 };
