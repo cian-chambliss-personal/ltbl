@@ -16,8 +16,9 @@ module.exports = function ltbl(settings) {
      */
     var stateMachine = null;
     var annotations = [];
-    var stateMachineFillin = function(sm,command) {
-        var displayMessage = function(msg) {
+    var displayMessage = function(st) {
+        if( st.msg ) {
+            var msg = st.msg;
             if( msg.indexOf("{") >= 0 ) {
                 for(var prop in sm.data) {
                     if( msg.indexOf("{"+prop+"}") >= 0 ) {
@@ -26,7 +27,14 @@ module.exports = function ltbl(settings) {
                 }
             }
             console.log(msg);
-        };
+        }
+        if( st.choices ) {
+            for( var i = 0 ; i < st.choices.length ; ++i ) {
+                console.log((i+1)+") "+st.choices[i].text);
+            }
+        }
+    };
+    var stateMachineFillin = function(sm,command) {
         var advanceTest = function() {
             while( sm.states[sm.state].test ) {
                 var testResult = sm.states[sm.state].test(sm,command);
@@ -57,23 +65,37 @@ module.exports = function ltbl(settings) {
             return "retry";
         }
         advanceTest();
+        var curState = sm.states[sm.state];
         if( !command || command.length == 0 ) {
             if( sm.askAbort ) {
                 sm.aborting = true;
                 sm.askAbort();
+            } else {
+                displayMessage(curState);
             }
-            displayMessage(sm.states[sm.state].msg);
             return "retry";
         }
-        sm.data[sm.states[sm.state].prop] = command;
+        if( curState.choices ) {
+            var choiceNum = Number.parseInt(command);
+            if( 1 <= choiceNum && choiceNum <= sm.states[sm.state].choices.length ) {
+                if( curState.choices[choiceNum-1].value ) 
+                    sm.data[curState.prop] = curState.choices[choiceNum-1].value;
+                else
+                    delete sm.data[curState.prop];
+            } else {
+                console.log("You must pick a number between 1 and "+curState.choices.length);
+            }
+        }  else {
+            sm.data[curState.prop] = command;
+        }
         if( (sm.state+1) < sm.states.length ) {
             if( sm.states[sm.state+1].test ) {
                 sm.state = sm.state+1;
                 advanceTest();
-                displayMessage(sm.states[sm.state].msg);
+                displayMessage(sm.states[sm.state]);
                 return "retry";
             }
-            displayMessage(sm.states[sm.state+1].msg);
+            displayMessage(sm.states[sm.state+1]);
             return "next";
         }
         if( sm.done ) {
@@ -90,7 +112,7 @@ module.exports = function ltbl(settings) {
             }         
             return false;
         }
-        console.log(sm.states[0].msg);
+        displayMessage(sm.states[0]);
         return true;
     };
     var stateMachineFillinCreate = function(data,states,done) {
@@ -103,7 +125,10 @@ module.exports = function ltbl(settings) {
             states : states,
             execute : stateMachineFillin,
             start: stateMachineFillinStart,
-            done: done
+            done: done,
+            askAbort: function() {
+                console.log("Do you want to quit? (y to quit)");
+            }
         };
         sm.start(sm,"");
         return sm;
@@ -195,49 +220,25 @@ module.exports = function ltbl(settings) {
                 "posture" : "lie"
             }
         }
-    };
-    var editStates = {
-        noLocation : {
-            "1" : { description : "create room" }
+    };   
+    var dirTypesMenu = [
+        {
+            text : "Stairs" ,
+            value : "stairs"
         },
-        location : {
-            "1" : { description : "edit room" ,
-                states : {
-                    "1" : { description : "Change name" },
-                    "2" : { description : "Change description" },
-                    "3" : { description : "Change location type" }
-                }
-            },
-            "2" : { description : "edit connections" ,
-                    states : {
-                    "1" : { description : "Add connection" },
-                    "2" : { description : "Edit connection" },
-                    "3" : { description : "Remove connection" }
-                   }
-            },
-            "3" : { description : "item" ,
-                states : {
-                    "1" : { description : "Add item" },
-                    "2" : { description : "Edit item" ,
-                            states : {
-                                "1" : { description : "Change name" },
-                                "2" : { description : "Change description" },
-                                "3" : { description : "Change item type" ,
-                                        states : {
-                                            "1" : { description : "Item is a fixture" },
-                                            "2" : { description : "Item is a container" },
-                                            "3" : { description : "Item is readable" },
-                                            "4" : { description : "Item is a lightsource" },
-                                            "5" : { description : "Item is eatable" },
-                                        }
-                                    }
-                            }
-                          },
-                    "3" : { description : "Remove item" }
-                }
-            }
+        {
+            text : "Passage" ,
+            value : "passage"
+        },
+        {
+            text : "Path" ,
+            value : "path"
+        },
+        {
+            text : "None" ,
+            value : null
         }
-    };
+    ];
     var metadata = {
         title: null,
         author: null,
@@ -556,7 +557,9 @@ module.exports = function ltbl(settings) {
     }
 
     var render = function (loc,locationId, depth, where) {
-        annotations = [];
+        if( !depth ) {
+            annotations = [];
+        }
         var describeNav = function (dir, name, rawDir) {
             if (dir.type == "stairs") {
                 console.log("There are stairs leading " + name + "."+annotate({"type":"dir","dir":rawDir}));
@@ -595,12 +598,12 @@ module.exports = function ltbl(settings) {
         } else {
             if (loc.name) {
                 console.log(chalk.bold(loc.name)+annotate({"type":"location.name"}));
-            } else if(pov.isGod) {
+            } else if(pov.isGod && !depth ) {
                 console.log(chalk.bold("No name")+annotate({"type":"location.name"}));
             }
             if (loc.description) {
                 console.log(loc.description+annotate({"type":"location.description"}));
-            } else if(pov.isGod) {
+            } else if(pov.isGod&& !depth ) {
                 console.log(chalk.bold("No description")+annotate({"type":"location.description"}));
             }
         }
@@ -1425,6 +1428,7 @@ module.exports = function ltbl(settings) {
             var ip = items[anno.item];
             annotations = [];
             if( ip ) {
+                var noPostures = true;
                 if( ip.name ) {
                     console.log(chalk.bold("Name\n"+ip.name)+" "+annotate({"type":"item.name","item":anno.item}))
                 } else {
@@ -1440,12 +1444,22 @@ module.exports = function ltbl(settings) {
                 if( ip.content ) {
                     console.log(ip.content+annotate({"type":"item.content","item":anno.content}))
                 } else {
-                    console.log("No content"+annotate({"type":"item.content","item":anno.content}))
+                    console.log("No readable content"+annotate({"type":"item.content","item":anno.item}))
+                }
+                if( ip.postures ) {
+                    if( ip.postures.length ) {
+                        console.log(chalk.bold("Nested Room Supported Postures"))
+                        console.log(ip.postures.join(",")+annotate({"type":"item.postures","item":anno.item}))
+                        noPostures = false;
+                    }
+                }
+                if( noPostures ) {
+                    console.log("Not a Nested room"+annotate({"type":"item.postures","item":anno.item}))
                 }
                 /*
-                if( ip.postures ) {
-                }
                 if( ip.contains ) {
+                    if( ip.contains.length ) {
+                    }
                 }
                 if( ip.supports ) {
                 }            
@@ -1467,8 +1481,13 @@ module.exports = function ltbl(settings) {
         } else if( anno.type == "item.content" ) {
             var ip = items[anno.item];
             if( ip ) {
-                stateMachine = stateMachineFillinCreate(ip,[{msg:"Change item description:",prop:"content"}]);
+                stateMachine = stateMachineFillinCreate(ip,[{msg:"Change item readable content:",prop:"content"}]);
             }
+        } else if( anno.type == "item.postures" ) {
+            var ip = items[anno.item];
+            if( ip ) {
+                //item.postures
+            }            
         } else if( anno.type == "dir" ) {
             var loc = getLocation(pov.location);
             if( loc ) {
@@ -1495,8 +1514,51 @@ module.exports = function ltbl(settings) {
             if( loc ) {
                 stateMachine = stateMachineFillinCreate(loc,[{msg:"Change location description:",prop:"description"}]);
             }
+        } else if( anno.type == "dir.location" ) {
+            var loc = getLocation(pov.location);
+            if( loc ) {
+                var dp = loc[anno.dir];
+                if( dp ) {
+                    // TBD changing location could orphan rooms or
+                    // mess up geography - we need some validation logic
+                    // to prevent this
+                }
+            }
+        } else if( anno.type == "dir.type" ) {
+            var loc = getLocation(pov.location);
+            if( loc ) {
+                var dp = loc[anno.dir];
+                if( dp ) {
+                    stateMachine = stateMachineFillinCreate(dp,[{msg:"Change location type:",prop:"type",choices:dirTypesMenu}]);
+                }
+            }
         } else if( anno.type == "npc" ) {
-            //"type":"npc","npc":_npc
+            var ni = npc[anno.npc];
+            if( ni ) {
+                annotations = [];
+                console.log(chalk.bold("Name"));
+                if( ni.name ) {
+                    console.log(ni.name+" "+annotate({"type":"npc.name","npc":anno.npc}));
+                } else {
+                    console.log("No Name "+annotate({"type":"npc.name","npc":anno.npc}));
+                }
+                console.log(chalk.bold("Description"));
+                if( ni.description ) {
+                    console.log(ni.description+" "+annotate({"type":"npc.name","npc":anno.npc}));
+                } else {
+                    console.log("No Description "+annotate({"type":"npc.name","npc":anno.npc}));    
+                }
+            }
+        } else if( anno.type == "npc.name" ) {
+            var ni = npc[anno.npc];
+            if( ni ) {
+                stateMachine = stateMachineFillinCreate(ni,[{msg:"Change NPC name:",prop:"name"}]);
+            }
+        } else if( anno.type == "npc.description" ) {
+            var ni = npc[anno.npc];
+            if( ni ) {
+                stateMachine = stateMachineFillinCreate(ni,[{msg:"Change NPC description:",prop:"description"}]);
+            }
         } else if( anno.type == "conv" ) {
             //{ type:"conv" , npc : vc.npc , action : vc.action , proposition : vc.proposition, topic : vc.topic }
         }
