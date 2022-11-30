@@ -30,7 +30,7 @@ module.exports = function ltbl(settings) {
         }
         if( st.choices ) {
             if( st.multiple ) {
-                var arr = sm.data[prop];
+                var arr = sm.data[st.prop];
                 if( !arr ) {
                     arr = [];
                 }
@@ -43,7 +43,7 @@ module.exports = function ltbl(settings) {
                         }
                     }
                     if( selected )
-                        console.log(chalk.inverse((i+1)+") "+st.choices[i].text));
+                        console.log(chalk.bold((i+1)+")["+st.choices[i].text+"]"));
                     else 
                         console.log((i+1)+") "+st.choices[i].text);
                 }
@@ -112,7 +112,7 @@ module.exports = function ltbl(settings) {
                             }
                         }
                         if( exists >= 0 ) {
-                            sm.data[curState.prop] = arr.splice(index);
+                            arr.splice(choiceNum-1,1);
                         } else {
                             arr.push(curState.choices[choiceNum-1].value);
                         }
