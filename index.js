@@ -16,7 +16,7 @@ module.exports = function ltbl(settings) {
      */
     var stateMachine = null;
     var annotations = [];
-    var displayMessage = function(st) {
+    var displayMessage = function(sm,st) {
         if( st.msg ) {
             var msg = st.msg;
             if( msg.indexOf("{") >= 0 ) {
@@ -29,8 +29,28 @@ module.exports = function ltbl(settings) {
             console.log(msg);
         }
         if( st.choices ) {
-            for( var i = 0 ; i < st.choices.length ; ++i ) {
-                console.log((i+1)+") "+st.choices[i].text);
+            if( st.multiple ) {
+                var arr = sm.data[prop];
+                if( !arr ) {
+                    arr = [];
+                }
+                for( var i = 0 ; i < st.choices.length ; ++i ) {
+                    var selected = false;
+                    for( var j = 0 ; j < arr.length ; ++j ) {
+                        if( st.choices[i].value == arr[j] ) {
+                            selected = true;
+                            break;
+                        }
+                    }
+                    if( selected )
+                        console.log(chalk.inverse((i+1)+") "+st.choices[i].text));
+                    else 
+                        console.log((i+1)+") "+st.choices[i].text);
+                }
+            } else {
+                for( var i = 0 ; i < st.choices.length ; ++i ) {
+                    console.log((i+1)+") "+st.choices[i].text);
+                }
             }
         }
     };
@@ -71,17 +91,38 @@ module.exports = function ltbl(settings) {
                 sm.aborting = true;
                 sm.askAbort();
             } else {
-                displayMessage(curState);
+                displayMessage(sm,curState);
             }
             return "retry";
         }
         if( curState.choices ) {
-            var choiceNum = Number.parseInt(command);
+            var choiceNum = Number.parseInt(command);            
             if( 1 <= choiceNum && choiceNum <= sm.states[sm.state].choices.length ) {
-                if( curState.choices[choiceNum-1].value ) 
-                    sm.data[curState.prop] = curState.choices[choiceNum-1].value;
-                else
-                    delete sm.data[curState.prop];
+                if( curState.multiple ) {
+                    // Array of strings representing a multiple state...
+                    if(  !sm.data[curState.prop] ) {
+                        sm.data[curState.prop] = [curState.choices[choiceNum-1].value];
+                    } else {
+                        var arr = sm.data[curState.prop];
+                        var exists = -1;
+                        for( var i = 0 ; i < arr.length ; ++i ) {
+                            if( arr[i] == curState.choices[choiceNum-1].value ) {
+                                exists = i;
+                                break;
+                            }
+                        }
+                        if( exists >= 0 ) {
+                            sm.data[curState.prop] = arr.splice(index);
+                        } else {
+                            arr.push(curState.choices[choiceNum-1].value);
+                        }
+                    }
+                } else {
+                    if( curState.choices[choiceNum-1].value ) 
+                        sm.data[curState.prop] = curState.choices[choiceNum-1].value;
+                    else
+                        delete sm.data[curState.prop];
+                }
             } else {
                 console.log("You must pick a number between 1 and "+curState.choices.length);
             }
@@ -92,10 +133,10 @@ module.exports = function ltbl(settings) {
             if( sm.states[sm.state+1].test ) {
                 sm.state = sm.state+1;
                 advanceTest();
-                displayMessage(sm.states[sm.state]);
+                displayMessage(sm,sm.states[sm.state]);
                 return "retry";
             }
-            displayMessage(sm.states[sm.state+1]);
+            displayMessage(sm,sm.states[sm.state+1]);
             return "next";
         }
         if( sm.done ) {
@@ -112,7 +153,7 @@ module.exports = function ltbl(settings) {
             }         
             return false;
         }
-        displayMessage(sm.states[0]);
+        displayMessage(sm,sm.states[0]);
         return true;
     };
     var stateMachineFillinCreate = function(data,states,done) {
@@ -266,7 +307,20 @@ module.exports = function ltbl(settings) {
             value : null
         }
     ];
-
+    var postureTypeList = [
+        {
+            text : "Sit" ,
+            value : "sit"
+        },
+        {
+            text : "Lie" ,
+            value : "lie"
+        },
+        {
+            text : "Stand" ,
+            value : "stand"
+        }
+    ];
     var metadata = {
         title: null,
         author: null,
@@ -1589,7 +1643,7 @@ module.exports = function ltbl(settings) {
         } else if( anno.type == "item.postures" ) {
             var ip = getItem(anno.item);
             if( ip ) {
-                //item.postures
+                stateMachine = stateMachineFillinCreate(ip,[{msg:"Supported postures:",prop:"postures",choices:postureTypeList,multiple:true}]);
             }            
         } else if( anno.type == "dir" ) {
             var loc = getLocation(pov.location);
