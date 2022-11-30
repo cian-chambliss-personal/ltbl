@@ -135,7 +135,7 @@ module.exports = function ltbl(settings) {
     };
     var roomNum = 1;
     var itemNum = 1;
-    var doorNum = 1;
+    var doorNum = 0;
     var mode = 'where';
     var statusLine = null;
     var lastLocation = null;
@@ -168,6 +168,11 @@ module.exports = function ltbl(settings) {
         "look" : "look",
         "x" : "examine",
         "examine" : "examine",
+        "touch" : "touch",
+        "feel" : "touch",
+        "smell" : "smell",
+        "sniff" : "smell",
+        "listen" : "listen",
         "i": "inventory",
         "inventory" : "inventory",
         "drop" : "drop",
@@ -239,6 +244,29 @@ module.exports = function ltbl(settings) {
             value : null
         }
     ];
+    var roomTypesMenu = [
+        {
+            text : "Outside" ,
+            value : "outside"
+        },
+        {
+            text : "Ship" ,
+            value : "ship"
+        },
+        {
+            text : "Dark" ,
+            value : "dark"
+        },
+        {
+            text : "Bottomless" ,
+            value : "bottomless"
+        },
+        {
+            text : "Inside" ,
+            value : null
+        }
+    ];
+
     var metadata = {
         title: null,
         author: null,
@@ -285,6 +313,70 @@ module.exports = function ltbl(settings) {
         }
         return location;
     };
+    var getDoor = function(name) {
+        return doors[name];
+    };
+    var getNewDoorName = function(name) {
+        if( doorNum == 0) {
+            while (doors["door" + doorNum]) {
+                doorNum = doorNum + 1;
+            }
+        }
+        name = "door" + doorNum;
+        doorNum = doorNum + 1;
+    }    
+    var setDoor = function(name,di) {
+        doors[name] = di;
+    };
+    var getItem = function(name) {
+        name = name.split("/");
+        if( name.length > 1 ) {
+            var location = locations[name[0]];
+            var i = 1;
+            while( location && (i+1) < name.length ) {
+                if( location.locations ) {
+                    location = location.locations[name[i]];
+                } else {
+                    location = null;
+                }
+                i = i + 1;
+            }
+            if( location ) {
+                if( location.items ) {
+                    return location.items[name[name.length-1]];
+                }
+            }            
+        } else {
+            return items[name[0]];
+        }
+        return null;
+    }
+    var getNpc = function(name) {
+        name = name.split("/");
+        if( name.length > 1 ) {
+            var location = locations[name[0]];
+            var i = 1;
+            while( location && (i+1) < name.length ) {
+                if( location.locations ) {
+                    location = location.locations[name[i]];
+                } else {
+                    location = null;
+                }
+                i = i + 1;
+            }
+            if( location ) {
+                if( location.npc ) {
+                    return location.npc[name[name.length-1]];
+                }
+            }            
+        } else {
+            return npc[name[0]];
+        }
+        return null;
+    }
+    var setNpc = function(name,ni) {
+        npc[name] = ni;
+    }
     var setLocation = function(name,room) {
         var location = null;
         name = name.split("/");
@@ -489,6 +581,10 @@ module.exports = function ltbl(settings) {
     var extractNounAndAdj = helper.extractNounAndAdj;
     var getPartsOfSpeech = helper.getPartsOfSpeech;
     var isVerb = helper.isVerb;
+    var invalidateMap = function() {
+        map = null;
+        render(getLocation(pov.location),pov.location, 0);
+    };
     var annotate = function(expr) {
         if( pov.isGod ) {
             annotations.push(expr);
@@ -569,9 +665,9 @@ module.exports = function ltbl(settings) {
                 console.log("There is a path leading " + name + "."+annotate({"type":"dir","dir":rawDir}));
             } else if (dir.door) {
                 if (dir.open) {
-                    console.log("To the " + name + " is open " + doors[dir.door].name+annotate({"type":"dir","dir":rawDir}));
+                    console.log("To the " + name + " is open " + getDoor(dir.door).name+annotate({"type":"dir","dir":rawDir}));
                 } else {
-                    console.log("To the " + name + " is " + doors[dir.door].name+annotate({"type":"dir","dir":rawDir}));
+                    console.log("To the " + name + " is " + getDoor(dir.door).name+annotate({"type":"dir","dir":rawDir}));
                 }
             } else {
                 if( dir.direction ) {
@@ -596,6 +692,12 @@ module.exports = function ltbl(settings) {
             }
             
         } else {
+            if(pov.isGod && !depth ) {
+                if(loc.type)
+                    console.log("Type: "+chalk.bold(loc.type)+annotate({"type":"location.type"}));
+                else
+                    console.log("Type: "+chalk.bold("inside")+annotate({"type":"location.type"}));
+            }
             if (loc.name) {
                 console.log(chalk.bold(loc.name)+annotate({"type":"location.name"}));
             } else if(pov.isGod && !depth ) {
@@ -619,7 +721,7 @@ module.exports = function ltbl(settings) {
                         contains += "and";
                     }
                 }
-                var iname = items[loc.contains[i].item].name;
+                var iname = getItem(loc.contains[i].item).name;
                 if ("AEIOUYW".indexOf(iname[0]))
                     contains += " a ";
                 else
@@ -670,7 +772,7 @@ module.exports = function ltbl(settings) {
         }
         if( locationId ) {
             for( var _npc in npc) {
-                var  ni = npc[_npc];
+                var  ni = getNpc(_npc);
                 if( ni.location == locationId ) {
                     console.log(ni.name+" is here."+annotate({"type":"npc","npc":_npc}));
                 }
@@ -680,9 +782,10 @@ module.exports = function ltbl(settings) {
     var findNPC =function(name) {
         name = name.toLowerCase().trim();
         var cc = camelCase(name);
-        if( npc[cc] ) {
+        var _npc = npc[cc];
+        if( _npc ) {
             // well known short name...
-            return npc[cc];
+            return _npc;
         }
         for( var _ind in npc ) {
             var _npc = npc[_ind];
@@ -823,7 +926,7 @@ module.exports = function ltbl(settings) {
         } else {
             for (var i = 0; i < arr.length; ++i) {
                 var item = arr[i].item;
-                var ptr = items[item];
+                var ptr = getItem(item);
                 if (ptr) {
                     var lname = ptr.name;
                     if (command == lname.toLowerCase()) {
@@ -925,7 +1028,7 @@ module.exports = function ltbl(settings) {
                 } else if (candidates.length > 1) {
                     console.log("which " + command + "?");
                     for (var i = 0; i < candidates.length; ++i) {
-                        console.log(items[candidates[i]].name);
+                        console.log(getItem(candidates[i]).name);
                     }
                     itemName = "?"; // ambiguouse
                 }
@@ -1027,7 +1130,7 @@ module.exports = function ltbl(settings) {
                             description : vc.newNPC ,
                             location : pov.location 
                         };
-                        npc[camelCase(newNPC)] = _npc;
+                        setNpc(camelCase(newNPC),_npc);
                     }
                     if( _npc ) {
                         if( verbsWithTopics[vc.action] ) {
@@ -1097,7 +1200,7 @@ module.exports = function ltbl(settings) {
             } else {
                 // All the actions
                 if( response.take ) {
-                    var npcPtr = npc[vc.npc];
+                    var npcPtr = getNpc(vc.npc);
                     if( !npcPtr )
                         return false;
                     var item = removeItem(actor.inventory,"@"+response.take);
@@ -1116,7 +1219,7 @@ module.exports = function ltbl(settings) {
                         return false;
                 }
                 if( response.give ) {
-                    var npcPtr = npc[vc.npc];
+                    var npcPtr = getNpc(vc.npc);
                     if( !npcPtr )
                         return false;
                     if( !npcPtr.inventory ) 
@@ -1425,10 +1528,10 @@ module.exports = function ltbl(settings) {
     var doAnnotation = function(anno) {
         if( anno.type == "item" ) {
             //{"type":"item","item":
-            var ip = items[anno.item];
+            var ip = getItem(anno.item);
             annotations = [];
             if( ip ) {
-                var noPostures = true;
+                var noPostures = true;                
                 if( ip.name ) {
                     console.log(chalk.bold("Name\n"+ip.name)+" "+annotate({"type":"item.name","item":anno.item}))
                 } else {
@@ -1469,22 +1572,22 @@ module.exports = function ltbl(settings) {
                 }*/
               }
         } else if( anno.type == "item.name" ) {
-            var ip = items[anno.item];
+            var ip = getItem(anno.item);
             if( ip ) {
                 stateMachine = stateMachineFillinCreate(ip,[{msg:"Change item name:",prop:"name"}]);
             }
         } else if( anno.type == "item.description" ) {
-            var ip = items[anno.item];
+            var ip = getItem(anno.item);
             if( ip ) {
                 stateMachine = stateMachineFillinCreate(ip,[{msg:"Change item description:",prop:"description"}]);
             }
         } else if( anno.type == "item.content" ) {
-            var ip = items[anno.item];
+            var ip = getItem(anno.item);
             if( ip ) {
                 stateMachine = stateMachineFillinCreate(ip,[{msg:"Change item readable content:",prop:"content"}]);
             }
         } else if( anno.type == "item.postures" ) {
-            var ip = items[anno.item];
+            var ip = getItem(anno.item);
             if( ip ) {
                 //item.postures
             }            
@@ -1507,13 +1610,18 @@ module.exports = function ltbl(settings) {
         } else if( anno.type == "location.name" ) {
             var loc = getLocation(pov.location);
             if( loc ) {
-                stateMachine = stateMachineFillinCreate(loc,[{msg:"Change location name:",prop:"name"}]);
+                stateMachine = stateMachineFillinCreate(loc,[{msg:"Change location name:",prop:"name"}],invalidateMap);
             }
         } else if( anno.type == "location.description" ) {
             var loc = getLocation(pov.location);
             if( loc ) {
-                stateMachine = stateMachineFillinCreate(loc,[{msg:"Change location description:",prop:"description"}]);
+                stateMachine = stateMachineFillinCreate(loc,[{msg:"Change location description:",prop:"description"}],invalidateMap);
             }
+        } else if( anno.type == "location.type" ) {
+            var loc = getLocation(pov.location);
+            if( loc ) {
+                stateMachine = stateMachineFillinCreate(loc,[{msg:"Change location type:",prop:"type",choices:roomTypesMenu}],invalidateMap);
+            }            
         } else if( anno.type == "dir.location" ) {
             var loc = getLocation(pov.location);
             if( loc ) {
@@ -1533,7 +1641,7 @@ module.exports = function ltbl(settings) {
                 }
             }
         } else if( anno.type == "npc" ) {
-            var ni = npc[anno.npc];
+            var ni = getNpc(anno.npc);
             if( ni ) {
                 annotations = [];
                 console.log(chalk.bold("Name"));
@@ -1550,12 +1658,12 @@ module.exports = function ltbl(settings) {
                 }
             }
         } else if( anno.type == "npc.name" ) {
-            var ni = npc[anno.npc];
+            var ni = getNpc(anno.npc);
             if( ni ) {
                 stateMachine = stateMachineFillinCreate(ni,[{msg:"Change NPC name:",prop:"name"}]);
             }
         } else if( anno.type == "npc.description" ) {
-            var ni = npc[anno.npc];
+            var ni = getNpc(anno.npc);
             if( ni ) {
                 stateMachine = stateMachineFillinCreate(ni,[{msg:"Change NPC description:",prop:"description"}]);
             }
@@ -1827,21 +1935,20 @@ module.exports = function ltbl(settings) {
                     && lCase != "no"
                 ) {
                     var name = extractNounAndAdj(command);
-                    if (!name || doors[name]) {
-                        name = "door" + itemNum;
-                        itemNum = itemNum + 1;
+                    if (!name || getDoor(name)) {
+                        name = getNewDoorName(name);
                     }
-                    doors[name] = { name: command };
+                    setDoor(name,{ name: command });
                     getLocation(lastLocation)[lastDirection].door = name;
                     getLocation(pov.location)[reverseDirection(lastDirection)].door = name;
                 }
                 mode = "what";
                 describe();
             } else if (mode == 'describe_item') {
-                items[describeItem].description = command;
+                getItem(describeItem).description = command;
                 mode = "what";
             } else if (mode == 'write') {
-                items[describeItem].content = command;
+                getItem(describeItem).content = command;
                 mode = "what";
             } else if (mode == 'describe_location') {
                 getLocation(pov.location).description = command;
@@ -1855,7 +1962,7 @@ module.exports = function ltbl(settings) {
                     if (command != "") {
                         var item = lookupItem(command);
                         if (item && item != "?") {
-                            var itemPtr = items[item];
+                            var itemPtr = getItem(item);
                             if (itemPtr.description) {
                                 console.log(itemPtr.description);
                             } else {
@@ -1873,6 +1980,11 @@ module.exports = function ltbl(settings) {
                             console.log("How would you describe the " + where.name + "?")
                         }
                     }
+                } else if ( firstWord == "feel" 
+                         || firstWord == "smell"  
+                         || firstWord == "listen" 
+                          ) {
+                    console.log("TBD - add item/npc/etc smell/touch etc.");
                 } else if (firstWord == "inventory") {
                     if (actor.inventory.length == 0) {
                         console.log("You are carrying nothing.");
@@ -1880,7 +1992,7 @@ module.exports = function ltbl(settings) {
                         annotations = [];
                         console.log("You are carrying:");
                         for (var i = 0; i < pov.inventory.length; ++i) {
-                            console.log(items[pov.inventory[i].item].name+annotate({"type":"item","item":pov.inventory[i].item}));
+                            console.log(getItem(pov.inventory[i].item).name+annotate({"type":"item","item":pov.inventory[i].item}));
                         }
                     }
                 } else if ( firstWord == "drop"
@@ -1936,7 +2048,7 @@ module.exports = function ltbl(settings) {
                         if (objectWhere) {
                             where = lookupItem(objectWhere);
                             if (where) {
-                                where = items[where];
+                                where = getItem(where);
                             }
                             if (!where) {
                                 console.log("you see no " + objectWhere);
@@ -1966,8 +2078,8 @@ module.exports = function ltbl(settings) {
                                 if (!name) {
                                     name = "item" + itemNum;
                                     itemNum = itemNum + 1;
-                                }
-                                if (!items[name]) {
+                                }                                
+                                if (!items[name]) { // CSC - in getItem refactor = need to figure out this, as items will be localized
                                     items[name] = { name: command };
                                 }
                                 if (!where[holder]) {
@@ -1989,14 +2101,15 @@ module.exports = function ltbl(settings) {
                         var item = lookupItem(command);
                         if (item) {
                             if (item != "?") {
-                                if (items[item].content) {
-                                    console.log(items[item].content);
+                                var ip = getItem(item);
+                                if (ip.content) {
+                                    console.log(ip.content);
                                 } else if( pov.isGod ) {
                                     describeItem = item;
-                                    console.log("What do you see written in " + items[item].name + "?");
+                                    console.log("What do you see written in " + ip.name + "?");
                                     mode = "write";
                                 } else {
-                                    console.log("There is nothing written on the "+items[item].name);
+                                    console.log("There is nothing written on the "+ip.name);
                                 }
                             }
                         } else {
@@ -2053,10 +2166,11 @@ module.exports = function ltbl(settings) {
                         }
                         var existingItem = lookupItem(what);
                         if (existingItem && existingItem != "?") {
-                            if (pov.isGod && !items[existingItem].type) {
-                                items[existingItem].type = thingType;
+                            var ip = getItem(existingItem);
+                            if (pov.isGod && !ip.type) {
+                                ip.type = thingType;
                                 console.log(command + " is " + thingType + ".");
-                            } else if (items[existingItem].type != thingType) {
+                            } else if (ip.type != thingType) {
                                 console.log("You cannot " + firstWord + " " + command);
                             } else {
                                 if( !pov.isGod ) {
@@ -2443,16 +2557,17 @@ module.exports = function ltbl(settings) {
                     if( command.length ) {
                         var existingItem = lookupItem(command);
                         if (existingItem && existingItem != "?") {
-                            if( allowPosture(items[existingItem],firstWord) ) {
-                                console.log("You "+firstWord + " on " + items[existingItem].name + ".");
+                            var ip =getItem(existingItem);
+                            if( allowPosture(ip,firstWord) ) {
+                                console.log("You "+firstWord + " on " + ip.name + ".");
                             } else if( pov.isGod ) {
-                                if( !items[existingItem].postures ) {
-                                    items[existingItem].postures = [];
+                                if( !ip.postures ) {
+                                    ip.postures = [];
                                 }
-                                items[existingItem].postures.push(firstWord);
-                                console.log("You can now "+firstWord + " on " + items[existingItem].name + ".");
+                                ip.postures.push(firstWord);
+                                console.log("You can now "+firstWord + " on " + ip.name + ".");
                             } else {
-                                console.log("You cannot "+firstWord + " on " + items[existingItem].name + ".");
+                                console.log("You cannot "+firstWord + " on " + ip.name + ".");
                             }
                         } else if (existingItem != "?") {
                             console.log("You see no " + command);
@@ -2471,12 +2586,12 @@ module.exports = function ltbl(settings) {
                             list = findItems(command);
                             for( var i = 0 ; i < list.length ; ++i ) {
                                 console.log(chalk.bold(list[i]));
-                                console.dir(items[list[i]], null);
+                                console.dir(getItem(list[i]), null);
                             }
                             list = findNPCs(command);
                             for( var i = 0 ; i < list.length ; ++i ) {
                                 console.log(chalk.bold(list[i]));
-                                console.dir(npc[list[i]], null);
+                                console.dir(getNpc(list[i]), null);
                             }
                         }
                         else
@@ -2613,9 +2728,7 @@ module.exports = function ltbl(settings) {
                 while (items["item" + itemNum]) {
                     itemNum = itemNum + 1;
                 }
-                while (doors["door" + doorNum]) {
-                    doorNum = doorNum + 1;
-                }
+                doorNum = 0;
                 if( allowGodMode ) {
                     if (!map) {
                         map = createMap();
