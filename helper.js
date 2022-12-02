@@ -91,10 +91,20 @@ module.exports = function ltbl() {
         return parts;
     }    
     var isVerb = function(wrd) {
-        if( partOfSp[wrd] & 2 )
-            return true;
+        if( partOfSp[wrd] ) {
+            if( partOfSp[wrd] & 2 )
+                return true;
+        }
         return false;
     }
+    var isArticle = function(wrd) {
+        if( partOfSp[wrd] ) {
+            if( partOfSp[wrd] & 64 )
+                return true;
+        }
+        return false;
+    }
+
     var superScript = function(txt) {
         var fromCh = "0123456789()+-=";
         var toCh = "⁰¹²³⁴⁵⁶⁷⁸⁹⁽⁾⁺⁻⁼";
@@ -112,6 +122,7 @@ module.exports = function ltbl() {
         extractNounAndAdj : extractNounAndAdj,
         getPartsOfSpeech: getPartsOfSpeech,
         isVerb : isVerb,
+        isArticle : isArticle,
         superScript: superScript,
         directionTags : function() { return ["s", "n", "e", "w", "u", "d", "sw", "se", "nw", "ne"]; }
     }
