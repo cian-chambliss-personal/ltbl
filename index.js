@@ -1,4 +1,6 @@
 const chalk = require("chalk");
+const { get } = require("http");
+const { off } = require("process");
 
 module.exports = function ltbl(settings) {
     /*
@@ -267,6 +269,20 @@ module.exports = function ltbl(settings) {
             }
         }
     };   
+    topLocationMenu= [
+        {
+            text : "Outdoors" ,
+            value : "outdoors"
+        },
+        {
+            text : "Indoors" ,
+            value : "indoors"
+        },
+        {
+            text : "Underground" ,
+            value : "underground"
+        }
+    ];
     var dirTypesMenu = [
         {
             text : "Stairs" ,
@@ -354,14 +370,16 @@ module.exports = function ltbl(settings) {
     };
     var getLocation = function(name) {
         var location = null;
-        name = name.split("/");
-        location = locations[name[0]];
-        if( name.length > 1 ) {
-            for( var i = 1 ; location && i < name.length ; ++i ) {
-                if( location.locations ) {
-                    location = location.locations[name[i]];
-                } else {
-                    location = null;
+        if( name ) {
+            name = name.split("/");
+            location = locations[name[0]];
+            if( name.length > 1 ) {
+                for( var i = 1 ; location && i < name.length ; ++i ) {
+                    if( location.locations ) {
+                        location = location.locations[name[i]];
+                    } else {
+                        location = null;
+                    }
                 }
             }
         }
@@ -438,6 +456,7 @@ module.exports = function ltbl(settings) {
         if( !location ) {
             if( name.length > 1 ) {
                 locations[name[0]] = {};
+                location = locations[name[0]];
             } else {
                 locations[name[0]] = room;
             }
@@ -449,7 +468,7 @@ module.exports = function ltbl(settings) {
                 }
                 if( i == name.length - 1) {
                     location.locations[name[i]] = room;
-                    break
+                    break;
                 } else {
                     if( !location.locations[name[i]] ) {
                         location.locations[name[i]] = {};
@@ -635,6 +654,7 @@ module.exports = function ltbl(settings) {
     var extractNounAndAdj = helper.extractNounAndAdj;
     var getPartsOfSpeech = helper.getPartsOfSpeech;
     var isVerb = helper.isVerb;
+    var isArticle = helper.isArticle;
     var invalidateMap = function() {
         map = null;
         render(getLocation(pov.location),pov.location, 0);
@@ -886,6 +906,240 @@ module.exports = function ltbl(settings) {
         return list;
     };
 
+    var extractNounAndAdjAlways = function(text) {
+        var name = extractNounAndAdj(text);
+        if( !name ) {
+            var words = text.split(" ");
+            if( words.length > 1) {
+                if( isArticle(words[0]) ) {
+                    text = text.substring(words[0].length+1).trim();
+                }
+            }
+            name = camelCase(text);
+        }
+        return name;
+    };
+
+    // data
+    var locationDefine = function(data) {
+        var prefix = "";
+        var connectedVoid = { count : 0 };
+        if( lastNonVoid ) {
+            if( lastNonVoid.indexOf("/") > 0 ) {
+                prefix = lastNonVoid.substring(0,lastNonVoid.indexOf("/"));
+                var parentLoc = getLocation(prefix);
+                if( parentLoc ) {
+                    prefix = prefix + "/";
+                } else {
+                    prefix = "";
+                }
+                if( !data.roomType ) {
+                    if( getLocation(lastNonVoid).type ) {
+                        data.roomType = getLocation(lastNonVoid).type;
+                    }
+                }            
+            }
+        }
+        if( prefix == "" ) {
+            if( data.type && data.name ) {
+                prefix = extractNounAndAdjAlways(data.name);
+                if( prefix && prefix != "" ) {
+                    if( getLocation(prefix) ) {
+                        prefix = prefix + "/";
+                    } else{
+                        setLocation(prefix,{ name : prefix , decription : data.name , type : data.type })
+                        prefix = prefix + "/";
+                        if( !data.roomType ) {
+                            if( data.type == "outdoors" ) {
+                                data.roomType = "outside";
+                            }
+                        }
+                    }
+                } else {
+                    prefix = "";
+                }
+            }
+        }
+        if( pov.location ) {
+            if( getLocation(pov.location).type == "void" ) {
+                connectedVoid = gatherVoid();
+                if( connectedVoid.count  > 1 ) {
+                    autoConnectVoids(map,connectedVoid.collectedVoid);
+                }
+            }
+        }
+        var calcRoomName = function(prefix,suffix) {
+            var roomName = prefix+extractNounAndAdjAlways(data.room);
+            if (roomName) {
+                if( suffix ) {
+                    roomName = roomName + "/" + suffix;
+                }
+                // add # to the orginal room (libary,library1,library2...)
+                if (getLocation(roomName)) {
+                    var extactCount = 1;
+                    while( getLocation(roomName+extactCount) ) {
+                        extactCount = extactCount + 1;
+                    }
+                    roomName = roomName+extactCount;
+                }
+            } else {
+                roomName = prefix+"room" + roomNum;
+                roomNum = roomNum + 1;
+            }
+            return roomName;
+        };
+        var roomName;
+        var name = data.room;
+        var parts = getPartsOfSpeech(data.room);
+        map = null; // need to recalc the map 
+
+        if( connectedVoid.count > 1 ) {
+            var newRoomMap = {};
+            // Create rooms for all the voids....
+            for( var voidRoom in connectedVoid.voids ) {
+                var _name = parts.name;
+                var roomDesc = data.room;
+                var srcRoom = connectedVoid.voids[voidRoom];
+                var suffix = srcRoom.edge;
+                if( !suffix && Number.isFinite(srcRoom.row) && Number.isFinite(srcRoom.col) ) {
+                    suffix = "r"+srcRoom.row+"c"+srcRoom.col;
+                } else {
+                    suffix = "part";
+                }
+                var roomName = calcRoomName(prefix,suffix);
+                newRoomMap[voidRoom] = roomName;
+                if( srcRoom.edge ) {
+                    var edgeName = friendlyDir(srcRoom.edge);
+                    _name = edgeName+" "+_name;
+                    roomDesc = edgeName+" "+roomDesc;
+                }
+                setLocation(roomName,{ name: _name, description: roomDesc });
+                if( data.roomType ) {
+                    getLocation(roomName).type = data.roomType;
+                }
+            }
+            // Now connect voids (and rooms)
+            for( var voidRoom in connectedVoid.voids ) {
+                var roomName = newRoomMap[voidRoom];
+                var srcRoom = connectedVoid.voids[voidRoom];
+                var dstRoom = getLocation(roomName);
+                var otherLocation;
+                if( srcRoom.n && !dstRoom.n ) {
+                    if( newRoomMap[srcRoom.n.location] ) {
+                        dstRoom.n = { location : newRoomMap[srcRoom.n.location] };
+                    } else {
+                        dstRoom.n = { location : srcRoom.n.location };
+                    }
+                    otherLocation = { location : roomName };
+                    if( srcRoom.n.wall ) {
+                        dstRoom.n.wall = srcRoom.n.wall;
+                        otherLocation.wall = srcRoom.n.wall;
+                    }
+                    getLocation(dstRoom.n.location).s = otherLocation;
+                }
+                if( srcRoom.s && !dstRoom.s ) {
+                    if( newRoomMap[srcRoom.s.location] ) {
+                        dstRoom.s = { location : newRoomMap[srcRoom.s.location] };
+                    } else {
+                        dstRoom.s = { location : srcRoom.s.location };
+                    }
+                    otherLocation = { location : roomName };
+                    if( srcRoom.s.wall  ) {
+                        dstRoom.s.wall = srcRoom.s.wall;
+                        otherLocation.wall = srcRoom.s.wall;
+                    }
+                    getLocation(dstRoom.s.location).n = otherLocation;
+                }
+                if( srcRoom.e && !dstRoom.e ) {
+                    if( newRoomMap[srcRoom.e.location] ) {
+                        dstRoom.e = { location : newRoomMap[srcRoom.e.location] };
+                    } else {
+                        dstRoom.e = { location : srcRoom.e.location };
+                    }
+                    otherLocation = { location : roomName };
+                    if( srcRoom.e.wall ) {
+                        dstRoom.e.wall = srcRoom.e.wall;
+                        otherLocation.wall = srcRoom.e.wall;
+                    }
+                    getLocation(dstRoom.e.location).w = otherLocation;
+                }
+                if( srcRoom.w && !dstRoom.w ) {
+                    if( newRoomMap[srcRoom.w.location] ) {
+                        dstRoom.w = { location : newRoomMap[srcRoom.w.location] };
+                    } else {
+                        dstRoom.w = { location : srcRoom.w.location };
+                    }
+                    otherLocation = { location : roomName };
+                    if( srcRoom.w.wall ) {
+                        dstRoom.w.wall = srcRoom.w.wall;
+                        otherLocation.wall = srcRoom.w.wall;
+                    }
+                    getLocation(dstRoom.w.location).e = otherLocation;
+                }
+                if( srcRoom.u && !dstRoom.u ) {
+                    if( newRoomMap[srcRoom.u.location] ) {
+                        dstRoom.u = { location : newRoomMap[srcRoom.u.location] };
+                    } else {
+                        dstRoom.u = { location : srcRoom.u.location };
+                    }
+                    otherLocation = { location : roomName };
+                    if( srcRoom.u.wall ) {
+                        dstRoom.u.wall = srcRoom.u.wall;
+                        otherLocation.wall = srcRoom.u.wall;
+                    }
+                    getLocation(dstRoom.u.location).d = otherLocation;
+                }
+                if( srcRoom.d && !dstRoom.d ) {
+                    if( newRoomMap[srcRoom.d.location] ) {
+                        dstRoom.d = { location : newRoomMap[srcRoom.d.location] };
+                    } else {
+                        dstRoom.d = { location : srcRoom.d.location };
+                    }
+                    otherLocation = { location : roomName };
+                    if( srcRoom.d.wall ) {
+                        dstRoom.d.wall = srcRoom.d.wall;
+                        otherLocation.wall = srcRoom.d.wall;
+                    }
+                    getLocation(dstRoom.d.location).u = otherLocation;
+                }
+            }
+            pov.location = newRoomMap[pov.location];
+            lastLocation = null;
+            lastDirection = null;
+            // Drop or raise voids
+            if( lastNonVoid && lastNonVoidDelta != 0 ) {
+                getLocation(lastNonVoid)[lastNonVoidDirection].direction = lastNonVoidDelta;
+                getLocation(getLocation(lastNonVoid)[lastNonVoidDirection].location)[reverseDirection(lastNonVoidDirection)].direction = -lastNonVoidDelta;
+            }
+            clearVoid();
+            describe();
+            mode = "what";
+        }  else {
+            roomName = calcRoomName(prefix,null);
+            pov.location = roomName;
+            setLocation(pov.location,{ name: parts.name, description: data.room });
+            if( connectedVoid.count > 0 ) {
+                clearVoid();
+            }
+            if (lastLocation) {
+                if (getLocation(lastLocation).type) {
+                    getLocation(pov.location).type = getLocation(lastLocation).type;
+                }
+            }
+            if (lastLocation && lastDirection) {
+                getLocation(lastLocation)[lastDirection] = { location: pov.location };
+                getLocation(pov.location)[reverseDirection(lastDirection)] = { location: lastLocation };
+                if( lastNonVoidDelta != 0 ) {
+                    getLocation(lastLocation)[lastDirection].direction = lastNonVoidDelta;
+                    getLocation(pov.location)[reverseDirection(lastDirection)].direction = -lastNonVoidDelta;
+                }
+                //console.log("Door name (blank or 'n' for no door, 's' for stairs, 'p' for path/passage )");
+                mode = "what";
+            }
+            describe();
+        }    
+    };
+
     var describe = function (noVoid) {
         if( renderMap ) {
             if( !map || map.location.room != pov.location ) {
@@ -963,8 +1217,30 @@ module.exports = function ltbl(settings) {
             render(getLocation(pov.location),pov.location, 0);
             mode = "what";
         } else {            
-            console.log("Where are you?");
-            mode = 'where';
+            if( lastNonVoid ) {
+                stateMachine = stateMachineFillinCreate({},[
+                    {msg:"Enter name for this location?",prop:"room"}
+                ],function(sm) {
+                    if( sm.data.room  && sm.data.room.length > 1  ) {
+                        locationDefine(sm.data);
+                    }
+                });
+            } else {
+                // First in            
+                stateMachine = stateMachineFillinCreate({},[
+                    {msg:"What kind of level?",prop:"type",choices:topLocationMenu},
+                    {msg:"Enter a name for this level?",prop:"name"},
+                    {msg:"Enter name for this location?",prop:"room"}
+                ],function(sm) {
+                    if( sm.data.type 
+                    && sm.data.name 
+                    && sm.data.room 
+                    && sm.data.room.length > 1 
+                    ) {
+                        locationDefine(sm.data);
+                    }
+                });
+            }
         }
     };
     var lookupItemLow = function (parts,arr,command,candidates) {
@@ -1768,7 +2044,19 @@ module.exports = function ltbl(settings) {
                     pov.location = lastLocation;
                     describe();
                 } else if (lCase.length > 2) {
+                    var prefix = "";
                     var connectedVoid = { count : 0 };
+                    if( lastNonVoid ) {
+                        if( lastNonVoid.indexOf("/") > 0 ) {
+                            prefix = lastNonVoid.substring(0,lastNonVoid.indexOf("/"));
+                            var parentLoc = getLocation(prefix);
+                            if( parentLoc && parentLoc.type ) {
+                                prefix = prefix + "/";
+                            } else {
+                                prefix = "";
+                            }
+                        }
+                    }
                     if( pov.location ) {
                         if( getLocation(pov.location).type == "void" ) {
                             connectedVoid = gatherVoid();
@@ -1777,11 +2065,11 @@ module.exports = function ltbl(settings) {
                             }
                         }
                     }
-                    var calcRoomName = function(suffix) {
-                        var roomName = extractNounAndAdj(command);
+                    var calcRoomName = function(prefix,suffix) {
+                        var roomName = prefix+extractNounAndAdj(command);
                         if (roomName) {
                             if( suffix ) {
-                                roomName = roomName + "."+ suffix;
+                                roomName = roomName + "/" + suffix;
                             }
                             // add # to the orginal room (libary,library1,library2...)
                             if (getLocation(roomName)) {
@@ -1789,10 +2077,10 @@ module.exports = function ltbl(settings) {
                                 while( getLocation(roomName+extactCount) ) {
                                     extactCount = extactCount + 1;
                                 }
-                                roomName = roomName+extactCount
+                                roomName = roomName+extactCount;
                             }
                         } else {
-                            roomName = "room" + roomNum;
+                            roomName = prefix+"room" + roomNum;
                             roomNum = roomNum + 1;
                         }
                         return roomName;
@@ -1815,7 +2103,7 @@ module.exports = function ltbl(settings) {
                             } else {
                                 suffix = "part";
                             }
-                            var roomName = calcRoomName(suffix);
+                            var roomName = calcRoomName(prefix,suffix);
                             newRoomMap[voidRoom] = roomName;
                             if( srcRoom.edge ) {
                                 var edgeName = friendlyDir(srcRoom.edge);
@@ -1926,9 +2214,9 @@ module.exports = function ltbl(settings) {
                         describe();
                         mode = "what";
                     }  else {
-                        roomName = calcRoomName(null);
+                        roomName = calcRoomName(prefix,null);
                         pov.location = roomName;
-                        getLocation(pov.location) = { name: parts.name, description: command };
+                        setLocation(pov.location,{ name: parts.name, description: command });
                         if( connectedVoid.count > 0 ) {
                             clearVoid();
                         }
@@ -2034,7 +2322,7 @@ module.exports = function ltbl(settings) {
                             console.log("How would you describe the " + where.name + "?")
                         }
                     }
-                } else if ( firstWord == "feel" 
+                } else if ( firstWord == "touch" 
                          || firstWord == "smell"  
                          || firstWord == "listen" 
                           ) {
@@ -2051,7 +2339,7 @@ module.exports = function ltbl(settings) {
                     }
                 } else if ( firstWord == "drop"
                          || firstWord == "put" 
-                         || firstWord == "hide" 
+                         || firstWord == "hide"
                           ) {
                     // Drop & put are pretty much the same, rely on 'on' / 'in' / 'behind' / 'under' for position
                     // Hide adds the 'hidden' property requires the player to inspect the container
