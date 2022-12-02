@@ -218,23 +218,27 @@ module.exports = function ltbl(settings) {
         "listen" : "listen",
         "i": "inventory",
         "inventory" : "inventory",
-        "drop" : "drop",
-        "put" : "put",
-        "hide" : "hide",
-        "read" : "read",
-        "eat" : "eat",
-        "wear" : "wear",
-        "light": "light",
-        "affix" : "affix",
-        "sit" : "sit",
-        "stand" : "stand",
-        "pov" :  "pov"
+        "drop" : "!drop",
+        "put" : "!put",
+        "hide" : "!hide",
+        "read" : "!read",
+        "eat" : "!eat",
+        "wear" : "!wear",
+        "light": "!light",
+        "affix" : "!affix",
+        "sit" : "!sit",
+        "stand" : "!stand",
+        "pov" :  "pov",
+        "ask" : "!ask" , 
+        "tell" : "!tell" , 
+        "show" : "!show" , 
+        "give" : "!give" 
         },
         firstTwoWord : {
             "talk to" : "!talkto",
-            "sit down" : "sit",
-            "lie down" : "lie",
-            "stand up" : "stand"
+            "sit down" : "!sit",
+            "lie down" : "!lie",
+            "stand up" : "!stand"
         },
         postures : {
             "stand" : {
@@ -268,7 +272,18 @@ module.exports = function ltbl(settings) {
                 "posture" : "lie"
             }
         }
-    };   
+    };
+    var topLocationTypes = {
+        outdoors : {
+            membership : "part of"
+        },
+        indoors : {
+            membership : "inside"
+        },
+        underground : {
+            membership : "inside"
+        }
+    };
     topLocationMenu= [
         {
             text : "Outdoors" ,
@@ -767,6 +782,13 @@ module.exports = function ltbl(settings) {
             
         } else {
             if(pov.isGod && !depth ) {
+                if( locationId.indexOf("/") > 0 ) {
+                    var topLoc = locationId.split("/")[0];
+                    var topLocType = topLocationTypes[getLocation(topLoc).type];
+                    if( topLocType ) {
+                        console.log(topLocType.membership+" "+getLocation(topLoc).name+annotate({"type":"location.topLoc","location":topLoc }));
+                    }
+                }
                 if(loc.type)
                     console.log("Type: "+chalk.bold(loc.type)+annotate({"type":"location.type"}));
                 else
@@ -972,6 +994,10 @@ module.exports = function ltbl(settings) {
             var roomName = prefix+extractNounAndAdjAlways(data.room);
             if (roomName) {
                 if( suffix ) {
+                    var parentRoom = getLocation(roomName);
+                    if( !parentRoom ) {
+                        setLocation(roomName,{name:data.room});
+                    }
                     roomName = roomName + "/" + suffix;
                 }
                 // add # to the orginal room (libary,library1,library2...)
@@ -1325,7 +1351,7 @@ module.exports = function ltbl(settings) {
             var what = command;
             command = command.toLowerCase();
             var parts = getPartsOfSpeech(command);
-            if (flags != "noactor")
+            if (flags != "noactor" && actor.inventory )
                 itemName = lookupItemLow(parts,actor.inventory,command,candidates);
             if (where.contains && !itemName && flags != "actor") {
                 itemName = lookupItemLow(parts,where.contains,command,candidates);
@@ -1475,7 +1501,7 @@ module.exports = function ltbl(settings) {
                             } else {
                                 _npc.conversation[vc.action][vc.topic] = { response : vc.response };
                             }
-                        } else if( vc.action == "!talkto" ) {
+                        } else if( vc.action == "talkto" ) {
                             if( !_npc.conversation ) {
                                 _npc.conversation = {};
                             }
@@ -1614,7 +1640,7 @@ module.exports = function ltbl(settings) {
                 var _npc = findNPC(verbCommand.npc);
                 if( _npc ) {
                     if( _npc.conversation ) {
-                        if( verbCommand.action == "!talkto" ) {
+                        if( verbCommand.action == "talkto" ) {
                             _npc = _npc.conversation.talkto;
                         } else if( _npc.conversation[verbCommand.action] ) {
                             _npc = _npc.conversation[verbCommand.action];                            
@@ -1816,7 +1842,7 @@ module.exports = function ltbl(settings) {
             if( _npc ) {
                 var ptr = null;
                 var rContainer = null;
-                if( verbCommand.action == "!talkto")  {
+                if( verbCommand.action == "talkto")  {
                     if( _npc.conversation.talkto ) {
                         rContainer = _npc.conversation.talkto;
                         ptr = rContainer.response;
@@ -1951,7 +1977,9 @@ module.exports = function ltbl(settings) {
             var loc = getLocation(pov.location);
             if( loc ) {
                 stateMachine = stateMachineFillinCreate(loc,[{msg:"Change location type:",prop:"type",choices:roomTypesMenu}],invalidateMap);
-            }            
+            }
+        } else if( anno.type == "location.topLoc" ) {
+            console.dir(getLocation(anno.location));
         } else if( anno.type == "dir.location" ) {
             var loc = getLocation(pov.location);
             if( loc ) {
@@ -2337,9 +2365,9 @@ module.exports = function ltbl(settings) {
                             console.log(getItem(pov.inventory[i].item).name+annotate({"type":"item","item":pov.inventory[i].item}));
                         }
                     }
-                } else if ( firstWord == "drop"
-                         || firstWord == "put" 
-                         || firstWord == "hide"
+                } else if ( firstWord == "!drop"
+                         || firstWord == "!put" 
+                         || firstWord == "!hide"
                           ) {
                     // Drop & put are pretty much the same, rely on 'on' / 'in' / 'behind' / 'under' for position
                     // Hide adds the 'hidden' property requires the player to inspect the container
@@ -2352,7 +2380,7 @@ module.exports = function ltbl(settings) {
                         var objectWhere = null;
                         var sep = command.indexOf(" on ");
                         var hidden = false;
-                        if (firstWord == "hide") {
+                        if (firstWord == "!hide") {
                             hidden = true;
                         }
                         if (sep > 0) {
@@ -2437,7 +2465,7 @@ module.exports = function ltbl(settings) {
                             }
                         }
                     }
-                } else if( firstWord == "read" ) {
+                } else if( firstWord == "!read" ) {
                     command = subSentence( command , 1);
                     if (command != "") {
                         var item = lookupItem(command);
@@ -2484,19 +2512,19 @@ module.exports = function ltbl(settings) {
                             console.log("You see no " + command);
                         }
                     }
-                } else if ( firstWord == "eat" 
-                         || firstWord == "wear" 
-                         || firstWord == "light" 
-                         || firstWord == "affix"
+                } else if ( firstWord == "!eat" 
+                         || firstWord == "!wear" 
+                         || firstWord == "!light" 
+                         || firstWord == "!affix"
                           ) {
                     var thingType = null;
-                    if (firstWord == "eat") {
+                    if (firstWord == "!eat") {
                         thingType = "food";
-                    } else if (firstWord == "wear") {
+                    } else if (firstWord == "!wear") {
                         thingType = "wearable";
-                    } else if (firstWord == "light") {
+                    } else if (firstWord == "!light") {
                         thingType = "light";
-                    } else if (firstWord == "affix") {
+                    } else if (firstWord == "!affix") {
                         thingType = "fixture";
                     }
                     command = subSentence( command , 1);
@@ -2738,7 +2766,7 @@ module.exports = function ltbl(settings) {
                                             }
                                             _npc.conversation[verbCommand.action][verbCommand.topic].response = modResponse;
                                         }
-                                    } else if( verbCommand.action == "!talkto") {
+                                    } else if( verbCommand.action == "talkto") {
                                         if( _npc.conversation.talkto ) {
                                             var modResponse = _npc.conversation.talkto.response;
                                             if( typeof(modResponse) == "string" ) {
@@ -2839,15 +2867,15 @@ module.exports = function ltbl(settings) {
                          || firstWord == "notice" 
                           ) {
                     command = subSentence( command , 1);
-                } else if ( firstWord == "ask" 
-                         || firstWord == "tell"  
-                         || firstWord == "give"  
-                         || firstWord == "show"  
+                } else if ( firstWord == "!ask" 
+                         || firstWord == "!tell"  
+                         || firstWord == "!give"  
+                         || firstWord == "!show"  
                          || firstWord == "!talkto"
                           ) {
                     // TBD - register NPCs & topics
                     command = subSentence( command , 1);
-                    if( firstWord == "give" || firstWord == "show" ) {
+                    if( firstWord == "!give" || firstWord == "!show" ) {
                         command = splitOnOneOf( command , [" the "," a "," an "," my "," "]);
                         if( command.length > 2 ) {
                             if( findNPC(command[0]) ) {
@@ -2869,7 +2897,7 @@ module.exports = function ltbl(settings) {
                             verbCommand.proposition = "about";
                         }
                     }
-                    verbCommand.action = firstWord;
+                    verbCommand.action = firstWord.substring(1);
                     verbCommand.npc = null;
                     verbCommand.topic = null;                
                     if( command.length > 1 ) {
@@ -2887,10 +2915,11 @@ module.exports = function ltbl(settings) {
                         }
                     }
                 } else if ( 
-                    firstWord == "sit" 
-                 || firstWord == "lie" 
-                 || firstWord == "stand" 
+                    firstWord == "!sit" 
+                 || firstWord == "!lie" 
+                 || firstWord == "!stand" 
                 ) {
+                    firstWord = firstWord.substring(1);
                     command = subSentence( command , 1);
                     verbCommand.proposition = wordMap.posturePrep[command.split(" ")[0]];
                     if( verbCommand.proposition ) {
@@ -2959,7 +2988,7 @@ module.exports = function ltbl(settings) {
                                 describe(false);
                             }
                         }
-                        else if( command == "hide" )
+                        else if( command == "!hide" )
                         {
                             if( renderMap ) {
                                 renderMap = null;
