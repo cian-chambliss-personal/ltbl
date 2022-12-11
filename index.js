@@ -683,10 +683,14 @@ module.exports = function ltbl(settings) {
     }
     var renderMapLevelText = function (map) {
         var render = require("./render-map-text.js");
+        if( mapScale == "small" ) {
+                return render( { map : map , getLocation : getLocation , viewportHeight : 16 , viewportWidth : 39 , small : true} );
+        }
         return render( { map : map , getLocation : getLocation , viewportHeight : 15 , viewportWidth : 40 } );
     };
     var map = null;
     var renderMap = null;
+    var mapScale = null;
     var helper = require("./helper.js")();
     var camelCase = helper.camelCase;
     var extractNounAndAdj = helper.extractNounAndAdj;
@@ -2893,6 +2897,20 @@ module.exports = function ltbl(settings) {
                                 } else if (pov.location && map.location.room != pov.location) {
                                     recalcLocation(map, pov.location);
                                 }
+                                renderMap =  renderMapLevelText(map);
+                                describe(false);
+                            }
+                        }
+                        else if( command == "small" )
+                        {
+                            if( mapScale != "small" ) {
+                                mapScale = "small" ;
+                                renderMap =  renderMapLevelText(map);
+                                describe(false);
+                            }
+                        } else if( command == "normal" ) {
+                            if( mapScale == "small" ) {
+                                mapScale = null;
                                 renderMap =  renderMapLevelText(map);
                                 describe(false);
                             }
