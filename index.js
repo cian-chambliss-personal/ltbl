@@ -92,6 +92,9 @@ module.exports = function ltbl(settings) {
         };
         if( sm.aborting ) {
             if( command.toLowerCase() == "y" ) {
+                if( sm.doAbort ) {
+                    sm.doAbort(sm);
+                }
                 return "abort";
             }
             sm.aborting = false;
@@ -169,7 +172,7 @@ module.exports = function ltbl(settings) {
         displayMessage(sm,sm.states[0]);
         return true;
     };
-    var stateMachineFillinCreate = function(data,states,done) {
+    var stateMachineFillinCreate = function(data,states,done,doAbort) {
         if( !done )  {
             done =  function(sm) {  };
         }
@@ -182,7 +185,8 @@ module.exports = function ltbl(settings) {
             done: done,
             askAbort: function() {
                 console.log("Do you want to quit? (y to quit)");
-            }
+            },
+            doAbort : doAbort
         };
         sm.start(sm,"");
         return sm;
@@ -1296,6 +1300,16 @@ module.exports = function ltbl(settings) {
                     if( sm.data.room  && sm.data.room.length > 1  ) {
                         locationDefine(sm.data);
                     }
+                },function(sm) {
+                    if( !pov.location ) {
+                        if( pendingItemOut ) {
+                            pov.location = pendingItemOut;
+                            pendingItemOut = null;
+                            pendingGoInsideItem = null;
+                            map = null;
+                            describe();
+                        }                        
+                    }
                 });
             } else {
                 // First in            
@@ -1530,6 +1544,9 @@ module.exports = function ltbl(settings) {
             states : states,
             execute : stateMachineFillin,
             start: stateMachineFillinStart,
+            askAbort: function() {
+                console.log("Do you want to quit? (y to quit)");
+            },
             done: function(sm) {
                 var vc = sm.data;
                 if( vc.npc ) {
@@ -2540,6 +2557,9 @@ module.exports = function ltbl(settings) {
                                     map = null;
                                 }
                             }
+                            if( lCase == "o" || lCase == "i" ) {
+                                map = null;
+                            }
                             lastLocation = pov.location;
                             lastDirection = lCase;
                             pov.location = nextLoc.location;
@@ -2810,13 +2830,11 @@ module.exports = function ltbl(settings) {
                                     }
                                 } else if( pov.isGod ) {
                                     // Make a top level object... 
-                                    if( pendingGoInsideItem == existingItem ) {
+                                    if( pov.location )  {
+                                        pendingGoInsideItem = existingItem;                                        
                                         pendingItemOut = pov.location; 
                                         pov.location = null;
                                         map = null;
-                                        describe();
-                                    } else {
-                                        pendingGoInsideItem = existingItem;                                        
                                         describe();
                                     }
                                 }
