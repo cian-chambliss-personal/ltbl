@@ -217,13 +217,13 @@ module.exports = function ltbl(settings) {
     var gameState = {};
     var wordMap = {
         firstWord : {
-        "hello" : "hi",
-        "hi" : "hi",
-        "bye" : "bye" ,
-        "goodbye" : "bye",
-        "farewell" : "bye",
-        "leave" : "leave",
-        "notice" : "notice",
+        "hello" : "!hi",
+        "hi" : "!hi",
+        "bye" : "!bye" ,
+        "goodbye" : "!bye",
+        "farewell" : "!bye",
+        "leave" : "!leave",
+        "notice" : "!notice",
         "l" : "look",
         "look" : "look",
         "x" : "examine",
@@ -684,9 +684,9 @@ module.exports = function ltbl(settings) {
     var renderMapLevelText = function (map) {
         var render = require("./render-map-text.js");
         if( mapScale == "small" ) {
-                return render( { map : map , getLocation : getLocation , viewportHeight : 16 , viewportWidth : 39 , small : true} );
+                return render( { map : map , getLocation : getLocation , viewportHeight : 16 , viewportWidth : 40 , small : true} );
         }
-        return render( { map : map , getLocation : getLocation , viewportHeight : 15 , viewportWidth : 40 } );
+        return render( { map : map , getLocation : getLocation , viewportHeight : 16 , viewportWidth : 40 } );
     };
     var map = null;
     var renderMap = null;
@@ -1578,11 +1578,11 @@ module.exports = function ltbl(settings) {
                             } else {
                                 _npc.conversation[vc.action][vc.topic] = { response : vc.response };
                             }
-                        } else if( vc.action == "talkto" ) {
+                        } else if( vc.action == "talkto" || vc.action == "hi" || vc.action == "bye" || vc.action == "leave" || vc.action == "notice" ) {
                             if( !_npc.conversation ) {
                                 _npc.conversation = {};
                             }
-                            _npc.conversation.talkto = { response : vc.response };    
+                            _npc.conversation[vc.action] = { response : vc.response };    
                         }
                     }
                 }
@@ -2754,17 +2754,15 @@ module.exports = function ltbl(settings) {
                     } else {
                         console.log("????");
                     }
-                } else if ( firstWord == "hi" 
-                         || firstWord == "bye" 
-                         || firstWord == "leave" 
-                         || firstWord == "notice" 
-                          ) {
-                    command = subSentence( command , 1);
                 } else if ( firstWord == "!ask" 
                          || firstWord == "!tell"  
                          || firstWord == "!give"  
                          || firstWord == "!show"  
-                         || firstWord == "!talkto"
+                         || firstWord == "!talkto"                         
+                         || firstWord == "!hi" 
+                         || firstWord == "!bye" 
+                         || firstWord == "!leave" 
+                         || firstWord == "!notice" 
                           ) {
                     // TBD - register NPCs & topics
                     command = subSentence( command , 1);
@@ -2800,7 +2798,10 @@ module.exports = function ltbl(settings) {
                         verbCommand.npc = command[0];
                         verbCommand.topic = "";
                     }
-                    if( !processScript() ) {
+                    if ( !pov.isGod && (firstWord == "!leave" || firstWord == "!notice") ) {
+                        // user tried to ivoke implicit event in play mode
+                        noUnderstand();
+                    } else if( !processScript() ) {
                         if (pov.isGod ) {
                             defineScript();
                         } else {
