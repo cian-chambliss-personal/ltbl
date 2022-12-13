@@ -54,7 +54,7 @@ module.exports = function(args) {
                     startCol = endCol - viewCols;
                 }
             }        
-            var widthTaken = (endCol - startCol) * 10;
+            var widthTaken = (endCol - startCol) * 3;
         }
         for (var r = startRow; r < endRow; ++r) {
             var cols = rows[r];
@@ -201,7 +201,9 @@ module.exports = function(args) {
                 }
                 if( widthTaken < args.viewportWidth ) {            
                     if( (args.viewportWidth-widthTaken) > 1 ) {
-                        line = (" ".repeat((args.viewportWidth-widthTaken)/2))+line+(" ".repeat((args.viewportWidth-widthTaken) - ((args.viewportWidth-widthTaken)/2)));
+                        var addColumns = (args.viewportWidth-widthTaken);
+                        var firstHalf = Math.floor( addColumns / 2);
+                        line = (" ".repeat(firstHalf))+line+(" ".repeat(addColumns - firstHalf));
                     } else {
                         line = line + " ";
                     }
