@@ -230,8 +230,8 @@ module.exports = function ltbl(settings) {
         "examine" : "examine",
         "touch" : "touch",
         "feel" : "touch",
-        "smell" : "smell",
-        "sniff" : "smell",
+        "smell" : "!smell",
+        "sniff" : "!smell",
         "listen" : "listen",
         "i": "inventory",
         "inventory" : "inventory",
@@ -257,7 +257,11 @@ module.exports = function ltbl(settings) {
             "lie down" : "!lie",
             "stand up" : "!stand",
             "go in" : "!goin",
-            "go inside" : "!goin"
+            "go inside" : "!goin",
+            "make door" : "!makedoor",
+            "make path" : "!makepath",
+            "make passage" : "!makepassage",
+            "make stairs" : "!makestairs"
         },
         postures : {
             "stand" : {
@@ -2155,19 +2159,10 @@ module.exports = function ltbl(settings) {
             if (lCase.trim() == "") {
                 console.log("Pardon?");
                 describe();
-            } else if (mode == 'door?') {
+            /*} else if (mode == 'door?') {
+                // TBD make separate commands for door/passage etc Make
                 lCase = lCase.trim();
-                if (lCase == "s") {
-                    getLocation(lastLocation)[lastDirection].type = "stairs";
-                    getLocation(pov.location)[reverseDirection(lastDirection)].type = "stairs";
-                } else if (lCase == "p") {
-                    if (getLocation(lastLocation).type == "outside") {
-                        getLocation(lastLocation)[lastDirection].type = "path";
-                        getLocation(pov.location)[reverseDirection(lastDirection)].type = "path";
-                    } else {
-                        getLocation(lastLocation)[lastDirection].type = "passage";
-                        getLocation(pov.location)[reverseDirection(lastDirection)].type = "passage";
-                    }
+                ...
                 } else if (lCase == "u") {
                     getLocation(lastLocation)[lastDirection].direction = -1;
                     getLocation(pov.location)[reverseDirection(lastDirection)].direction = 1;
@@ -2203,6 +2198,7 @@ module.exports = function ltbl(settings) {
                 }
                 mode = "what";
                 describe();
+            */
             } else if (mode == 'describe_item') {
                 getItem(describeItem).description = command;
                 mode = "what";
@@ -2240,7 +2236,7 @@ module.exports = function ltbl(settings) {
                         }
                     }
                 } else if ( firstWord == "touch" 
-                         || firstWord == "smell"  
+                         || firstWord == "!smell"  
                          || firstWord == "listen" 
                           ) {
                     console.log("TBD - add item/npc/etc smell/touch etc.");
@@ -2571,44 +2567,80 @@ module.exports = function ltbl(settings) {
                         }
                     }
                     describe(false);
-                } else if (firstWord == "door" ) {
-                    if( pov.isGod ) {
-                        command = subSentence( command , 1);
-                        if( isDirection(command) ) {
-                            lCase = isDirection(command).primary;
-                        } else {
-                            lCase = lastDirection;
-                        }
-                        if (getLocation(pov.location)) {
-                            var nextLoc = getLocation(pov.location)[lCase];
-                            if (nextLoc) {
-                                lastDirection = lCase;
-                                lastLocation = pov.location;
-                                pov.location = nextLoc.location;
-                                console.log("Door name (blank or 'n' for no door, 's' for stairs, 'p' for path/passage )");
-                                mode = "door?";
-                            } else {
-                                if( lastDirection 
-                                 && lastLocation 
-                                 && lCase == lastDirection
-                                 && !getLocation(lastLocation)[lastDirection]
-                                 && !getLocation(pov.location)[reverseDirection(lastDirection)]
-                                  ) {
-                                    getLocation(lastLocation)[lastDirection] = { location : pov.location };
-                                    getLocation(pov.location)[reverseDirection(lastDirection)] = { location : lastLocation };
+                } else if (firstWord == "!makedoor" && pov.isGod ) {
+                    command = subSentence( command , 1);
+                    if( isDirection(command) ) {
+                        lCase = isDirection(command).primary;
+                    } else {
+                        lCase = "lastdirection";
+                    }
+                    if (getLocation(pov.location)) {
+                        var nextLoc = getLocation(pov.location)[lCase];
+                        if (nextLoc) {
+                            lastDirection = lCase;
+                            lastLocation = pov.location;
+                            pov.location = nextLoc.location;
+                            stateMachine = stateMachineFillinCreate({},[
+                                {msg:"Door name:",prop:"name"}
+                            ],function(sm) {
+                                if( sm.data.name  && sm.data.name.length > 1  ) {
+                                    var name = extractNounAndAdj(sm.data.name);
+                                    if (!name || getDoor(name)) {
+                                        name = getNewDoorName(name);
+                                    }
+                                    setDoor(name,{ name: sm.data.name });
+                                    getLocation(lastLocation)[lastDirection].door = name;
+                                    getLocation(pov.location)[reverseDirection(lastDirection)].door = name;
+                                    pov.location = lastLocation;
                                     map = null;
                                     describe();
-                                    console.log("Door name (blank or 'n' for no door, 's' for stairs, 'p' for path/passage )");
-                                    mode = "door?";
-                                } else {
-                                    console.log("There is no ending location. lastLocation="+lastLocation+" lastDirection="+lastDirection+ " pov.location="+pov.location);
                                 }
+                            });
+                        } else if( lCase == "lastdirection" ) { 
+                            if( lastDirection 
+                              && lastLocation 
+                              && !getLocation(lastLocation)[lastDirection]
+                              && !getLocation(pov.location)[reverseDirection(lastDirection)]
+                              ) {
+                                stateMachine = stateMachineFillinCreate({},[
+                                    {msg:"Door name:",prop:"name"}
+                                ],function(sm) {
+                                    if( sm.data.name  && sm.data.name.length > 1  ) {
+                                        var name = extractNounAndAdj(sm.data.name);
+                                        if (!name || getDoor(name)) {
+                                            name = getNewDoorName(name);
+                                        }
+                                        setDoor(name,{ name: sm.data.name });
+                                        getLocation(lastLocation)[lastDirection] = { location : pov.location , door : name };
+                                        getLocation(pov.location)[reverseDirection(lastDirection)] = { location : lastLocation , door : name};
+                                        map = null;
+                                        describe();
+                                    }
+                                });
+                            } else {
+                                if( lastDirection && lastLocation )
+                                    console.log("Room Link issue");
+                                else
+                                    console.log("There is no ending location. lastLocation="+lastLocation+" lastDirection="+lastDirection+ " pov.location="+pov.location);
                             }
                         } else {
-                            console.log("There is no starting location.");
+                            console.log("There is no opening to the "+lCase);
                         }
                     } else {
-                        noUnderstand();
+                        console.log("There is no starting location.");
+                    }
+                } else if ( (firstWord == "!makepath" || firstWord == "!makepassage" || firstWord == "!makestairs") && pov.isGod ) {
+                    if( lastLocation ) {
+                        var dirCType = firstWord.substring(5);
+                        if( getLocation(lastLocation)[lastDirection] ) {
+                            getLocation(lastLocation)[lastDirection].type = dirCType;
+                            getLocation(pov.location)[reverseDirection(lastDirection)].type = dirCType;
+                        } else if( !getLocation(pov.location)[reverseDirection(lastDirection)] ) {
+                            getLocation(lastLocation)[lastDirection] = { location : pov.location , type : dirCType};
+                            getLocation(pov.location)[reverseDirection(lastDirection)] = {location : lastLocation , type : dirCType};
+                        }
+                    } else {
+                        console.log("There is no starting location.");
                     }
                 } else if (lCase == "location outside" || lCase == "is outside") {                    
                     setLocationType("outside");
