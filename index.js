@@ -192,8 +192,6 @@ module.exports = function ltbl(settings) {
         return sm;
     };
     var roomNum = 1;
-    var itemNum = 1;
-    var doorNum = 0;
     var mode = 'what';
     var statusLine = null;
     var lastLocation = null;
@@ -402,8 +400,6 @@ module.exports = function ltbl(settings) {
     var allowGodMode = true;
     var locations = {
     };
-    var doors = {
-    };
     var items = {
     };
     var npc = {
@@ -427,20 +423,25 @@ module.exports = function ltbl(settings) {
         }
         return location;
     };
-    var getDoor = function(name) {
-        return doors[name];
-    };
-    var getNewDoorName = function(name) {
-        if( doorNum == 0) {
-            while (doors["door" + doorNum]) {
-                doorNum = doorNum + 1;
-            }
+    var topRoomName = function(locName) {
+        var location = locName.split("/");
+        if( location.length > 1 ) {
+            return location[0];
         }
-        name = "door" + doorNum;
-        doorNum = doorNum + 1;
-    }    
-    var setDoor = function(name,di) {
-        doors[name] = di;
+        return null;
+    };
+    var calcCommonPrefix = function(loc1,loc2) {
+        if( loc1 && loc2 ) {
+            loc1 = topRoomName(loc1);
+            loc2 = topRoomName(loc2);
+            if( loc1 && !loc2 )
+                return loc1+"/";
+            if( loc2 && !loc1 )
+                return loc2+"/";
+            if( loc1 == loc2 )
+                return loc1+"/";
+        }
+        return null;
     };
     var getItem = function(name) {
         name = name.split("/");
@@ -465,6 +466,53 @@ module.exports = function ltbl(settings) {
         }
         return null;
     }
+    var setItem = function(name,pi) {        
+        name = name.split("/");
+        if( name.length > 1 ) {
+            location = locations[name[0]];
+            for( var i = 1 ; location && i < (name.length-1) ; ++i ) {
+                if( location.locations ) {
+                    location = location.locations[name[i]];
+                } else {
+                    location = null;
+                }
+            }
+            if( location ) {
+                if( !location.items ) {
+                    location.items = {};
+                }
+                location.items[name[name.length-1]] = pi;
+            }
+        } else {
+            items[name[0]] = pi;
+        }
+
+    }
+    var getUniqueItemName = function(name,altname,prefix) {
+        var fullName = null;
+        if (!name) {
+            name = altname;
+        }
+        if( prefix ) {
+            fullName = prefix+name;
+        } else {
+            fullName = name;
+        }
+        if( getItem(fullName) ) {
+            var counter = 1;
+            while( getItem(fullName+counter) ) {
+                counter = counter + 1;
+            }
+            fullName = fullName+counter;
+        }
+        return fullName;
+    }    
+    var getDoor = function(name) {
+        return getItem(name);
+    };
+    var setDoor = function(name,di) {        
+        setItem(name,di);
+    };
     var getNpc = function(name) {
         name = name.split("/");
         if( name.length > 1 ) {
@@ -728,7 +776,6 @@ module.exports = function ltbl(settings) {
             metadata: metadata, 
             actor: actor, 
             locations: locations, 
-            doors: doors, 
             items: items, 
             npc: npc , 
             topics : topics 
@@ -1236,8 +1283,9 @@ module.exports = function ltbl(settings) {
                 var headingWidth = 0;
                 var headingText = "";
                 if( pendingGoInsideItem ) {
-                    if( items[pendingGoInsideItem].name ) {
-                        headingText = items[pendingGoInsideItem].name;
+                    var pi = getItem(pendingGoInsideItem);
+                    if( pi && pi.name ) {
+                        headingText = pi.name;
                         headingWidth = headingText.length;
                         if( headingWidth & 1 ) {
                             headingText = headingText+" ";
@@ -2190,7 +2238,7 @@ module.exports = function ltbl(settings) {
                 ) {
                     var name = extractNounAndAdj(command);
                     if (!name || getDoor(name)) {
-                        name = getNewDoorName(name);
+                        name = getUniqueItemName(name,...);
                     }
                     setDoor(name,{ name: command });
                     getLocation(lastLocation)[lastDirection].door = name;
@@ -2330,13 +2378,8 @@ module.exports = function ltbl(settings) {
                                 }
                             } else if( pov.isGod ) {                            
                                 var name = extractNounAndAdj(what);
-                                if (!name) {
-                                    name = "item" + itemNum;
-                                    itemNum = itemNum + 1;
-                                }                                
-                                if (!items[name]) { // CSC - in getItem refactor = need to figure out this, as items will be localized
-                                    items[name] = { name: command };
-                                }
+                                name = getUniqueItemName(name,"item",calcCommonPrefix(pov.location,pov.location));
+                                setItem(name,{ name: command });
                                 if (!where[holder]) {
                                     where[holder] = [];
                                 }
@@ -2585,9 +2628,7 @@ module.exports = function ltbl(settings) {
                             ],function(sm) {
                                 if( sm.data.name  && sm.data.name.length > 1  ) {
                                     var name = extractNounAndAdj(sm.data.name);
-                                    if (!name || getDoor(name)) {
-                                        name = getNewDoorName(name);
-                                    }
+                                    name = getUniqueItemName(name,"door",calcCommonPrefix(pov.location,lastLocation));
                                     setDoor(name,{ name: sm.data.name });
                                     getLocation(lastLocation)[lastDirection].door = name;
                                     getLocation(pov.location)[reverseDirection(lastDirection)].door = name;
@@ -2599,29 +2640,28 @@ module.exports = function ltbl(settings) {
                         } else if( lCase == "lastdirection" ) { 
                             if( lastDirection 
                               && lastLocation 
-                              && !getLocation(lastLocation)[lastDirection]
-                              && !getLocation(pov.location)[reverseDirection(lastDirection)]
                               ) {
                                 stateMachine = stateMachineFillinCreate({},[
                                     {msg:"Door name:",prop:"name"}
                                 ],function(sm) {
                                     if( sm.data.name  && sm.data.name.length > 1  ) {
                                         var name = extractNounAndAdj(sm.data.name);
-                                        if (!name || getDoor(name)) {
-                                            name = getNewDoorName(name);
-                                        }
+                                        name = getUniqueItemName(name,"door",calcCommonPrefix(pov.location,lastLocation));
                                         setDoor(name,{ name: sm.data.name });
-                                        getLocation(lastLocation)[lastDirection] = { location : pov.location , door : name };
-                                        getLocation(pov.location)[reverseDirection(lastDirection)] = { location : lastLocation , door : name};
+                                        if( !getLocation(lastLocation)[lastDirection]
+                                         && !getLocation(pov.location)[reverseDirection(lastDirection)] ) {
+                                            getLocation(lastLocation)[lastDirection] = { location : pov.location , door : name };
+                                            getLocation(pov.location)[reverseDirection(lastDirection)] = { location : lastLocation , door : name};
+                                        } else {
+                                            getLocation(lastLocation)[lastDirection].door = name;
+                                            getLocation(pov.location)[reverseDirection(lastDirection)].door = name;
+                                        }
                                         map = null;
                                         describe();
                                     }
                                 });
                             } else {
-                                if( lastDirection && lastLocation )
-                                    console.log("Room Link issue");
-                                else
-                                    console.log("There is no ending location. lastLocation="+lastLocation+" lastDirection="+lastDirection+ " pov.location="+pov.location);
+                                console.log("There is no ending location. lastLocation="+lastLocation+" lastDirection="+lastDirection+ " pov.location="+pov.location);
                             }
                         } else {
                             console.log("There is no opening to the "+lCase);
@@ -3042,7 +3082,6 @@ module.exports = function ltbl(settings) {
                 actor = obj.actor;                
                 locations = obj.locations;
                 items = obj.items;
-                doors = obj.doors;
                 npc = obj.npc;
                 topics = obj.topics;
                 if( obj.god ) {
@@ -3056,10 +3095,6 @@ module.exports = function ltbl(settings) {
                 while (getLocation("room" + roomNum)) {
                     roomNum = roomNum + 1;
                 }
-                while (items["item" + itemNum]) {
-                    itemNum = itemNum + 1;
-                }
-                doorNum = 0;
                 if( allowGodMode ) {
                     if (!map) {
                         map = createMap();
@@ -3082,7 +3117,7 @@ module.exports = function ltbl(settings) {
     };
     var exportTads = function (folder) {
         var generate = require("./generate-tads");
-        generate({ folder : folder , settings : settings , metadata : metadata, actor : actor, getLocation : getLocation , locations : locations , doors : doors , items : items , npc : npc , topics : topics });
+        generate({ folder : folder , settings : settings , metadata : metadata, actor : actor, getLocation : getLocation , locations : locations , items : items , npc : npc , topics : topics });
     }
     return {
         describe: describe,
