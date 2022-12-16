@@ -17,180 +17,11 @@ module.exports = function ltbl(settings) {
       }
      */
     var stateMachine = null;
-    var annotations = [];
-    var displayMessage = function(sm,st) {
-        if( st.msg ) {
-            var msg = st.msg;
-            if( msg.indexOf("{") >= 0 ) {
-                for(var prop in sm.data) {
-                    if( msg.indexOf("{"+prop+"}") >= 0 ) {
-                        msg = msg.split("{"+prop+"}").join(sm.data[prop]);
-                    }
-                }
-            }
-            console.log(msg);
-        }
-        if( st.choices ) {
-            if( st.multiple ) {
-                var arr = sm.data[st.prop];
-                if( !arr ) {
-                    arr = [];
-                }
-                for( var i = 0 ; i < st.choices.length ; ++i ) {
-                    var selected = false;
-                    for( var j = 0 ; j < arr.length ; ++j ) {
-                        if( st.choices[i].value == arr[j] ) {
-                            selected = true;
-                            break;
-                        }
-                    }
-                    if( selected )
-                        console.log(chalk.bold((i+1)+")["+st.choices[i].text+"]"));
-                    else 
-                        console.log((i+1)+") "+st.choices[i].text);
-                }
-            } else {
-                for( var i = 0 ; i < st.choices.length ; ++i ) {
-                    console.log((i+1)+") "+st.choices[i].text);
-                }
-            }
-        }
-    };
-    var stateMachineFillin = function(sm,command) {
-        var advanceTest = function() {
-            while( sm.states[sm.state].test ) {
-                var testResult = sm.states[sm.state].test(sm,command);
-                if( testResult == "expand" ) {
-                    // expand the commands & make new start of the state array
-                    var newStates = sm.states[sm.state].states.filter(() => true);
-                    if( (sm.state+1) < sm.states.length ) {
-                        newStates = newStates.concat(sm.states.slice(sm.state+1)); 
-                    }
-                    sm.state = 0;
-                    sm.states = newStates;
-                } else if( testResult.substring(0,7) == "expand." ) {
-                    // Branching (alternate state)
-                    testResult = testResult.substring(7);
-                    var newStates = sm.states[sm.state][testResult].filter(() => true);
-                    if( (sm.state+1) < sm.states.length ) {
-                        newStates = newStates.concat(sm.states.slice(sm.state+1)); 
-                    }
-                    sm.state = 0;
-                    sm.states = newStates;
-                } else if( testResult == "execute" ) {
-                    break;
-                } else {
-                    sm.state = sm.state + 1;
-                    if( (sm.state+1) > sm.states.length ) {
-                        if( sm.done ) {
-                            sm.done(sm);
-                        }
-                        return "abort";
-                    }
-                } 
-            }
-        };
-        if( sm.aborting ) {
-            if( command.toLowerCase() == "y" ) {
-                if( sm.doAbort ) {
-                    sm.doAbort(sm);
-                }
-                return "abort";
-            }
-            sm.aborting = false;
-            return "retry";
-        }
-        advanceTest();
-        var curState = sm.states[sm.state];
-        if( !command || command.length == 0 ) {
-            if( sm.askAbort ) {
-                sm.aborting = true;
-                sm.askAbort();
-            } else {
-                displayMessage(sm,curState);
-            }
-            return "retry";
-        }
-        if( curState.choices ) {
-            var choiceNum = Number.parseInt(command);            
-            if( 1 <= choiceNum && choiceNum <= sm.states[sm.state].choices.length ) {
-                if( curState.multiple ) {
-                    // Array of strings representing a multiple state...
-                    if(  !sm.data[curState.prop] ) {
-                        sm.data[curState.prop] = [curState.choices[choiceNum-1].value];
-                    } else {
-                        var arr = sm.data[curState.prop];
-                        var exists = -1;
-                        for( var i = 0 ; i < arr.length ; ++i ) {
-                            if( arr[i] == curState.choices[choiceNum-1].value ) {
-                                exists = i;
-                                break;
-                            }
-                        }
-                        if( exists >= 0 ) {
-                            arr.splice(choiceNum-1,1);
-                        } else {
-                            arr.push(curState.choices[choiceNum-1].value);
-                        }
-                    }
-                } else {
-                    if( curState.choices[choiceNum-1].value ) 
-                        sm.data[curState.prop] = curState.choices[choiceNum-1].value;
-                    else
-                        delete sm.data[curState.prop];
-                }
-            } else {
-                console.log("You must pick a number between 1 and "+curState.choices.length);
-            }
-        }  else {
-            sm.data[curState.prop] = command;
-        }
-        if( (sm.state+1) < sm.states.length ) {
-            if( sm.states[sm.state+1].test ) {
-                sm.state = sm.state+1;
-                advanceTest();
-                displayMessage(sm,sm.states[sm.state]);
-                return "retry";
-            }
-            displayMessage(sm,sm.states[sm.state+1]);
-            return "next";
-        }
-        if( sm.done ) {
-            sm.done(sm);
-        }
-        return "abort";
-    };
-    var stateMachineFillinStart = function(sm) {
-         if( sm.states[0].test ) {
-             stateMachineFillin(sm,""); 
-            if( sm.states && sm.state < sm.states.length )
-            {
-                return true;
-            }         
-            return false;
-        }
-        displayMessage(sm,sm.states[0]);
-        return true;
-    };
-    var stateMachineFillinCreate = function(data,states,done,doAbort) {
-        if( !done )  {
-            done =  function(sm) {  };
-        }
-        var sm = {
-            state : 0 ,
-            data : data ,
-            states : states,
-            execute : stateMachineFillin,
-            start: stateMachineFillinStart,
-            done: done,
-            askAbort: function() {
-                console.log("Do you want to quit? (y to quit)");
-            },
-            doAbort : doAbort
-        };
-        sm.start(sm,"");
-        return sm;
-    };
+    var annotations = [];    
+    var _SM = require("./state-machine")();
+    var stateMachineFillin = _SM.fillin;
+    var stateMachineFillinStart = _SM.fillinStart;
+    var stateMachineFillinCreate = _SM.fillinCreate;
     var roomNum = 1;
     var mode = 'what';
     var statusLine = null;
@@ -2629,7 +2460,7 @@ module.exports = function ltbl(settings) {
                                 if( sm.data.name  && sm.data.name.length > 1  ) {
                                     var name = extractNounAndAdj(sm.data.name);
                                     name = getUniqueItemName(name,"door",calcCommonPrefix(pov.location,lastLocation));
-                                    setDoor(name,{ name: sm.data.name });
+                                    setDoor(name,{ name: sm.data.name , type : "door" });
                                     getLocation(lastLocation)[lastDirection].door = name;
                                     getLocation(pov.location)[reverseDirection(lastDirection)].door = name;
                                     pov.location = lastLocation;
@@ -2647,7 +2478,7 @@ module.exports = function ltbl(settings) {
                                     if( sm.data.name  && sm.data.name.length > 1  ) {
                                         var name = extractNounAndAdj(sm.data.name);
                                         name = getUniqueItemName(name,"door",calcCommonPrefix(pov.location,lastLocation));
-                                        setDoor(name,{ name: sm.data.name });
+                                        setDoor(name,{ name: sm.data.name , type : "door"});
                                         if( !getLocation(lastLocation)[lastDirection]
                                          && !getLocation(pov.location)[reverseDirection(lastDirection)] ) {
                                             getLocation(lastLocation)[lastDirection] = { location : pov.location , door : name };
