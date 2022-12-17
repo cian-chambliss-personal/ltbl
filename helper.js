@@ -1,4 +1,9 @@
-module.exports = function ltbl() {
+module.exports = function ltbl(settings) {
+    var spellCorrect = null;
+    var missingWords = { "and" : true , "is" : true , "has" : true , "with" : true};
+    if( settings ) {
+        spellCorrect = settings.spellCorrect;
+    }
     var partOfSp = require("./en-parts.json");
     var camelCase = function(name) {
         var words = name.toLowerCase().split(" ");
@@ -62,8 +67,9 @@ module.exports = function ltbl() {
         }
         return altNoun;
     };
-    var getPartsOfSpeech = function (command,calcObjects) {
-        var parts = { count: 0, noun: [], adj: [] , name: "" };
+    var getPartsOfSpeech = function (command,calcObjects,checkSpelling) {
+        var parts = { count: 0, noun: [], adj: [] , name: "" , mispelled : [] };
+        var corrected = {};
         var altNoun = null;
         var adj = "";
         var adjLoc = -1;
@@ -84,6 +90,17 @@ module.exports = function ltbl() {
         };
         for (var i = 0; i < words.length; ++i) {
             var pos = partOfSp[words[i]];
+            if( !pos ) {
+                if( spellCorrect && checkSpelling && !missingWords[words[i]] ) {
+                    if( !corrected[words[i]] ) {
+                        corrected[words[i]] = true;
+                        var corrections = spellCorrect(words[i]);
+                        if( corrections.length > 0 ) {
+                            parts.mispelled.push({ word : words[i] , corrections : corrections });
+                        }
+                    }
+                }
+            }
             if( wordTypeMap ) {
                 wordTypeMap.push(pos);
             }
