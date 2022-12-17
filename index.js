@@ -78,7 +78,7 @@ module.exports = function ltbl(settings) {
         "ask" : "!ask" , 
         "tell" : "!tell" , 
         "show" : "!show" , 
-        "give" : "!give" 
+        "give" : "!give" ,
         },
         firstTwoWord : {
             "talk to"  : "!talkto",
@@ -649,6 +649,52 @@ module.exports = function ltbl(settings) {
         if (dir == "i") return "in";
         return dir;
     }
+
+    var noCareAbout = function (locationId,filterOn) {
+        var dontCare = [];
+        var loc = getLocation(locationId);
+        if( loc.description ) {
+            // Look for all the nouns in a room that cannot be resolved...
+            var parts = getPartsOfSpeech(loc.description,true);
+            var nameParts = {};
+            if( loc.name ) {
+                nameParts = getPartsOfSpeech(loc.name,true);
+            }
+            var exclude = nameParts.objects;
+            if( !exclude ) {
+                exclude = [];
+            }
+            for( var i = 0 ; i < parts.objects.length ; ++i ) {
+                if( !isArticle(parts.objects[i]) && !lookupItem(locationId,parts.objects[i]) ) {
+                    var excluded = false;
+                    for( var j = 0 ; j < exclude.length ; ++j ) {
+                        if( exclude[j] == parts.objects[i]) {
+                            excluded = true;
+                        }
+                    }
+                    if( !excluded ) {
+                        dontCare.push(parts.objects[i]);
+                    }
+                }                
+            }            
+            if( filterOn ) {
+                if( dontCare.length > 0 ) {
+                    // Find the match...
+                    var parts = getPartsOfSpeech(filterOn,true);
+                    var test = dontCare;
+                    dontCare = [];                    
+                    for( var i = 0 ; i <  parts.objects.length ; ++i ) {
+                        for( var j = 0 ; j < test.length ; ++j ) {
+                            if( test[j].indexOf(parts.objects[i]) >= 0 ) {
+                                return [test[j]];
+                            }
+                        }
+                    }
+                }                        
+            }
+        }
+        return dontCare;
+    };
 
     var render = function (loc,locationId, depth, where) {
         if( !depth ) {
@@ -1294,10 +1340,10 @@ module.exports = function ltbl(settings) {
         }
         return candidates;
     };
-    var lookupItem = function (command, flags) {
+    var lookupItem = function (locationId,command, flags) {
         var itemName = null;
         if (command != "") {
-            var where = getLocation(pov.location);
+            var where = getLocation(locationId);
             var candidates = [];
             var what = command;
             command = command.toLowerCase();
@@ -1654,6 +1700,21 @@ module.exports = function ltbl(settings) {
     var noUnderstand = function() {
         console.log("What was that?");
     };
+    var dontSee = function (what,locationId,command) {
+        var dontCare = noCareAbout(locationId,what);
+        if( dontCare.length > 0 ) {
+            if( command ) {
+                if( command.indexOf(what) >= 0 ) {
+                    command = command.split(what).join("the "+dontCare[0]);
+                }
+                console.log("You cannot " + command);
+            } else {
+                console.log("I don't know what you want me to do with the " + dontCare[0]);
+            }
+        } else {
+            console.log("You see no " + what);
+        }
+    };
     var clearVoid = function() {
         var voidCounter = 1;
         while( locations["void"+voidCounter] ) {
@@ -1921,6 +1982,15 @@ module.exports = function ltbl(settings) {
                     } else {
                         console.log("Default "+annotate({"type":"dir.type","dir":anno.dir}))
                     }
+                    if( dp.wall ) {
+                        console.log("Wall: "+dp.wall+annotate({"type":"dir.wall","dir":anno.dir}));
+                    } else {
+                        if( loc.type == "outside" && getLocation(dp.location).type == "outside" ) {
+                            console.log("Wall Default - none outside"+annotate({"type":"dir.wall","dir":anno.dir}));
+                        } else {
+                            console.log("Wall Default - inside wall"+annotate({"type":"dir.wall","dir":anno.dir}));
+                        }
+                    }
                     if( dp.door ) {
                         console.log(chalk.bold("Door Name"));
                         console.log(getDoor(dp.door).name+" "+annotate({"type":"door.name","door":dp.door}))
@@ -1969,6 +2039,15 @@ module.exports = function ltbl(settings) {
                 var dp = loc[anno.dir];
                 if( dp ) {
                     stateMachine = stateMachineFillinCreate(dp,[{msg:"Change location type:",prop:"type",choices:dirTypesMenu}]);
+                }
+            }
+        } else if( anno.type == "dir.wall" ) {
+            var loc = getLocation(pov.location);
+            if( loc ) {
+                var dp = loc[anno.dir];
+                if( dp ) {
+                    //stateMachine = stateMachineFillinCreate(dp,[{msg:"Change location type:",prop:"type",choices:dirTypesMenu}]);
+                    ;
                 }
             }
         } else if( anno.type == "door.name" ) {
@@ -2027,6 +2106,7 @@ module.exports = function ltbl(settings) {
         if (lCase == 'quit' || lCase == 'exit') {
             return false;
         } else {
+            var origCommand = command;
             var lCase = command;
             lCase = lCase.toLowerCase();
             var lCaseWords =  lCase.split(" ");
@@ -2097,13 +2177,20 @@ module.exports = function ltbl(settings) {
                 } else if ( firstWord == "!examine") {
                     command = subSentence( command , 1);
                     if (command != "") {
-                        var item = lookupItem(command);
+                        var item = lookupItem(pov.location,command);
                         if (item && item != "?") {
                             var itemPtr = getItem(item);
                             if (itemPtr.description) {
                                 console.log(itemPtr.description);
                             } else {
                                 stateMachine = stateMachineFillinCreate(itemPtr,[ {msg:"How would you describe the " + item + "?",prop:"description"} ]);
+                            }
+                        } else if( !item ) {
+                            itemPtr = noCareAbout(pov.location,command);
+                            if( itemPtr.length > 0 ) {
+                                console.log("the "+itemPtr[0]+" is not important.");
+                            } else {
+                                noUnderstand();
                             }
                         }
                     } else {
@@ -2140,7 +2227,7 @@ module.exports = function ltbl(settings) {
                         var where = getLocation(pov.location);
                         var what = command;
                         var holder = "contains";
-                        var existingItem = lookupItem(what, "actor");
+                        var existingItem = lookupItem(pov.location,what, "actor");
                         var objectWhere = null;
                         var sep = command.indexOf(" on ");
                         var hidden = false;
@@ -2180,12 +2267,12 @@ module.exports = function ltbl(settings) {
                         }
                         // we are relative to another object
                         if (objectWhere) {
-                            where = lookupItem(objectWhere);
+                            where = lookupItem(pov.location,objectWhere);
                             if (where) {
                                 where = getItem(where);
                             }
                             if (!where) {
-                                console.log("you see no " + objectWhere);
+                                dontSee(where,pov.location,origCommand);
                             }
                         }
                         if (where) {
@@ -2220,14 +2307,14 @@ module.exports = function ltbl(settings) {
                                 }
                                 where[holder].push(itemEnv);
                             } else {
-                                console.log("You see no " + what);
+                                dontSee(what,pov.location,origCommand);
                             }
                         }
                     }
                 } else if( firstWord == "!read" ) {
                     command = subSentence( command , 1);
                     if (command != "") {
-                        var item = lookupItem(command);
+                        var item = lookupItem(pov.location,command);
                         if (item) {
                             if (item != "?") {
                                 var ip = getItem(item);
@@ -2240,13 +2327,13 @@ module.exports = function ltbl(settings) {
                                 }
                             }
                         } else {
-                            console.log("You see no " + command);
+                            dontSee(command,pov.location,origCommand);
                         }
                     }
                 } else if ( firstWord == "take" ) {
                     command = subSentence( command , 1);
                     if (command != "") {
-                        var item = lookupItem(command, "noactor");
+                        var item = lookupItem(pov.location,command, "noactor");
                         if (item) {
                             if (item != "?") {
                                 var where = getLocation(pov.location);
@@ -2266,7 +2353,7 @@ module.exports = function ltbl(settings) {
                                 }
                             }
                         } else {
-                            console.log("You see no " + command);
+                            dontSee(command,pov.location,origCommand);
                         }
                     }
                 } else if ( firstWord == "!eat" 
@@ -2291,7 +2378,7 @@ module.exports = function ltbl(settings) {
                         if (!where.contains) {
                             where.contains = [];
                         }
-                        var existingItem = lookupItem(what);
+                        var existingItem = lookupItem(pov.location,what);
                         if (existingItem && existingItem != "?") {
                             var ip = getItem(existingItem);
                             if (pov.isGod && !ip.type) {
@@ -2308,7 +2395,7 @@ module.exports = function ltbl(settings) {
                                 }
                             }
                         } else if (existingItem != "?") {
-                            console.log("You see no " + command);
+                            dontSee(command,pov.location,origCommand);
                         }
                     }
                 } else if (isDirection(lCase)) {
@@ -2644,7 +2731,7 @@ module.exports = function ltbl(settings) {
                 } else if ( firstWord == "acquire" && pov.isGod ) {
                     // Be given an item
                     command = subSentence( command , 1);
-                    var existingItem = lookupItem(command);
+                    var existingItem = lookupItem(pov.location,command);
                     if (existingItem && existingItem != "?") {
                         var ptr = getConvoObjectPtr();
                         if( ptr ) {
@@ -2724,7 +2811,7 @@ module.exports = function ltbl(settings) {
                         command = subSentence( command , 1);
                     }
                     if( command.length ) {
-                        var existingItem = lookupItem(command);
+                        var existingItem = lookupItem(pov.location,command);
                         if (existingItem && existingItem != "?") {
                             var ip =getItem(existingItem);
                             if( firstWord == "goin"  ) {
@@ -2758,7 +2845,7 @@ module.exports = function ltbl(settings) {
                                 console.log("You cannot "+firstWord + " on " + ip.name + ".");
                             }
                         } else if (existingItem != "?") {
-                            console.log("You see no " + command);
+                            dontSee(command,pov.location,origCommand);
                         }
                     }
                 } else if ( pov.isGod && firstWord == "dump") {
@@ -2789,6 +2876,11 @@ module.exports = function ltbl(settings) {
                             console.dir(npc, { depth : 6 , colors : true} );
                             console.dir(items, { depth : 6 , colors : true} );
                         }
+                    }
+                } else if ( pov.isGod && firstWord == "nocare") {
+                    // test 'I don't care for a room
+                    if( pov.location ) {
+                        console.log(noCareAbout(pov.location));
                     }
                 } else if (firstWord == "map") {
                     if( pov.isGod ) {
