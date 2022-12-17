@@ -62,15 +62,31 @@ module.exports = function ltbl() {
         }
         return altNoun;
     };
-    var getPartsOfSpeech = function (command) {
-        var parts = { count: 0, noun: [], adj: [], name: "" };
-        var words = command.toLowerCase().split(" ");
+    var getPartsOfSpeech = function (command,calcObjects) {
+        var parts = { count: 0, noun: [], adj: [] , name: "" };
         var altNoun = null;
         var adj = "";
         var adjLoc = -1;
         var name = [];
+        var wordTypeMap = null;
+        if( command.indexOf(",") > 0  ) {
+            command = command.split(",").join(" , ");
+        }
+        if( command.indexOf(".") > 0  ) {
+            command = command.split(".").join(" . ");
+        }
+        while( command.indexOf("  ") > 0  ) {
+            command = command.split("  ").join(" ");
+        }
+        var words = command.toLowerCase().split(" ");
+        if( calcObjects ) {
+            wordTypeMap = [];
+        };
         for (var i = 0; i < words.length; ++i) {
             var pos = partOfSp[words[i]];
+            if( wordTypeMap ) {
+                wordTypeMap.push(pos);
+            }
             if ((pos & 1) != 0) {
                 if (parts.noun.length > 0) {
                     if ((partOfSp[parts.noun[parts.noun.length - 1]] & 8) != 0) {
@@ -85,6 +101,42 @@ module.exports = function ltbl() {
                 parts.adj.push(words[i]);
                 ++parts.count;
                 name.push(words[i]);
+            }
+        }
+        if( calcObjects ) {
+            // Pick out objects...
+            var pendObj = [];
+            var hitNoun = false;
+            parts.objects = [];
+            for (var i = 0; i < words.length; ++i) {
+                if( (wordTypeMap[i] & ~11) != 0 ) {
+                    if( pendObj.length > 0 ) {
+                        if( hitNoun )
+                            parts.objects.push(pendObj.join(" "));
+                        pendObj = [];
+                        hitNoun = false;
+                    }
+                } else if( (wordTypeMap[i] & 1) != 0 ) {
+                    pendObj.push(words[i]);
+                    hitNoun = true;
+                } else if( (wordTypeMap[i] & 8) != 0 ) {
+                    if( hitNoun ) {
+                        if( pendObj.length > 0 ) {
+                            parts.objects.push(pendObj.join(" "));
+                            pendObj = [];
+                            hitNoun = false;
+                        }
+                    }
+                    pendObj.push(words[i]);
+                } else if( pendObj.length > 0 ) {
+                     if( hitNoun )                       
+                         parts.objects.push(pendObj.join(" "));
+                     pendObj = [];
+                     hitNoun = false;
+                }
+            }
+            if( hitNoun ) {
+                parts.objects.push(pendObj.join(" "));
             }
         }
         parts.name = name.join(" ");
