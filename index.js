@@ -51,8 +51,6 @@ module.exports = function ltbl(settings) {
         "bye" : "!bye" ,
         "goodbye" : "!bye",
         "farewell" : "!bye",
-        "leave" : "!leave",
-        "notice" : "!notice",
         "l" : "!look",
         "look" : "!look",
         "x" : "!examine",
@@ -86,11 +84,7 @@ module.exports = function ltbl(settings) {
             "lie down" : "!lie",
             "stand up" : "!stand",
             "go in" : "!goin",
-            "go inside" : "!goin",
-            "make door" : "!makedoor",
-            "make path" : "!makepath",
-            "make passage" : "!makepassage",
-            "make stairs" : "!makestairs"
+            "go inside" : "!goin"
         },
         postures : {
             "stand" : {
@@ -123,6 +117,19 @@ module.exports = function ltbl(settings) {
                 "postures" : ["stand","sit","lie"],
                 "posture" : "lie"
             }
+        }
+    };
+    var godWordMap = {
+        firstWord : {
+            "leave" : "!leave",
+            "notice" : "!notice",
+            "dump" : "!dump"
+        },
+        firstTwoWord : {
+            "make door" : "!makedoor",
+            "make path" : "!makepath",
+            "make passage" : "!makepassage",
+            "make stairs" : "!makestairs"
         }
     };
     var topLocationTypes = {
@@ -567,14 +574,14 @@ module.exports = function ltbl(settings) {
     var renderMapLevelText = function (map) {
         var render = require("./render-map-text.js");
         if( mapScale == "small" ) {
-                return render( { map : map , getLocation : getLocation , viewportHeight : 16 , viewportWidth : 40 , small : true} );
+            return render( { map : map , getLocation : getLocation , viewportHeight : 16 , viewportWidth : 40 , small : true} );
         }
         return render( { map : map , getLocation : getLocation , viewportHeight : 16 , viewportWidth : 40 } );
     };
     var map = null;
     var renderMap = null;
     var mapScale = null;
-    var helper = require("./helper.js")();
+    var helper = require("./helper.js")({spellCorrect:settings.spellCorrect});
     var camelCase = helper.camelCase;
     var extractNounAndAdj = helper.extractNounAndAdj;
     var getPartsOfSpeech = helper.getPartsOfSpeech;
@@ -695,7 +702,15 @@ module.exports = function ltbl(settings) {
         }
         return dontCare;
     };
-
+    var spellCorrectText = function(description) {
+        var parts = getPartsOfSpeech(description,false,true);
+        if( parts.mispelled.length > 0 ) {
+            for(var i = 0; i < parts.mispelled.length ; ++i ) {
+                description = (" "+description+" ").split(" "+parts.mispelled[i].word+" ").join(chalk.red(" "+parts.mispelled[i].word+" ")).trim();
+            }
+        }
+        return description;
+    };
     var render = function (loc,locationId, depth, where) {
         if( !depth ) {
             annotations = [];
@@ -755,7 +770,11 @@ module.exports = function ltbl(settings) {
                 console.log(chalk.bold("No name")+annotate({"type":"location.name"}));
             }
             if (loc.description) {
-                console.log(loc.description+annotate({"type":"location.description"}));
+                var roomDescription = loc.description;
+                if( pov.isGod && settings.spellCorrect ) {
+                    roomDescription = spellCorrectText(roomDescription);
+                } 
+                console.log(roomDescription+annotate({"type":"location.description"}));
             } else if(pov.isGod&& !depth ) {
                 console.log(chalk.bold("No description")+annotate({"type":"location.description"}));
             }
@@ -2112,7 +2131,23 @@ module.exports = function ltbl(settings) {
             var lCaseWords =  lCase.split(" ");
             var firstWord = lCaseWords[0].trim(); 
             var firstPhrase = null;
-
+            if( pov ) {
+                if( pov.isGod ) {
+                    if( godWordMap.firstWord[firstWord] ) {
+                        firstWord = godWordMap.firstWord[firstWord];
+                    }
+                    if( lCaseWords.length > 0 ) {
+                        firstPhrase =  godWordMap.firstTwoWord[lCaseWords[0]+" "+lCaseWords[1]];
+                        if( firstPhrase ) {
+                            command = firstPhrase+" "+subSentence(command,2);
+                            firstWord = firstPhrase;
+                            lCase = command;
+                            lCase = lCase.toLowerCase();
+                            lCaseWords =  lCase.split(" ");
+                        }
+                    }    
+                }
+            }
             if( wordMap.firstWord[firstWord] ) {
                 firstWord = wordMap.firstWord[firstWord];
             }
@@ -2848,7 +2883,7 @@ module.exports = function ltbl(settings) {
                             dontSee(command,pov.location,origCommand);
                         }
                     }
-                } else if ( pov.isGod && firstWord == "dump") {
+                } else if ( pov.isGod && firstWord == "!dump") {
                     command = subSentence( command , 1).toLowerCase();
                     if( pov.isGod ) {
                         if( command && command.length )
