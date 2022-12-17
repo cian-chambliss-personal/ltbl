@@ -18,12 +18,13 @@ module.exports = function ltbl(settings) {
      */
     var stateMachine = null;
     var annotations = [];    
-    var _SM = require("./state-machine")();
+    var _SM = require("./state-machine")({output : function(txt) {
+        console.log(txt);
+    }});
     var stateMachineFillin = _SM.fillin;
     var stateMachineFillinStart = _SM.fillinStart;
     var stateMachineFillinCreate = _SM.fillinCreate;
     var roomNum = 1;
-    var mode = 'what';
     var statusLine = null;
     var lastLocation = null;
     var lastDirection = null;
@@ -33,7 +34,6 @@ module.exports = function ltbl(settings) {
     var lastNonVoidPendingVoid = null;
     var pendingGoInsideItem = null;
     var pendingItemOut = null;
-    var describeItem = null;
     var fs = require("fs");
     var helpText = require("./en-help.json");
     var verbCommand = {
@@ -53,10 +53,10 @@ module.exports = function ltbl(settings) {
         "farewell" : "!bye",
         "leave" : "!leave",
         "notice" : "!notice",
-        "l" : "look",
-        "look" : "look",
-        "x" : "examine",
-        "examine" : "examine",
+        "l" : "!look",
+        "look" : "!look",
+        "x" : "!examine",
+        "examine" : "!examine",
         "touch" : "touch",
         "feel" : "touch",
         "smell" : "!smell",
@@ -1048,7 +1048,6 @@ module.exports = function ltbl(settings) {
             }
             clearVoid();
             describe();
-            mode = "what";
         }  else {
             roomName = calcRoomName(prefix,null);
             pov.location = roomName;
@@ -1068,8 +1067,6 @@ module.exports = function ltbl(settings) {
                     getLocation(lastLocation)[lastDirection].direction = lastNonVoidDelta;
                     getLocation(pov.location)[reverseDirection(lastDirection)].direction = -lastNonVoidDelta;
                 }
-                //console.log("Door name (blank or 'n' for no door, 's' for stairs, 'p' for path/passage )");
-                mode = "what";
             }
             if( pendingGoInsideItem ) {
                 var inItem = getItem(pendingGoInsideItem);
@@ -1178,7 +1175,6 @@ module.exports = function ltbl(settings) {
             stateMachine.start(stateMachine);
          } else if (pov.location && !noVoid ) {
             render(getLocation(pov.location),pov.location, 0);
-            mode = "what";
         } else {            
             if( lastNonVoid ) {
                 stateMachine = stateMachineFillinCreate({},[
@@ -1925,6 +1921,12 @@ module.exports = function ltbl(settings) {
                     } else {
                         console.log("Default "+annotate({"type":"dir.type","dir":anno.dir}))
                     }
+                    if( dp.door ) {
+                        console.log(chalk.bold("Door Name"));
+                        console.log(getDoor(dp.door).name+" "+annotate({"type":"door.name","door":dp.door}))
+                        console.log(chalk.bold("Door Description"));
+                        console.log(getDoor(dp.door).description+" "+annotate({"type":"door.description","door":dp.door}))
+                    }
                 }
             }
         } else if( anno.type == "location.name" ) {
@@ -1968,6 +1970,16 @@ module.exports = function ltbl(settings) {
                 if( dp ) {
                     stateMachine = stateMachineFillinCreate(dp,[{msg:"Change location type:",prop:"type",choices:dirTypesMenu}]);
                 }
+            }
+        } else if( anno.type == "door.name" ) {
+            var dp = getDoor(anno.door);
+            if(dp) {                
+                stateMachine = stateMachineFillinCreate(dp,[{msg:"Change door name:",prop:"name"}]);
+            }
+        } else if( anno.type == "door.description" ) {
+            var dp = getDoor(anno.door);
+            if(dp) {                
+                stateMachine = stateMachineFillinCreate(dp,[{msg:"Change door description:",prop:"description"}]);
             }
         } else if( anno.type == "npc" ) {
             var ni = getNpc(anno.npc);
@@ -2078,20 +2090,11 @@ module.exports = function ltbl(settings) {
                 mode = "what";
                 describe();
             */
-            } else if (mode == 'describe_item') {
-                getItem(describeItem).description = command;
-                mode = "what";
-            } else if (mode == 'write') {
-                getItem(describeItem).content = command;
-                mode = "what";
-            } else if (mode == 'describe_location') {
-                getLocation(pov.location).description = command;
-                mode = "what";
-            } else if (mode == 'what') {
+            } else {
                 // navigate the map
-                if (firstWord == "look" && lCase.indexOf(" ") < 0 ) {
+                if (firstWord == "!look" && lCase.indexOf(" ") < 0 ) {
                     describe(true);
-                } else if ( firstWord == "examine") {
+                } else if ( firstWord == "!examine") {
                     command = subSentence( command , 1);
                     if (command != "") {
                         var item = lookupItem(command);
@@ -2100,9 +2103,7 @@ module.exports = function ltbl(settings) {
                             if (itemPtr.description) {
                                 console.log(itemPtr.description);
                             } else {
-                                mode = "describe_item";
-                                console.log("How would you describe the " + item + "?")
-                                describeItem = item;
+                                stateMachine = stateMachineFillinCreate(itemPtr,[ {msg:"How would you describe the " + item + "?",prop:"description"} ]);
                             }
                         }
                     } else {
@@ -2110,8 +2111,7 @@ module.exports = function ltbl(settings) {
                         if (where.description) {
                             console.log(where.description);
                         } else {
-                            mode = "describe_location";
-                            console.log("How would you describe the " + where.name + "?")
+                            stateMachine = stateMachineFillinCreate(getLocation(pov.location),[ {msg:"How would you describe the " + where.name + "?",prop:"description"} ]);
                         }
                     }
                 } else if ( firstWord == "touch" 
@@ -2234,9 +2234,7 @@ module.exports = function ltbl(settings) {
                                 if (ip.content) {
                                     console.log(ip.content);
                                 } else if( pov.isGod ) {
-                                    describeItem = item;
-                                    console.log("What do you see written in " + ip.name + "?");
-                                    mode = "write";
+                                    stateMachine = stateMachineFillinCreate(ip,[ {msg:"What do you see written on " + ip.name + "?",prop:"content"} ]);
                                 } else {
                                     console.log("There is nothing written on the "+ip.name);
                                 }
@@ -2397,6 +2395,7 @@ module.exports = function ltbl(settings) {
                                         lastLocation = pov.location
                                         lastDirection = lCase;
                                         pov.location = posCell;
+                                        describe();
                                     } else {
                                         lastLocation = pov.location;                                    
                                         var voidCounter = 1;
@@ -2439,8 +2438,9 @@ module.exports = function ltbl(settings) {
                             pov.location = nextLoc.location;
                             describe();
                         }
+                    } else {
+                        describe(false);
                     }
-                    describe(false);
                 } else if (firstWord == "!makedoor" && pov.isGod ) {
                     command = subSentence( command , 1);
                     if( isDirection(command) ) {
