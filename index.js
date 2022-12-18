@@ -791,12 +791,15 @@ module.exports = function ltbl(settings) {
                         contains += "and";
                     }
                 }
-                var iname = getItem(loc.contains[i].item).name;
-                if ("AEIOUYW".indexOf(iname[0]))
-                    contains += " a ";
-                else
-                    contains += " an ";
-                contains += iname+annotate({"type":"item","item":loc.contains[i].item});
+                var ip = getItem(loc.contains[i].item);
+                if( ip ) {
+                    var iname = ip.name;
+                    if ("AEIOUYW".indexOf(iname[0]))
+                        contains += " a ";
+                    else
+                        contains += " an ";
+                    contains += iname+annotate({"type":"item","item":loc.contains[i].item});
+                }
             }
             if (where) {
                 contains += " " + where + ".";
@@ -1920,7 +1923,70 @@ module.exports = function ltbl(settings) {
         }
         return null;
     };
-
+    var spellcheckedText = function(obj,prop,prompt) {
+        var choices = [];
+        var parts = { mispelled : []};
+        if( obj[prop] ) {
+            parts = getPartsOfSpeech(obj[prop],false,true);
+        }
+        if( parts.mispelled.length > 0 ) {
+            for(var i = 0; i < parts.mispelled.length ; ++i ) {
+                choices.push({ text : 'Fix "'+parts.mispelled[i].word+'"' , value : parts.mispelled[i].word });
+            }
+            choices.push({text:prompt,value:"*"});
+        }
+        if( choices.length > 1 ) {
+            stateMachine = stateMachineFillinCreate({word:'',fix:''},[
+                {msg:"Change description:",prop:"word",choices:choices},
+                { test : function(sm) { 
+                        if(sm.data.word == "*") 
+                               return "expand.entire";
+                        var findWrd = sm.data.word;
+                        var se = sm.states[1];
+                        se.states[0].msg = findWrd;
+                        for(var i = 0; i < parts.mispelled.length ; ++i ) {
+                            if( parts.mispelled[i].word == findWrd ) {
+                                var srcCorrect =parts.mispelled[i].corrections;
+                                var correct = [];
+                                for(var j = 0; j < srcCorrect.length ; ++j ) {
+                                    var coorection =  srcCorrect[j];
+                                    correct.push({ text : 'Replace "'+findWrd+'" with "'+coorection+'"', value : coorection } );
+                                }
+                                correct.push({ text : 'Make a custom fix', value : "?" } );
+                                se.states[0].choices = correct;
+                                break;
+                            }
+                        }
+                        return "expand"; 
+                    } , states : [ 
+                        {msg:"??",prop:"fix",choices:[]},
+                        {
+                            test : function(sm) {
+                                if( sm.data.fix == "?" ) { return "expand"; }
+                                return "skip";
+                            },
+                            states : [ { msg: "Custom fix" , prop : "fix" } ]
+                        }
+                    ] , entire : [
+                        {msg:prompt,prop:prop}
+                    ]
+                }
+            ],function(sm) {
+                if(sm.data.word == "*") {
+                    if( sm.data[prop] ) {
+                        obj[prop] = sm.data[prop];
+                    }
+                } else if(sm.data.fix) {
+                    var desc = obj[prop];
+                    obj[prop] = desc.split(sm.data.word).join(sm.data.fix);
+                }
+                map = null;
+                render(getLocation(pov.location),pov.location, 0);
+            });
+        } else {
+            stateMachine = stateMachineFillinCreate(obj,[ {msg:prompt,prop:prop} ],invalidateMap);
+        }
+    };
     var doAnnotation = function(anno) {
         if( anno.type == "item" ) {
             //{"type":"item","item":
@@ -1975,12 +2041,12 @@ module.exports = function ltbl(settings) {
         } else if( anno.type == "item.description" ) {
             var ip = getItem(anno.item);
             if( ip ) {
-                stateMachine = stateMachineFillinCreate(ip,[{msg:"Change item description:",prop:"description"}]);
+                spellcheckedText(ip,"description","Change entire item description:");
             }
         } else if( anno.type == "item.content" ) {
             var ip = getItem(anno.item);
             if( ip ) {
-                stateMachine = stateMachineFillinCreate(ip,[{msg:"Change item readable content:",prop:"content"}]);
+                spellcheckedText(ip,"content","Change entire item readable content:");
             }
         } else if( anno.type == "item.postures" ) {
             var ip = getItem(anno.item);
@@ -2026,7 +2092,7 @@ module.exports = function ltbl(settings) {
         } else if( anno.type == "location.description" ) {
             var loc = getLocation(pov.location);
             if( loc ) {
-                stateMachine = stateMachineFillinCreate(loc,[{msg:"Change location description:",prop:"description"}],invalidateMap);
+                spellcheckedText(loc,"description","Change entire location description:");
             }
         } else if( anno.type == "location.type" ) {
             var loc = getLocation(pov.location);
