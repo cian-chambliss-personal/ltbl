@@ -1,49 +1,56 @@
 const chalk = require("chalk");
-module.exports = function() {
+module.exports = function(settings) {
     var outputText = function(txt) {
         // Single output so we can override it
         console.log(txt);
     };
     var displayMessage = function(sm,st) {
-        if( st.msg ) {
-            var msg = st.msg;
-            if( msg.indexOf("{") >= 0 ) {
-                for(var prop in sm.data) {
-                    if( msg.indexOf("{"+prop+"}") >= 0 ) {
-                        msg = msg.split("{"+prop+"}").join(sm.data[prop]);
-                    }
-                }
-            }
-            outputText(msg);
-        }
-        if( st.choices ) {
-            if( st.multiple ) {
-                var arr = sm.data[st.prop];
-                if( !arr ) {
-                    arr = [];
-                }
-                for( var i = 0 ; i < st.choices.length ; ++i ) {
-                    var selected = false;
-                    for( var j = 0 ; j < arr.length ; ++j ) {
-                        if( st.choices[i].value == arr[j] ) {
-                            selected = true;
-                            break;
+        if( st ) {
+            if( st.msg ) {
+                var msg = st.msg;
+                if( msg.indexOf("{") >= 0 ) {
+                    for(var prop in sm.data) {
+                        if( msg.indexOf("{"+prop+"}") >= 0 ) {
+                            msg = msg.split("{"+prop+"}").join(sm.data[prop]);
                         }
                     }
-                    if( selected )
-                        outputText(chalk.bold((i+1)+")["+st.choices[i].text+"]"));
-                    else 
-                        outputText((i+1)+") "+st.choices[i].text);
                 }
-            } else {
-                for( var i = 0 ; i < st.choices.length ; ++i ) {
-                    outputText((i+1)+") "+st.choices[i].text);
+                outputText(msg);
+            }
+            if( st.choices ) {
+                if( st.multiple ) {
+                    var arr = sm.data[st.prop];
+                    if( !arr ) {
+                        arr = [];
+                    }
+                    for( var i = 0 ; i < st.choices.length ; ++i ) {
+                        var selected = false;
+                        for( var j = 0 ; j < arr.length ; ++j ) {
+                            if( st.choices[i].value == arr[j] ) {
+                                selected = true;
+                                break;
+                            }
+                        }
+                        if( selected )
+                            outputText(chalk.bold((i+1)+")["+st.choices[i].text+"]"));
+                        else 
+                            outputText((i+1)+") "+st.choices[i].text);
+                    }
+                } else {
+                    for( var i = 0 ; i < st.choices.length ; ++i ) {
+                        outputText((i+1)+") "+st.choices[i].text);
+                    }
                 }
             }
         }
     };
     var stateMachineFillin = function(sm,command) {
         var advanceTest = function() {
+            if( sm.state >= sm.states.length ) {
+                if( sm.done ) {
+                    sm.done(sm);
+                }
+            }
             while( sm.states[sm.state].test ) {
                 var testResult = sm.states[sm.state].test(sm,command);
                 if( testResult == "expand" ) {
@@ -54,6 +61,15 @@ module.exports = function() {
                     }
                     sm.state = 0;
                     sm.states = newStates;
+                    if( newStates.length == 0 ) {
+                        if( sm.doAbort ) {
+                            sm.doAbort(sm);
+                        }
+                        if( sm.done ) {
+                            sm.done(sm);
+                        }
+                        return "abort";
+                    }
                 } else if( testResult.substring(0,7) == "expand." ) {
                     // Branching (alternate state)
                     testResult = testResult.substring(7);
@@ -63,11 +79,20 @@ module.exports = function() {
                     }
                     sm.state = 0;
                     sm.states = newStates;
+                    if( newStates.length == 0 ) {
+                        if( sm.doAbort ) {
+                            sm.doAbort(sm);
+                        }
+                        if( sm.done ) {
+                            sm.done(sm);
+                        }
+                        return "abort";
+                    }
                 } else if( testResult == "execute" ) {
                     break;
                 } else {
                     sm.state = sm.state + 1;
-                    if( (sm.state+1) > sm.states.length ) {
+                    if( (sm.state+1) >= sm.states.length ) {
                         if( sm.done ) {
                             sm.done(sm);
                         }
@@ -177,6 +202,9 @@ module.exports = function() {
         sm.start(sm,"");
         return sm;
     };    
+    if( settings.output ) {
+        outputText = settings.output;
+    }
     return { 
         fillin : stateMachineFillin,
         fillinStart : stateMachineFillinStart,
