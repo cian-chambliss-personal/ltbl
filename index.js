@@ -60,8 +60,8 @@ module.exports = function ltbl(settings) {
         "smell" : "!smell",
         "sniff" : "!smell",
         "listen" : "listen",
-        "i": "inventory",
-        "inventory" : "inventory",
+        "i": "!inventory",
+        "inventory" : "!inventory",
         "drop" : "!drop",
         "put" : "!put",
         "hide" : "!hide",
@@ -2307,7 +2307,7 @@ module.exports = function ltbl(settings) {
                          || firstWord == "listen" 
                           ) {
                     console.log("TBD - add item/npc/etc smell/touch etc.");
-                } else if (firstWord == "inventory") {
+                } else if (firstWord == "!inventory") {
                     if (actor.inventory.length == 0) {
                         console.log("You are carrying nothing.");
                     } else {
