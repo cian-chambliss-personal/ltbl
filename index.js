@@ -77,6 +77,10 @@ module.exports = function ltbl(settings) {
         "tell" : "!tell" , 
         "show" : "!show" , 
         "give" : "!give" ,
+        "open" : "!open" ,
+        "close" : "!close" ,
+        "unlock" : "!unlock" ,
+        "lock" : "!lock" 
         },
         firstTwoWord : {
             "talk to"  : "!talkto",
@@ -345,6 +349,29 @@ module.exports = function ltbl(settings) {
         }
         return fullName;
     }    
+    var setObjectState = function(name,value) {
+        gameState["Obj"+name] = value;
+    };
+    var getObjectState = function(name) {
+        var si = getItem(name);
+        var state = null;
+        if( si ) {
+            state = gameState["Obj"+name];
+            if( !state ) {
+                state = si.state;
+                if( !state ) {
+                    if( si.type == "door" ) {
+                        if( si.lockable || si.key ) {
+                            state = "locked";
+                        } else {
+                            state = "closed";
+                        }
+                    }
+                }
+            }
+        }
+        return state;
+    }
     var getDoor = function(name) {
         return getItem(name);
     };
@@ -1375,6 +1402,20 @@ module.exports = function ltbl(settings) {
             if (where.contains && !itemName && flags != "actor") {
                 itemName = lookupItemLow(parts,where.contains,command,candidates);
             }
+            if( !itemName && flags != "actor") {
+                var doors = [];
+                for( var i = 0 ; i < directionsNames.length ; ++i ) {
+                    var dir = where[directionsNames[i]];
+                    if( dir ) {
+                        if( dir.door ) {
+                            doors.push({ item : dir.door });
+                        }
+                    }
+                }
+                if( doors.length ) {
+                    itemName = lookupItemLow(parts,doors,command,candidates);
+                }
+            }
             if (!itemName && flags != "actor" && where.wall) {
                 if (!itemName && where.wall.n) {
                     if (where.wall.n.contains) {
@@ -1411,6 +1452,7 @@ module.exports = function ltbl(settings) {
         }
         return itemName;
     };
+    var directionsNames = ["s","n","e","w","u","d","sw","se","nw","ne"];
     var directionsHash = {
         "s": { primary: "s" },
         "n": { primary: "n" },
@@ -2610,21 +2652,32 @@ module.exports = function ltbl(settings) {
                                 console.log("You cannot go that way.");
                             }
                         } else {
-                            if( pov.location ) {
-                                if( getLocation(pov.location).type == "void" && getLocation(nextLoc.location).type != "void" ) {
-                                    // clean up all the voids
-                                    clearVoid();
-                                } else if( nextLoc.teleport ) {
-                                    map = null;
+                            var isBlocked = false;
+                            if( nextLoc.door ) {
+                                var objState = getObjectState(nextLoc.door);
+                                if( objState != "open" ) {
+                                    isBlocked = true;
                                 }
                             }
-                            if( lCase == "o" || lCase == "i" ) {
-                                map = null;
+                            if( isBlocked && !pov.god ) {
+                                console.log("The door is closed!");
+                            } else {
+                                if( pov.location ) {
+                                    if( getLocation(pov.location).type == "void" && getLocation(nextLoc.location).type != "void" ) {
+                                        // clean up all the voids
+                                        clearVoid();
+                                    } else if( nextLoc.teleport ) {
+                                        map = null;
+                                    }
+                                }
+                                if( lCase == "o" || lCase == "i" ) {
+                                    map = null;
+                                }
+                                lastLocation = pov.location;
+                                lastDirection = lCase;
+                                pov.location = nextLoc.location;
+                                describe();
                             }
-                            lastLocation = pov.location;
-                            lastDirection = lCase;
-                            pov.location = nextLoc.location;
-                            describe();
                         }
                     } else {
                         describe(false);
@@ -2899,6 +2952,49 @@ module.exports = function ltbl(settings) {
                             noUnderstand();
                         }
                     }
+                } else if (  firstWord == "!open" 
+                          || firstWord == "!close" 
+                           ) {
+                    command = subSentence( command , 1);    
+                    if( command != "") {
+                        var item = lookupItem(pov.location,command, "noactor");
+                        if (item) {
+                            if (item != "?") {
+                                var objState = getObjectState(item);
+                                if( objState == "open" ) {
+                                    if( firstWord == "!open" ) {
+                                        console.log("The " + getItem(item).name + " is already open");
+                                    } else if( firstWord == "!close" ) {
+                                        setObjectState(item,"closed");
+                                        console.log("Ok you closed the " + getItem(item).name);
+                                    }
+                                } else if( objState == "closed" ) {
+                                    if( firstWord == "!open" ) {
+                                        setObjectState(item,"open");
+                                        console.log("Ok you opened the " + getItem(item).name);
+                                    } else if( firstWord == "!close" ) {
+                                        console.log("The " + getItem(item).name + " is already closed");
+                                    }
+                                } else if( objState == "locked" ) {
+                                    console.log("The " + getItem(item).name + " is locked");
+                                } else {
+                                    if( firstWord == "!open" ) {
+                                        console.log(getItem(item).name + " cannot be opened.");
+                                    } else if( firstWord == "!close" ) {
+                                        console.log(getItem(item).name + " cannot be closed.");
+                                    }
+                                }
+                            }
+                        } else {
+                            dontSee(command,pov.location,origCommand);
+                        }
+                    } else {
+                        noUnderstand();
+                    }
+                } else if (  firstWord == "!lock" 
+                          || firstWord == "!unlock" 
+                          ) {
+                    
                 } else if ( 
                     firstWord == "!sit" 
                  || firstWord == "!lie" 
