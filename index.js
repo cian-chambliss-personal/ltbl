@@ -277,12 +277,12 @@ module.exports = function ltbl(settings) {
     var calcCommonPrefix = function(loc1,loc2) {
         if( loc1 && loc2 ) {
             loc1 = topRoomName(loc1);
-            loc2 = topRoomName(loc2);
+            loc2 = topRoomName(loc2);            
             if( loc1 && !loc2 )
                 return loc1+"/";
             if( loc2 && !loc1 )
                 return loc2+"/";
-            if( loc1 == loc2 )
+            if( loc1 && loc1 == loc2 )
                 return loc1+"/";
         }
         return null;
@@ -2268,7 +2268,64 @@ module.exports = function ltbl(settings) {
             //{ type:"conv" , npc : vc.npc , action : vc.action , preposition  : vc.preposition , topic : vc.topic }
         }
     };
-
+    var godCommandPatterns = [
+        {
+            match : {
+                verb : [ "!drop","!put","!hide" ],
+                dObj : "create" ,
+                iObj : "create" ,
+                preposition : ["on","from","in","inside","under","behind"]
+            } , 
+            eval : function(args) {
+                var ip = getItem(args.iObj);
+                if( args.new_iObj ) {
+                    // we need to put the iObj in location
+                    var pLoc = getLocation(pov.location);
+                    if( !pLoc.contains ) {
+                        pLoc.contains = [];
+                    }
+                    pLoc.contains.push({item:args.iObj})
+                }
+                console.dir(args);
+                var listName = null;
+                if( args.preposition == "on") {
+                    listName = "supports";                    
+                } else if( args.preposition == "under") {
+                    listName = "under";
+                } else if( args.preposition == "behind") {
+                    listName = "behind";
+                } else {
+                    listName = "contains";
+                }
+                if( !ip[listName] ) {
+                    ip[listName] = [];
+                }
+                if( args.verb == "!hide" ) {
+                    ip[listName].push({ item : args.dObj , hidden : true });
+                } else {
+                    ip[listName].push({ item : args.dObj });
+                }
+                console.log("Ok");
+            },
+        },
+        {
+            match : {
+                verb : [ "!drop" ],
+                dObj : "create" ,
+            } , 
+            eval : function(args) {
+                if( args.new_dObj ) {
+                    var pLoc = getLocation(pov.location);
+                    if( !pLoc.contains ) {
+                        pLoc.contains = [];
+                    }
+                    pLoc.contains.push({item:args.dObj})
+                    var ip = getItem(args.dObj);
+                    console.log(ip.name+" has been placed in "+pLoc.name);
+                }
+            }
+        }
+    ];
 
     // Command patterns
     var commandPatterns = [
@@ -2293,6 +2350,11 @@ module.exports = function ltbl(settings) {
                     if( from )
                         prop = "behind";
                 }
+                if( ip.under && (args.preposition == "under"||args.preposition == "from") && !from ) {
+                    from = lookupItemArr(args.dObj,ip.under);
+                    if( from )
+                        prop = "under";
+                }
                 if( ip.contains && (args.preposition == "in"||args.preposition == "from") && !from ) {
                     from = lookupItemArr(args.dObj,ip.contains);
                     if( from )
@@ -2303,6 +2365,8 @@ module.exports = function ltbl(settings) {
                         args.preposition = "on";
                     } else if( !ip.contains && ip.behind ) {
                         args.preposition = "behind";
+                    } else if( !ip.contains && ip.under ) {
+                        args.preposition = "under";
                     }
                 }
                 if( from ) {
@@ -2324,6 +2388,8 @@ module.exports = function ltbl(settings) {
                     console.log("There is no "+args.dObj+" on "+ip.name);                    
                 } else if(args.preposition == "behind") {
                     console.log("There is no "+args.dObj+" behind "+ip.name);                    
+                } else if(args.preposition == "under") {
+                    console.log("There is no "+args.dObj+" under "+ip.name);                    
                 } else {
                     console.log("There is no "+args.dObj+" in "+ip.name);
                 }
@@ -2480,7 +2546,7 @@ module.exports = function ltbl(settings) {
             // Just use name (will be resolved late)            
             findPatternArgs[argName] = name;
             return true;
-        } else if( pattern.match[argName] == "npc") {
+        } else if( pattern.match[argName] == "npc" || pattern.match[argName] == "createnpc" ) {
             objName = findNPCs(name);
             if( objName.length == 1 ) {
                 objName = objName[0];
@@ -2490,7 +2556,7 @@ module.exports = function ltbl(settings) {
                 dontSeeNpc(name,pov.location,origCommand);                
             }
         } else {
-            if( pattern.match[argName] == "*" ) {
+            if( pattern.match[argName] == "*" || pattern.match[argName] == "create" ) {
                 objName = lookupItem(pov.location,name);
             } else {
                 objName = lookupItem(pov.location,name,pattern.match[argName]);
@@ -2499,7 +2565,17 @@ module.exports = function ltbl(settings) {
                 findPatternArgs[argName] = objName;
                 return true;
             } else if( !objName ) {
-                dontSee(name,pov.location,origCommand);
+                if( pattern.match[argName] == "create" ) {
+                    // Add a state
+                    if( !findPatternArgs.states ) {
+                        findPatternArgs.states = [];
+                    }
+                    findPatternArgs[argName] = name;
+                    findPatternArgs.states.push({msg:(name+" does not exist, do you want to create one?"),prop:"new_"+argName,yesNo : true});
+                    return true;
+                } else {
+                    dontSee(name,pov.location,origCommand);
+                }
             }
         }
         return false;
@@ -2514,7 +2590,19 @@ module.exports = function ltbl(settings) {
         for( var i = 0 ; i < commands.length ; ++i ) {
             var _pattern =  commands[i];
             var preposition = null;
-            if( _pattern.match.verb == firstWord ) {                        
+            var matchVerb = false;
+            if( Array.isArray(_pattern.match.verb) ) {
+                for( var j = 0 ; j < _pattern.match.verb.length ; ++j ) {
+                    if( _pattern.match.verb[j] == firstWord ) {
+                        findPatternArgs.verb = firstWord;
+                        matchVerb = true;
+                        break;
+                    } 
+                }
+            } else if( _pattern.match.verb == firstWord ) {
+                matchVerb = true;
+            }
+            if( matchVerb ) {
                 var object1 = subSentence( command , 1) , object2;                        
                 if( _pattern.match.preposition ) {
                     preposition = null;
@@ -2699,10 +2787,46 @@ module.exports = function ltbl(settings) {
                 var findPatternArgs = {};
                 var cmd = { firstWord : firstWord , command : command , origCommand : origCommand };
                 var findPattern = null;
-                findPattern = lookupCommandHandle(commandPatterns,cmd,findPatternArgs);
+                if( pov.isGod ) {
+                    findPattern = lookupCommandHandle(godCommandPatterns,cmd,findPatternArgs);
+                }
+                if( !findPattern ) {
+                    findPattern = lookupCommandHandle(commandPatterns,cmd,findPatternArgs);
+                }
                 if( findPattern ) {
                     // Pattern matches handles patterns generally
-                    if( pov.isGod && findPattern.godEval ) {
+                    if( findPatternArgs.states ) {
+                        // Prompt for new elements
+                        findPatternArgs.pattern = findPattern;                        
+                        stateMachine = stateMachineFillinCreate(findPatternArgs,findPatternArgs.states,function(sm) {
+                            var missingObjects = false;
+                            var createObjects = [];
+                            for(var prop in sm.data ) {
+                                if( prop.substring(0,4) == "new_") {
+                                    if( sm.data[prop] ) {
+                                        createObjects.push(prop.substring(4));
+                                    } else {
+                                        missingObjects = true;
+                                        break;
+                                    }
+                                }
+                            }
+                            if( missingObjects ) {
+                                console.log("Objects were missing, aborted...")
+                            } else {
+                                for(var i = 0 ; i < createObjects.length ; ++i ) {
+                                    var friendlyName = sm.data[createObjects[i]];
+                                    var name = extractNounAndAdj(friendlyName);
+                                    name = getUniqueItemName(name,"item",calcCommonPrefix(pov.location,pov.location));
+                                    setItem(name,{ name: friendlyName });
+                                    console.log("Created item "+name);
+                                    sm.data[createObjects[i]] = name;
+                                }
+                                // Create items
+                                sm.data.pattern.eval(sm.data);
+                            }                            
+                        });
+                    } else if( pov.isGod && findPattern.godEval ) {
                         findPattern.godEval(findPatternArgs);
                     } else {
                         findPattern.eval(findPatternArgs);
