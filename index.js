@@ -40,7 +40,7 @@ module.exports = function ltbl(settings) {
     var verbCommand = {
         action : null,
         npc : null,
-        proposition  :null,
+        preposition  :null,
         topic : null
     };
     var verbsWithTopics = { "ask" : true , "tell" : true , "show" : true , "give" : true };
@@ -63,6 +63,7 @@ module.exports = function ltbl(settings) {
         "listen" : "listen",
         "i": "!inventory",
         "inventory" : "!inventory",
+        "take" : "!take",
         "drop" : "!drop",
         "put" : "!put",
         "hide" : "!hide",
@@ -1360,7 +1361,7 @@ module.exports = function ltbl(settings) {
     };
     var lookupItemArr = function (command, arr) {
         var itemName = null;
-        if (command != "") {
+        if (command != "" && arr ) {
             var candidates = [];
             var parts = getPartsOfSpeech(command);
             itemName = lookupItemLow(parts,arr,command,candidates);
@@ -1524,8 +1525,8 @@ module.exports = function ltbl(settings) {
             states.push({ msg : "whats the topic of the '"+verbCommand.action+"'?" , prop : "topic"});
         }
         if( verbCommand.topic ) {
-            if( verbCommand.proposition ) {
-                states.push({ msg : "whats the response for '"+verbCommand.action+" "+verbCommand.proposition+" "+verbCommand.topic+"'?" , prop : "response"});
+            if( verbCommand.preposition ) {
+                states.push({ msg : "whats the response for '"+verbCommand.action+" "+verbCommand.preposition +" "+verbCommand.topic+"'?" , prop : "response"});
             } else {
                 states.push({ msg : "whats the response for '"+verbCommand.action+" about "+verbCommand.topic+"'?" , prop : "response"});
             }
@@ -1563,8 +1564,8 @@ module.exports = function ltbl(settings) {
                             if( !_npc.conversation[vc.action] ) {
                                 _npc.conversation[vc.action] = {};
                             }
-                            if( verbCommand.proposition ) {
-                                _npc.conversation[vc.action][vc.topic] = { proposition : vc.proposition , response : vc.response };
+                            if( verbCommand.preposition  ) {
+                                _npc.conversation[vc.action][vc.topic] = { preposition  : vc.preposition  , response : vc.response };
                             } else {
                                 _npc.conversation[vc.action][vc.topic] = { response : vc.response };
                             }
@@ -1586,7 +1587,7 @@ module.exports = function ltbl(settings) {
         var emitResponse = function(response,vc,stateId) {
             if( typeof(response) == "string" ) {
                 annotations = [];
-                console.log( response + annotate({ type:"conv" , npc : vc.npc , action : vc.action , proposition : vc.proposition, topic : vc.topic }) );
+                console.log( response + annotate({ type:"conv" , npc : vc.npc , action : vc.action , preposition  : vc.preposition , topic : vc.topic }) );
                 return true;
             } else if( response.then ) {
                 var responseIndex = gameState[stateId+".then"];
@@ -1654,7 +1655,7 @@ module.exports = function ltbl(settings) {
                 }
                 if( response.say ) {
                     annotations = [];
-                    console.log( response.say + annotate({ type:"conv" , npc : vc.npc , action : vc.action , proposition : vc.proposition, topic : vc.topic }));
+                    console.log( response.say + annotate({ type:"conv" , npc : vc.npc , action : vc.action , preposition  : vc.preposition , topic : vc.topic }));
                 }
                 if( response.score ) {
                     if( !gameState[stateId+".score"] ) {
@@ -1679,9 +1680,9 @@ module.exports = function ltbl(settings) {
             return false;
         } else {
             if( verbsWithTopics[verbCommand.action] ) {
-                if( !verbCommand.proposition ) {
+                if( !verbCommand.preposition  ) {
                     if( verbCommand.topic.substring(0,6) == "about " ) {
-                        verbCommand.proposition = "about";
+                        verbCommand.preposition  = "about";
                         verbCommand.topic = verbCommand.topic.substring(6).trim();
                     }
                 }
@@ -2219,13 +2220,77 @@ module.exports = function ltbl(settings) {
                 stateMachine = stateMachineFillinCreate(ni,[{msg:"Change NPC description:",prop:"description"}]);
             }
         } else if( anno.type == "conv" ) {
-            //{ type:"conv" , npc : vc.npc , action : vc.action , proposition : vc.proposition, topic : vc.topic }
+            //{ type:"conv" , npc : vc.npc , action : vc.action , preposition  : vc.preposition , topic : vc.topic }
         }
     };
 
 
     // Command patterns
     var commandPatterns = [
+        { 
+            match : {
+                verb : "!take",
+                dObj : "name",
+                iObj : "*" ,
+                preposition : ["on","from","in","under","behind"]
+            } , 
+            eval : function(args) {
+                var ip = getItem(args.iObj);
+                var from = null;
+                var prop = null;
+                if( ip.supports ) {
+                    from = lookupItemArr(args.dObj,ip.supports);
+                    if( from )
+                        prop = "supports";
+                }
+                if( ip.contains && !from ) {
+                    from = lookupItemArr(args.dObj,ip.contains);
+                    if( from )
+                        prop = "contains";
+                }
+                if( from ) {
+                    for (var i = 0; i < ip[prop].length; ++i) {
+                        if (ip[prop][i].item == from) {
+                            if( !pov.inventory ) {
+                                pov.inventory = [];
+                            }
+                            pov.inventory.push(ip[prop][i]);
+                            ip[prop].splice(i, 1);
+                            if (ip[prop].length == 0) {
+                                delete ip[prop];
+                            }
+                            console.log("Taken.");
+                            break;
+                        }
+                    }
+                } else {
+                    console.log("There is no "+args.dObj+" in "+ip.name);
+                }
+            }
+        },
+        { 
+            match : {
+                verb : "!take",
+                dObj : "noactor"
+            } , 
+            eval : function(args) {
+                var where = getLocation(pov.location);
+                for (var i = 0; i < where.contains.length; ++i) {
+                    if (where.contains[i].item == args.dObj) {
+                        if( !pov.inventory ) {
+                            pov.inventory = [];
+                        }
+                        pov.inventory.push(where.contains[i]);
+                        where.contains.splice(i, 1);
+                        if (where.contains.length == 0) {
+                            delete where.contains;
+                        }
+                        console.log("Taken.");
+                        break;
+                    }
+                }
+            }
+        },        
         { 
             match : {
                 verb : "!open",
@@ -2269,7 +2334,7 @@ module.exports = function ltbl(settings) {
         {
             match : {
                 verb : "!lock",
-                proposition: "with",
+                preposition: "with",
                 dObj : "*",
                 iObj : "actor"
             } ,
@@ -2280,7 +2345,7 @@ module.exports = function ltbl(settings) {
         {
             match : {
                 verb : "!unlock",
-                proposition: "with",
+                preposition: "with",
                 dObj : "*",
                 iObj : "actor"
             } ,
@@ -2292,7 +2357,11 @@ module.exports = function ltbl(settings) {
 
     var parseArg = function(pattern,pov,findPatternArgs,argName,name,origCommand) {
         var objName = null;
-        if( pattern.match[argName] == "npc") {
+        if( pattern.match[argName] == "name" ) {
+            // Just use name (will be resolved late)            
+            findPatternArgs[argName] = name;
+            return true;
+        } else if( pattern.match[argName] == "npc") {
             objName = findNPCs(name);
             if( objName.length == 1 ) {
                 objName = objName[0];
@@ -2414,6 +2483,7 @@ module.exports = function ltbl(settings) {
                 var findPattern = null;
                 var bestPattern = null;
                 var findPatternArgs = {};
+                var nullPatternHandler = { eval : function() {} }
                 for( var i = 0 ; i < commandPatterns.length ; ++i ) {
                     var _pattern =  commandPatterns[i];
                     var preposition = null;
@@ -2436,14 +2506,16 @@ module.exports = function ltbl(settings) {
                             if( preposition ) {
                                 var sep = object1.indexOf(" "+preposition+" ");
                                 if( sep > 0 ) {
-                                    object2 = object1.substring(sep,preposition.length+2);
+                                    object2 = object1.substring(sep+preposition.length+2);
                                     object1 = object1.substring(0,sep);
                                     if( _pattern.match.subject ) {
                                         if( !parseArg(_pattern,pov,findPatternArgs,"subject",object1,origCommand) ) {
+                                            findPattern = nullPatternHandler;
                                             break;
                                         }
                                         if( _pattern.match.iObj ) {
                                             if( !parseArg(_pattern,pov,findPatternArgs,"iObj",object2,origCommand) ) {
+                                                findPattern = nullPatternHandler;
                                                 break;
                                             }
                                             findPatternArgs.preposition = preposition;
@@ -2451,6 +2523,7 @@ module.exports = function ltbl(settings) {
                                             break;
                                         } else if( _pattern.match.dObj ) {
                                             if( !parseArg(_pattern,pov,findPatternArgs,"dObj",object2,origCommand) ) {
+                                                findPattern = nullPatternHandler;
                                                 break;
                                             }
                                             findPatternArgs.preposition = preposition;
@@ -2459,10 +2532,12 @@ module.exports = function ltbl(settings) {
                                         }
                                     } else if( _pattern.match.dObj ) {
                                         if( !parseArg(_pattern,pov,findPatternArgs,"dObj",object1,origCommand) ) {
+                                            findPattern = nullPatternHandler;
                                             break;
                                         }
                                         if( _pattern.match.iObj ) {
                                             if( !parseArg(_pattern,pov,findPatternArgs,"iObj",object2,origCommand) ) {
+                                                findPattern = nullPatternHandler;
                                                 break;
                                             }
                                             findPatternArgs.preposition = preposition;
@@ -2475,20 +2550,26 @@ module.exports = function ltbl(settings) {
                                 }
                             }
                         } else if( _pattern.match.dObj ) {                            
-                            if( parseArg(_pattern,pov,findPatternArgs,"dObj",object1,origCommand) ) {
-                                findPattern = _pattern;
+                            if( !parseArg(_pattern,pov,findPatternArgs,"dObj",object1,origCommand) ) {
+                                findPattern = nullPatternHandler;
                                 break;
                             }                            
+                            findPattern = _pattern;
+                            break;
                         } else if( _pattern.match.subject ) {
-                            if( parseArg(_pattern,pov,findPatternArgs,"subject",object1,origCommand) ) {
-                                findPattern = _pattern;
+                            if( !parseArg(_pattern,pov,findPatternArgs,"subject",object1,origCommand) ) {
+                                findPattern = nullPatternHandler;
                                 break;
                             }
+                            findPattern = _pattern;
+                            break;
                         } else if( _pattern.match.iObj ) {
-                            if( parseArg(_pattern,pov,findPatternArgs,"iObj",object1,origCommand) ) {
-                                findPattern = _pattern;
+                            if( !parseArg(_pattern,pov,findPatternArgs,"iObj",object1,origCommand) ) {
+                                findPattern = nullPatternHandler;
                                 break;
                             }                            
+                            findPattern = _pattern;
+                            break;
                         }
                     }
                 }
@@ -2666,33 +2747,7 @@ module.exports = function ltbl(settings) {
                         } else {
                             dontSee(command,pov.location,origCommand);
                         }
-                    }
-                } else if ( firstWord == "take" ) {
-                    command = subSentence( command , 1);
-                    if (command != "") {
-                        var item = lookupItem(pov.location,command, "noactor");
-                        if (item) {
-                            if (item != "?") {
-                                var where = getLocation(pov.location);
-                                for (var i = 0; i < where.contains.length; ++i) {
-                                    if (where.contains[i].item == item) {
-                                        if( !pov.inventory ) {
-                                            pov.inventory = [];
-                                        }
-                                        pov.inventory.push(where.contains[i]);
-                                        where.contains.splice(i, 1);
-                                        if (where.contains.length == 0) {
-                                            delete where.contains;
-                                        }
-                                        console.log("Taken.");
-                                        break;
-                                    }
-                                }
-                            }
-                        } else {
-                            dontSee(command,pov.location,origCommand);
-                        }
-                    }
+                    }                
                 } else if ( firstWord == "!eat" 
                          || firstWord == "!wear" 
                          || firstWord == "!light" 
@@ -3118,12 +3173,12 @@ module.exports = function ltbl(settings) {
                         if( command.length == 1 ) {
                             command = command[0].split(" for ");
                             if( command.length != 1 ) {
-                                verbCommand.proposition = "for";
+                                verbCommand.preposition = "for";
                             } else {
-                                verbCommand.proposition = null;
+                                verbCommand.preposition  = null;
                             }
                         } else {
-                            verbCommand.proposition = "about";
+                            verbCommand.preposition  = "about";
                         }
                     }
                     verbCommand.action = firstWord.substring(1);
@@ -3154,8 +3209,8 @@ module.exports = function ltbl(settings) {
                 ) {
                     firstWord = firstWord.substring(1);
                     command = subSentence( command , 1);
-                    verbCommand.proposition = wordMap.posturePrep[command.split(" ")[0]];
-                    if( verbCommand.proposition ) {
+                    verbCommand.preposition  = wordMap.posturePrep[command.split(" ")[0]];
+                    if( verbCommand.preposition  ) {
                         command = subSentence( command , 1);
                     }
                     if( command.length ) {
@@ -3324,7 +3379,7 @@ module.exports = function ltbl(settings) {
                         verbCommand.action = verb;
                         verbCommand.npc = null;
                         verbCommand.topic = null;    
-                        verbCommand.proposition = null;
+                        verbCommand.preposition  = null;
                         command = command.split(" ");
                         command[0] = "";
                         command = command.join(" ").trim();
