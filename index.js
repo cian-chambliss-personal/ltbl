@@ -2449,6 +2449,28 @@ module.exports = function ltbl(settings) {
                     console.log("Ok, " + ip.name + " is now unlocked");
                 }
             }
+        },
+        {
+            match : {
+                verb : "!read",
+                dObj : "*",
+            } ,
+            eval : function(args) {
+                var ip = getItem(args.dObj);
+                if (ip.content) {
+                    console.log(ip.content);
+                } else {
+                    console.log("There is nothing written on the "+ip.name);
+                }
+            },
+            godEval: function(args) {
+                var ip = getItem(args.dObj);
+                if (ip.content) {
+                    console.log(ip.content);
+                } else {
+                    stateMachine = stateMachineFillinCreate(ip,[ {msg:"What do you see written on " + ip.name + "?",prop:"content"} ]);
+                }
+            }
         }
     ];
 
@@ -2481,6 +2503,103 @@ module.exports = function ltbl(settings) {
             }
         }
         return false;
+    };
+
+    var nullPatternHandler = { eval : function() {} };
+    var lookupCommandHandle = function(commands,cmd,findPatternArgs) {
+        var findPattern = null;
+        var firstWord = cmd.firstWord;
+        var command = cmd.command;
+        var origCommand = cmd.origCommand;
+        for( var i = 0 ; i < commands.length ; ++i ) {
+            var _pattern =  commands[i];
+            var preposition = null;
+            if( _pattern.match.verb == firstWord ) {                        
+                var object1 = subSentence( command , 1) , object2;                        
+                if( _pattern.match.preposition ) {
+                    preposition = null;
+                    if( Array.isArray(_pattern.match.preposition) ) {                                
+                        for( var j = 0 ; j < _pattern.match.preposition.length ; ++j ) {
+                            var sep = command.indexOf(" "+_pattern.match.preposition[j]+" ");
+                            if( sep > 0 ) {
+                                preposition = _pattern.match.preposition[j];
+                                break;
+                            }
+                        }
+                    } else {
+                        preposition = _pattern.match.preposition;
+                    }
+                    if( preposition ) {
+                        var sep = object1.indexOf(" "+preposition+" ");
+                        if( sep > 0 ) {
+                            object2 = object1.substring(sep+preposition.length+2);
+                            object1 = object1.substring(0,sep);
+                            if( _pattern.match.subject ) {
+                                if( !parseArg(_pattern,pov,findPatternArgs,"subject",object1,origCommand) ) {
+                                    findPattern = nullPatternHandler;
+                                    break;
+                                }
+                                if( _pattern.match.iObj ) {
+                                    if( !parseArg(_pattern,pov,findPatternArgs,"iObj",object2,origCommand) ) {
+                                        findPattern = nullPatternHandler;
+                                        break;
+                                    }
+                                    findPatternArgs.preposition = preposition;
+                                    findPattern = _pattern;
+                                    break;
+                                } else if( _pattern.match.dObj ) {
+                                    if( !parseArg(_pattern,pov,findPatternArgs,"dObj",object2,origCommand) ) {
+                                        findPattern = nullPatternHandler;
+                                        break;
+                                    }
+                                    findPatternArgs.preposition = preposition;
+                                    findPattern = _pattern;
+                                    break;
+                                }
+                            } else if( _pattern.match.dObj ) {
+                                if( !parseArg(_pattern,pov,findPatternArgs,"dObj",object1,origCommand) ) {
+                                    findPattern = nullPatternHandler;
+                                    break;
+                                }
+                                if( _pattern.match.iObj ) {
+                                    if( !parseArg(_pattern,pov,findPatternArgs,"iObj",object2,origCommand) ) {
+                                        findPattern = nullPatternHandler;
+                                        break;
+                                    }
+                                    findPatternArgs.preposition = preposition;
+                                    findPattern = _pattern;                                            
+                                    break;
+                                }
+                            }
+                        } else {
+                            preposition = null;
+                        }
+                    }
+                } else if( _pattern.match.dObj ) {                            
+                    if( !parseArg(_pattern,pov,findPatternArgs,"dObj",object1,origCommand) ) {
+                        findPattern = nullPatternHandler;
+                        break;
+                    }                            
+                    findPattern = _pattern;
+                    break;
+                } else if( _pattern.match.subject ) {
+                    if( !parseArg(_pattern,pov,findPatternArgs,"subject",object1,origCommand) ) {
+                        findPattern = nullPatternHandler;
+                        break;
+                    }
+                    findPattern = _pattern;
+                    break;
+                } else if( _pattern.match.iObj ) {
+                    if( !parseArg(_pattern,pov,findPatternArgs,"iObj",object1,origCommand) ) {
+                        findPattern = nullPatternHandler;
+                        break;
+                    }                            
+                    findPattern = _pattern;
+                    break;
+                }
+            }
+        }
+        return findPattern;
     };
 
     var parseCommand = function (command) {
@@ -2576,100 +2695,11 @@ module.exports = function ltbl(settings) {
                 mode = "what";
                 describe();
             */
-            } else {
-                var findPattern = null;
-                var bestPattern = null;
+            } else {                
                 var findPatternArgs = {};
-                var nullPatternHandler = { eval : function() {} }
-                for( var i = 0 ; i < commandPatterns.length ; ++i ) {
-                    var _pattern =  commandPatterns[i];
-                    var preposition = null;
-                    if( _pattern.match.verb ==  firstWord ) {                        
-                        var object1 = subSentence( command , 1) , object2;                        
-                        bestPattern = _pattern;
-                        if( _pattern.match.preposition ) {
-                            preposition = null;
-                            if( Array.isArray(_pattern.match.preposition) ) {                                
-                                for( var j = 0 ; j < _pattern.match.preposition.length ; ++j ) {
-                                    var sep = command.indexOf(" "+_pattern.match.preposition[j]+" ");
-                                    if( sep > 0 ) {
-                                        preposition = _pattern.match.preposition[j];
-                                        break;
-                                    }
-                                }
-                            } else {
-                                preposition = _pattern.match.preposition;
-                            }
-                            if( preposition ) {
-                                var sep = object1.indexOf(" "+preposition+" ");
-                                if( sep > 0 ) {
-                                    object2 = object1.substring(sep+preposition.length+2);
-                                    object1 = object1.substring(0,sep);
-                                    if( _pattern.match.subject ) {
-                                        if( !parseArg(_pattern,pov,findPatternArgs,"subject",object1,origCommand) ) {
-                                            findPattern = nullPatternHandler;
-                                            break;
-                                        }
-                                        if( _pattern.match.iObj ) {
-                                            if( !parseArg(_pattern,pov,findPatternArgs,"iObj",object2,origCommand) ) {
-                                                findPattern = nullPatternHandler;
-                                                break;
-                                            }
-                                            findPatternArgs.preposition = preposition;
-                                            findPattern = _pattern;
-                                            break;
-                                        } else if( _pattern.match.dObj ) {
-                                            if( !parseArg(_pattern,pov,findPatternArgs,"dObj",object2,origCommand) ) {
-                                                findPattern = nullPatternHandler;
-                                                break;
-                                            }
-                                            findPatternArgs.preposition = preposition;
-                                            findPattern = _pattern;
-                                            break;
-                                        }
-                                    } else if( _pattern.match.dObj ) {
-                                        if( !parseArg(_pattern,pov,findPatternArgs,"dObj",object1,origCommand) ) {
-                                            findPattern = nullPatternHandler;
-                                            break;
-                                        }
-                                        if( _pattern.match.iObj ) {
-                                            if( !parseArg(_pattern,pov,findPatternArgs,"iObj",object2,origCommand) ) {
-                                                findPattern = nullPatternHandler;
-                                                break;
-                                            }
-                                            findPatternArgs.preposition = preposition;
-                                            findPattern = _pattern;                                            
-                                            break;
-                                        }
-                                    }
-                                } else {
-                                    preposition = null;
-                                }
-                            }
-                        } else if( _pattern.match.dObj ) {                            
-                            if( !parseArg(_pattern,pov,findPatternArgs,"dObj",object1,origCommand) ) {
-                                findPattern = nullPatternHandler;
-                                break;
-                            }                            
-                            findPattern = _pattern;
-                            break;
-                        } else if( _pattern.match.subject ) {
-                            if( !parseArg(_pattern,pov,findPatternArgs,"subject",object1,origCommand) ) {
-                                findPattern = nullPatternHandler;
-                                break;
-                            }
-                            findPattern = _pattern;
-                            break;
-                        } else if( _pattern.match.iObj ) {
-                            if( !parseArg(_pattern,pov,findPatternArgs,"iObj",object1,origCommand) ) {
-                                findPattern = nullPatternHandler;
-                                break;
-                            }                            
-                            findPattern = _pattern;
-                            break;
-                        }
-                    }
-                }
+                var cmd = { firstWord : firstWord , command : command , origCommand : origCommand };
+                var findPattern = null;
+                findPattern = lookupCommandHandle(commandPatterns,cmd,findPatternArgs);
                 if( findPattern ) {
                     // Pattern matches handles patterns generally
                     if( pov.isGod && findPattern.godEval ) {
@@ -2830,25 +2860,6 @@ module.exports = function ltbl(settings) {
                             }
                         }
                     }
-                } else if( firstWord == "!read" ) {
-                    command = subSentence( command , 1);
-                    if (command != "") {
-                        var item = lookupItem(pov.location,command);
-                        if (item) {
-                            if (item != "?") {
-                                var ip = getItem(item);
-                                if (ip.content) {
-                                    console.log(ip.content);
-                                } else if( pov.isGod ) {
-                                    stateMachine = stateMachineFillinCreate(ip,[ {msg:"What do you see written on " + ip.name + "?",prop:"content"} ]);
-                                } else {
-                                    console.log("There is nothing written on the "+ip.name);
-                                }
-                            }
-                        } else {
-                            dontSee(command,pov.location,origCommand);
-                        }
-                    }                
                 } else if ( firstWord == "!eat" 
                          || firstWord == "!wear" 
                          || firstWord == "!light" 
