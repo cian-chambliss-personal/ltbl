@@ -1,5 +1,6 @@
 const chalk = require("chalk");
 const { get } = require("http");
+const { resolve } = require("path");
 const { off } = require("process");
 
 module.exports = function ltbl(settings) {
@@ -903,7 +904,7 @@ module.exports = function ltbl(settings) {
         return null;
     };
 
-    var findNPCs =function(name) {
+    var findNPCs = function(name) {
         var list = [];
         name = name.toLowerCase().trim();
         var cc = camelCase(name);
@@ -1779,6 +1780,9 @@ module.exports = function ltbl(settings) {
             console.log("You see no " + what);
         }
     };
+    var dontSeeNpc = function (npc,locationId,command) {
+        console.log("You dont see " + npc);
+    };
     var clearVoid = function() {
         var voidCounter = 1;
         while( locations["void"+voidCounter] ) {
@@ -2220,6 +2224,99 @@ module.exports = function ltbl(settings) {
     };
 
 
+    // Command patterns
+    var commandPatterns = [
+        { 
+            match : {
+                verb : "!open",
+                dObj : "*"
+            } , 
+            eval : function(args) {
+                var objState = getObjectState(args.dObj);
+                var ip = getItem(args.dObj);
+                if( objState == "open" ) {
+                    console.log("The " + ip.name + " is already open");
+                } else if( objState == "closed" ) {
+                    setObjectState(args.dObj,"open");
+                    console.log("Ok, you opened the " + ip.name);
+                } else if( objState == "locked" ) {
+                    console.log("The " + ip.name + " is locked");
+                } else {
+                    console.log(ip.name + " cannot be opened.");
+                }
+           }
+        },
+        {
+            match : {
+                verb : "!close",
+                dObj : "*"
+            } ,
+            eval : function(args) {
+                var objState = getObjectState(args.item);
+                var ip = getItem(args.item);
+                if( objState == "open" ) {
+                    setObjectState(args.dObj,"closed");
+                    console.log("Ok, you closed the " + ip.name);
+                } else if( objState == "closed" ) {
+                    console.log("The " + ip.name + " is already closed");
+                } else if( objState == "locked" ) {
+                    console.log("The " + ip.name + " is not open");
+                } else {
+                    console.log(ip.name + " cannot be closed.");
+                }
+            }
+        },
+        {
+            match : {
+                verb : "!lock",
+                proposition: "with",
+                dObj : "*",
+                iObj : "actor"
+            } ,
+            eval : function(args) {
+                console.log("lock "+args.dObj+" using "+args.iObj);
+            }
+        },
+        {
+            match : {
+                verb : "!unlock",
+                proposition: "with",
+                dObj : "*",
+                iObj : "actor"
+            } ,
+            eval : function(args) {
+                console.log("unlock "+args.dObj+" using "+args.iObj);
+            }
+        }
+    ];
+
+    var parseArg = function(pattern,pov,findPatternArgs,argName,name,origCommand) {
+        var objName = null;
+        if( pattern.match[argName] == "npc") {
+            objName = findNPCs(name);
+            if( objName.length == 1 ) {
+                objName = objName[0];
+                findPatternArgs[argName] = objName;
+                return true;
+            } else {
+                dontSeeNpc(name,pov.location,origCommand);                
+            }
+        } else {
+            if( pattern.match[argName] == "*" ) {
+                objName = lookupItem(pov.location,name);
+            } else {
+                objName = lookupItem(pov.location,name,pattern.match[argName]);
+            }
+            if( objName && objName != "?") {
+                findPatternArgs[argName] = objName;
+                return true;
+            } else if( !objName ) {
+                dontSee(name,pov.location,origCommand);
+            }
+        }
+        return false;
+    };
+
     var parseCommand = function (command) {
         if( stateMachine ) {
             // Set of prompts....
@@ -2314,8 +2411,91 @@ module.exports = function ltbl(settings) {
                 describe();
             */
             } else {
-                // navigate the map
-                if (firstWord == "!look" && lCase.indexOf(" ") < 0 ) {
+                var findPattern = null;
+                var bestPattern = null;
+                var findPatternArgs = {};
+                for( var i = 0 ; i < commandPatterns.length ; ++i ) {
+                    var _pattern =  commandPatterns[i];
+                    var preposition = null;
+                    if( _pattern.match.verb ==  firstWord ) {                        
+                        var object1 = subSentence( command , 1) , object2;                        
+                        bestPattern = _pattern;
+                        if( _pattern.match.preposition ) {
+                            preposition = null;
+                            if( Array.isArray(_pattern.match.preposition) ) {                                
+                                for( var j = 0 ; j < _pattern.match.preposition.length ; ++j ) {
+                                    var sep = command.indexOf(" "+_pattern.match.preposition[j]+" ");
+                                    if( sep > 0 ) {
+                                        preposition = _pattern.match.preposition[j];
+                                        break;
+                                    }
+                                }
+                            } else {
+                                preposition = _pattern.match.preposition;
+                            }
+                            if( preposition ) {
+                                var sep = object1.indexOf(" "+preposition+" ");
+                                if( sep > 0 ) {
+                                    object2 = object1.substring(sep,preposition.length+2);
+                                    object1 = object1.substring(0,sep);
+                                    if( _pattern.match.subject ) {
+                                        if( !parseArg(_pattern,pov,findPatternArgs,"subject",object1,origCommand) ) {
+                                            break;
+                                        }
+                                        if( _pattern.match.iObj ) {
+                                            if( !parseArg(_pattern,pov,findPatternArgs,"iObj",object2,origCommand) ) {
+                                                break;
+                                            }
+                                            findPatternArgs.preposition = preposition;
+                                            findPattern = _pattern;
+                                            break;
+                                        } else if( _pattern.match.dObj ) {
+                                            if( !parseArg(_pattern,pov,findPatternArgs,"dObj",object2,origCommand) ) {
+                                                break;
+                                            }
+                                            findPatternArgs.preposition = preposition;
+                                            findPattern = _pattern;
+                                            break;
+                                        }
+                                    } else if( _pattern.match.dObj ) {
+                                        if( !parseArg(_pattern,pov,findPatternArgs,"dObj",object1,origCommand) ) {
+                                            break;
+                                        }
+                                        if( _pattern.match.iObj ) {
+                                            if( !parseArg(_pattern,pov,findPatternArgs,"iObj",object2,origCommand) ) {
+                                                break;
+                                            }
+                                            findPatternArgs.preposition = preposition;
+                                            findPattern = _pattern;                                            
+                                            break;
+                                        }
+                                    }
+                                } else {
+                                    preposition = null;
+                                }
+                            }
+                        } else if( _pattern.match.dObj ) {                            
+                            if( parseArg(_pattern,pov,findPatternArgs,"dObj",object1,origCommand) ) {
+                                findPattern = _pattern;
+                                break;
+                            }                            
+                        } else if( _pattern.match.subject ) {
+                            if( parseArg(_pattern,pov,findPatternArgs,"subject",object1,origCommand) ) {
+                                findPattern = _pattern;
+                                break;
+                            }
+                        } else if( _pattern.match.iObj ) {
+                            if( parseArg(_pattern,pov,findPatternArgs,"iObj",object1,origCommand) ) {
+                                findPattern = _pattern;
+                                break;
+                            }                            
+                        }
+                    }
+                }
+                if( findPattern ) {
+                    // Pattern matches handles patterns generally
+                    findPattern.eval(findPatternArgs);
+                } else if (firstWord == "!look" && lCase.indexOf(" ") < 0 ) {
                     describe(true);
                 } else if ( firstWord == "!examine") {
                     command = subSentence( command , 1);
@@ -2323,10 +2503,24 @@ module.exports = function ltbl(settings) {
                         var item = lookupItem(pov.location,command);
                         if (item && item != "?") {
                             var itemPtr = getItem(item);
+                            var itemState = getObjectState(item);
                             if (itemPtr.description) {
                                 console.log(itemPtr.description);
-                            } else {
+                            } else if(pov.isGod) {
                                 stateMachine = stateMachineFillinCreate(itemPtr,[ {msg:"How would you describe the " + item + "?",prop:"description"} ]);
+                            } else {
+                                console.log(itemPtr.name);
+                            }
+                            if( itemState ) {
+                                if( itemState == "locked" ) {
+                                    console.log("The "+itemPtr.name+" is locked");
+                                } else if( itemState == "closed" ) {
+                                    console.log("The "+itemPtr.name+" is closed");
+                                } else if( itemState == "open" ) {
+                                    console.log("The "+itemPtr.name+" is open");
+                                } else if( itemState == "broken" ) {
+                                    console.log("The "+itemPtr.name+" is broken");
+                                }
                             }
                         } else if( !item ) {
                             itemPtr = noCareAbout(pov.location,command);
@@ -2655,7 +2849,7 @@ module.exports = function ltbl(settings) {
                             var isBlocked = false;
                             if( nextLoc.door ) {
                                 var objState = getObjectState(nextLoc.door);
-                                if( objState != "open" ) {
+                                if( objState != "open" && objState != "broken" ) {
                                     isBlocked = true;
                                 }
                             }
@@ -2951,50 +3145,7 @@ module.exports = function ltbl(settings) {
                         } else {
                             noUnderstand();
                         }
-                    }
-                } else if (  firstWord == "!open" 
-                          || firstWord == "!close" 
-                           ) {
-                    command = subSentence( command , 1);    
-                    if( command != "") {
-                        var item = lookupItem(pov.location,command, "noactor");
-                        if (item) {
-                            if (item != "?") {
-                                var objState = getObjectState(item);
-                                if( objState == "open" ) {
-                                    if( firstWord == "!open" ) {
-                                        console.log("The " + getItem(item).name + " is already open");
-                                    } else if( firstWord == "!close" ) {
-                                        setObjectState(item,"closed");
-                                        console.log("Ok you closed the " + getItem(item).name);
-                                    }
-                                } else if( objState == "closed" ) {
-                                    if( firstWord == "!open" ) {
-                                        setObjectState(item,"open");
-                                        console.log("Ok you opened the " + getItem(item).name);
-                                    } else if( firstWord == "!close" ) {
-                                        console.log("The " + getItem(item).name + " is already closed");
-                                    }
-                                } else if( objState == "locked" ) {
-                                    console.log("The " + getItem(item).name + " is locked");
-                                } else {
-                                    if( firstWord == "!open" ) {
-                                        console.log(getItem(item).name + " cannot be opened.");
-                                    } else if( firstWord == "!close" ) {
-                                        console.log(getItem(item).name + " cannot be closed.");
-                                    }
-                                }
-                            }
-                        } else {
-                            dontSee(command,pov.location,origCommand);
-                        }
-                    } else {
-                        noUnderstand();
-                    }
-                } else if (  firstWord == "!lock" 
-                          || firstWord == "!unlock" 
-                          ) {
-                    
+                    }                   
                 } else if ( 
                     firstWord == "!sit" 
                  || firstWord == "!lie" 
