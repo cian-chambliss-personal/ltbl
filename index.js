@@ -287,6 +287,48 @@ module.exports = function ltbl(settings) {
         }
         return null;
     };
+    var getLocationFromLCased = function(locations,name) {
+        if( locations ) {
+            for( var loc in locations ) {
+                var low = loc;
+                if( low.toLowerCase() == name ) {
+                    return loc;
+                }
+            }
+        }
+        return null;
+    };
+    var getItemFromLCased = function(name) {
+        name.toLowerCase();
+        name = name.split("/");       
+        if( name.length > 1 ) {
+            var location = null;
+            name[0] = getLocationFromLCased(locations,name[0]);
+            if( name[0] )
+                location = locations[name[0]];
+            var i = 1;
+            while( location && (i+1) < name.length ) {
+                if( location.locations ) {
+                    name[i] = getLocationFromLCased(location,name[i]);
+                    if( name[i] )
+                       location = location[name[i]];
+                    else
+                       location = null;
+                 } else {
+                    location = null;
+                }
+                i = i + 1;
+            }
+            if( location && location.items )
+            {
+                name[ name.length - 1 ] = getLocationFromLCased(location.items,namename[ name.length - 1 ]);
+                return name.join("/");
+            }
+        } else { 
+            return getLocationFromLCased(items,name[0]);
+        }
+        return null;
+    };
     var getItem = function(name) {
         name = name.split("/");
         if( name.length > 1 ) {
@@ -1449,6 +1491,9 @@ module.exports = function ltbl(settings) {
                         console.log(getItem(candidates[i]).name);
                     }
                     itemName = "?"; // ambiguouse
+                } else if( pov.isGod && command.substring(0,1) == "@" ) {                    
+                    // God is all seeing
+                    itemName = getItemFromLCased(command.substring(1));
                 }
             }
         }
@@ -2238,15 +2283,27 @@ module.exports = function ltbl(settings) {
                 var ip = getItem(args.iObj);
                 var from = null;
                 var prop = null;
-                if( ip.supports ) {
+                if( ip.supports && (args.preposition == "on"||args.preposition == "from") ) {
                     from = lookupItemArr(args.dObj,ip.supports);
                     if( from )
                         prop = "supports";
                 }
-                if( ip.contains && !from ) {
+                if( ip.behind && (args.preposition == "behind"||args.preposition == "from") && !from ) {
+                    from = lookupItemArr(args.dObj,ip.behind);
+                    if( from )
+                        prop = "behind";
+                }
+                if( ip.contains && (args.preposition == "in"||args.preposition == "from") && !from ) {
                     from = lookupItemArr(args.dObj,ip.contains);
                     if( from )
                         prop = "contains";
+                }
+                if( !from && args.preposition == "from" ) {
+                    if( ip.supports ) {
+                        args.preposition = "on";
+                    } else if( !ip.contains && ip.behind ) {
+                        args.preposition = "behind";
+                    }
                 }
                 if( from ) {
                     for (var i = 0; i < ip[prop].length; ++i) {
@@ -2263,6 +2320,10 @@ module.exports = function ltbl(settings) {
                             break;
                         }
                     }
+                } else if(args.preposition == "on") {
+                    console.log("There is no "+args.dObj+" on "+ip.name);                    
+                } else if(args.preposition == "behind") {
+                    console.log("There is no "+args.dObj+" behind "+ip.name);                    
                 } else {
                     console.log("There is no "+args.dObj+" in "+ip.name);
                 }
@@ -2317,8 +2378,8 @@ module.exports = function ltbl(settings) {
                 dObj : "*"
             } ,
             eval : function(args) {
-                var objState = getObjectState(args.item);
-                var ip = getItem(args.item);
+                var objState = getObjectState(args.dObj);
+                var ip = getItem(args.dObj);
                 if( objState == "open" ) {
                     setObjectState(args.dObj,"closed");
                     console.log("Ok, you closed the " + ip.name);
@@ -2334,12 +2395,34 @@ module.exports = function ltbl(settings) {
         {
             match : {
                 verb : "!lock",
-                preposition: "with",
+                preposition: ["with","using"],
                 dObj : "*",
                 iObj : "actor"
             } ,
             eval : function(args) {
-                console.log("lock "+args.dObj+" using "+args.iObj);
+                var objState = getObjectState(args.dObj);
+                var ip = getItem(args.dObj);
+                var kp = getItem(args.iObj);
+                if( ip.key != args.iObj ) {
+                    if( ip.key ) {
+                        console.log("The " + kp.name + " doesn't fit "+ip.dObj);
+                    } else {
+                        console.log("The " + kp.name + " cannot be locked");
+                    }
+                } else if( objState == "locked" ) {
+                    console.log("The " + ip.name + " is already locked");
+                } else {
+                    setObjectState(args.dObj,"locked");
+                    console.log("Ok, " + ip.name + " is now locked");
+                }
+            },
+            godEval: function(args) {
+                var objState = getObjectState(args.dObj);
+                var ip = getItem(args.dObj);
+                var kp = getItem(args.iObj);
+                ip.key = args.iObj;
+                ip.state = "locked";
+                console.log("Ok, " + ip.name + " is now keyed to "+kp.name);
             }
         },
         {
@@ -2350,7 +2433,21 @@ module.exports = function ltbl(settings) {
                 iObj : "actor"
             } ,
             eval : function(args) {
-                console.log("unlock "+args.dObj+" using "+args.iObj);
+                var objState = getObjectState(args.dObj);
+                var ip = getItem(args.dObj);
+                var kp = getItem(args.iObj);
+                if( ip.key != args.iObj ) {
+                    if( ip.key ) {
+                        console.log("The " + kp.name + " doesn't fit "+ip.dObj);
+                    } else {
+                        console.log("The " + kp.name + " cannot be unlocked");
+                    }
+                } else if( objState != "locked" ) {
+                    console.log("The " + ip.name + " is not locked");
+                } else {
+                    setObjectState(args.dObj,"closed");
+                    console.log("Ok, " + ip.name + " is now unlocked");
+                }
             }
         }
     ];
@@ -2575,7 +2672,11 @@ module.exports = function ltbl(settings) {
                 }
                 if( findPattern ) {
                     // Pattern matches handles patterns generally
-                    findPattern.eval(findPatternArgs);
+                    if( pov.isGod && findPattern.godEval ) {
+                        findPattern.godEval(findPatternArgs);
+                    } else {
+                        findPattern.eval(findPatternArgs);
+                    }
                 } else if (firstWord == "!look" && lCase.indexOf(" ") < 0 ) {
                     describe(true);
                 } else if ( firstWord == "!examine") {
@@ -2908,7 +3009,7 @@ module.exports = function ltbl(settings) {
                                     isBlocked = true;
                                 }
                             }
-                            if( isBlocked && !pov.god ) {
+                            if( isBlocked && !pov.isGod ) {
                                 console.log("The door is closed!");
                             } else {
                                 if( pov.location ) {
