@@ -331,25 +331,27 @@ module.exports = function ltbl(settings) {
         return null;
     };
     var getItem = function(name) {
-        name = name.split("/");
-        if( name.length > 1 ) {
-            var location = locations[name[0]];
-            var i = 1;
-            while( location && (i+1) < name.length ) {
-                if( location.locations ) {
-                    location = location.locations[name[i]];
-                } else {
-                    location = null;
+        if( name ) {
+            name = name.split("/");
+            if( name.length > 1 ) {
+                var location = locations[name[0]];
+                var i = 1;
+                while( location && (i+1) < name.length ) {
+                    if( location.locations ) {
+                        location = location.locations[name[i]];
+                    } else {
+                        location = null;
+                    }
+                    i = i + 1;
                 }
-                i = i + 1;
+                if( location ) {
+                    if( location.items ) {
+                        return location.items[name[name.length-1]];
+                    }
+                }            
+            } else {
+                return items[name[0]];
             }
-            if( location ) {
-                if( location.items ) {
-                    return location.items[name[name.length-1]];
-                }
-            }            
-        } else {
-            return items[name[0]];
         }
         return null;
     }
@@ -2388,7 +2390,6 @@ module.exports = function ltbl(settings) {
                     }
                     pLoc.contains.push({item:args.iObj})
                 }
-                console.dir(args);
                 var listName = null;
                 if( args.preposition == "on") {
                     listName = "supports";                    
@@ -2586,8 +2587,8 @@ module.exports = function ltbl(settings) {
                 preposition : ["on","from","in","inside","under","behind"]
             } , 
             eval : function(args) {
-                var where = lookupItem(pov.location,args.iObj);
-                var what = lookupItem(pov.location,args.dObj);
+                var where = getItem(args.iObj);
+                var what = getItem(args.dObj);
                 var holder = "contains";
                 if( args.preposition == "on" ) {
                     holder = "supports";
@@ -2597,10 +2598,8 @@ module.exports = function ltbl(settings) {
                     holder = "behind";                    
                 }
                 if (where) {
-                    where = getItem(where);
-                }                
-                if (where) {
                     if (where[holder]) {
+                        var found = false;
                         for (var i = 0; i < pov.inventory.length; ++i) {
                             if (pov.inventory[i].item == args.dObj) {
                                 if (args.verb == "!hide") {
@@ -2611,13 +2610,19 @@ module.exports = function ltbl(settings) {
                                 where[holder].push(pov.inventory[i]);
                                 pov.inventory.splice(i, 1);
                                 console.log("Ok.");
+                                found = true;
                                 break;
                             }
+                        }
+                        if( !found ) {
+                            console.log("You don't have "+ args.dObj+"!");
                         }
                     } else {
                         console.log("You cannot place "+what.name+" "+args.preposition+" "+where.name);
                     }
-                }        
+                } else {
+                    console.log("You don't see "+ args.iObj+"!");   
+                }
             }
         },
         {
