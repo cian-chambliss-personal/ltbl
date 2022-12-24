@@ -1535,8 +1535,8 @@ module.exports = function ltbl(settings) {
             var what = command;
             command = command.toLowerCase();
             var parts = getPartsOfSpeech(command);
-            if (flags != "noactor" && actor.inventory )
-                itemName = lookupItemLow(parts,actor.inventory,command,candidates);
+            if (flags != "noactor" && pov.inventory )
+                itemName = lookupItemLow(parts,pov.inventory,command,candidates);
             if (where.contains && !itemName && flags != "actor") {
                 itemName = lookupItemLow(parts,where.contains,command,candidates);
             }
@@ -1776,7 +1776,7 @@ module.exports = function ltbl(settings) {
                     var npcPtr = getNpc(vc.npc);
                     if( !npcPtr )
                         return false;
-                    var item = removeItem(actor.inventory,"@"+response.take);
+                    var item = removeItem(pov.inventory,"@"+response.take);
                     if( !item ) 
                         return false;
                     if( npcPtr ) {
@@ -1787,7 +1787,7 @@ module.exports = function ltbl(settings) {
                     }
                 }
                 if( response.consume ) {
-                    var item = removeItem(actor.inventory,"@"+response.consume);
+                    var item = removeItem(pov.inventory,"@"+response.consume);
                     if( !item ) 
                         return false;
                 }
@@ -1800,7 +1800,7 @@ module.exports = function ltbl(settings) {
                     var item = removeItem(npcPtr.inventory,"@"+response.give);
                     if( !item ) 
                         return false;                    
-                    actor.inventory.push({ item : item });
+                    pov.inventory.push({ item : item });
                 }
                 if( response.say ) {
                     annotations = [];
@@ -2491,6 +2491,30 @@ module.exports = function ltbl(settings) {
     var commandPatterns = [
         {
             match : {
+                verb : "!look"
+            }, 
+            eval : function(args) {
+                describe(true);
+            }
+        },
+        {
+            match : {
+                verb : "!inventory"
+            }, 
+            eval : function(args) {
+                if (pov.inventory.length == 0) {
+                    console.log("You are carrying nothing.");
+                } else {
+                    annotations = [];
+                    console.log("You are carrying:");
+                    for (var i = 0; i < pov.inventory.length; ++i) {
+                        console.log(getItem(pov.inventory[i].item).name+annotate({"type":"item","item":pov.inventory[i].item}));
+                    }
+                }
+            }
+        },        
+        {
+            match : {
                 verb : "!examine",
                 dObj : "*",
                 preposition : ["on","under","behind","in","inside"]
@@ -2763,12 +2787,89 @@ module.exports = function ltbl(settings) {
                     stateMachine = stateMachineFillinCreate(ip,[ {msg:"What do you see written on " + ip.name + "?",prop:"content"} ]);
                 }
             }
-        }
+        },
+        {
+            match : {
+                verb : ["!give","!show"],
+                dObj : "*",
+                subject : "npc",
+                article : ["the","a","an","my"," "]
+            } ,
+            eval : function(args) {
+                if( args.verb == "!give" )
+                    verbCommand.action = "give";
+                else
+                    verbCommand.action = "show";
+                verbCommand.npc = args.subject;
+                verbCommand.topic = args.dObj;
+                if( !processScript() ) {
+                    if (pov.isGod ) {
+                        defineScript();
+                    } else {
+                        noUnderstand();
+                    }
+                }
+            }
+        },
+        {
+            match : {
+                verb : ["!talkto","!ask","!tell"],
+                dObj : "topic",
+                subject : "npc",
+                preposition: ["about","for"]
+            } ,
+            eval : function(args) {
+                if( args.verb == "!talkto" )
+                    verbCommand.action = "talkto";
+                else if( args.verb == "!tell" )
+                    verbCommand.action = "tell";
+                else
+                    verbCommand.action = "ask";
+                verbCommand.npc = args.subject;
+                verbCommand.topic = args.dObj;
+                verbCommand.preposition = args.preposition;
+                if( !processScript() ) {
+                    if (pov.isGod ) {
+                        defineScript();
+                    } else {
+                        noUnderstand();
+                    }
+                }
+            }
+        },       
+        {
+            match : {
+                verb : ["!talkto","!hi","!bye","!leave","!notice"],
+                subject : "npc"
+            } ,
+            eval : function(args) {
+                if( args.verb == "!hi" )
+                    verbCommand.action = "hi";
+                else if( args.verb == "!bye" )
+                    verbCommand.action = "bye";
+                else if( args.verb == "!leave" )
+                    verbCommand.action = "leave";
+                else if( args.verb == "!notice" )
+                    verbCommand.action = "notice";
+                else
+                    verbCommand.action = "talkto";
+                verbCommand.npc = args.subject;
+                verbCommand.topic = null;
+                verbCommand.preposition = null;
+                if( !processScript() ) {
+                    if (pov.isGod ) {
+                        defineScript();
+                    } else {
+                        noUnderstand();
+                    }
+                }
+            }
+        },   
     ];
 
     var parseArg = function(pattern,pov,findPatternArgs,argName,name,origCommand) {
         var objName = null;
-        if( pattern.match[argName] == "name" ) {
+        if( pattern.match[argName] == "name" || pattern.match[argName] == "topic" ) {
             // Just use name (will be resolved late)            
             findPatternArgs[argName] = name;
             return true;
@@ -2829,8 +2930,64 @@ module.exports = function ltbl(settings) {
                 matchVerb = true;
             }
             if( matchVerb ) {
-                var object1 = subSentence( command , 1) , object2;                        
-                if( _pattern.match.preposition ) {
+                var object1 = subSentence( command , 1) , object2;
+                if( _pattern.match.article ) {
+                    var aList = [];
+                    for(var j = 0 ; j < _pattern.match.article.length ; ++j ) {
+                        if( _pattern.match.article[j] == " " ) {
+                            if( object1.indexOf( " " ) ) {
+                                aList.push(" ");
+                            }
+                        } else if( object1.indexOf( " " + _pattern.match.article[j] + " ") >= 0 ) {
+                            aList.push(" " + _pattern.match.article[j] + " ");
+                            break;
+                        }
+                    }
+                    var wList = splitOnOneOf( object1 , aList );
+                    if( wList.length > 1 ) {
+                        findPatternArgs.article = aList[0];
+                        object1 = wList[0];
+                        wList[0] = "";
+                        object2 = wList.join(" ").trim();
+                        if( _pattern.match.subject ) {
+                            if( !parseArg(_pattern,pov,findPatternArgs,"subject",object1,origCommand) ) {
+                                findPattern = nullPatternHandler;
+                                break;
+                            }
+                            if( _pattern.match.iObj ) {
+                                if( !parseArg(_pattern,pov,findPatternArgs,"iObj",object2,origCommand) ) {
+                                    findPattern = nullPatternHandler;
+                                    break;
+                                }
+                                findPatternArgs.preposition = preposition;
+                                findPattern = _pattern;
+                                break;
+                            } else if( _pattern.match.dObj ) {
+                                if( !parseArg(_pattern,pov,findPatternArgs,"dObj",object2,origCommand) ) {
+                                    findPattern = nullPatternHandler;
+                                    break;
+                                }
+                                findPatternArgs.preposition = preposition;
+                                findPattern = _pattern;
+                                break;
+                            }
+                        } else if( _pattern.match.dObj ) {
+                            if( !parseArg(_pattern,pov,findPatternArgs,"dObj",object1,origCommand) ) {
+                                findPattern = nullPatternHandler;
+                                break;
+                            }
+                            if( _pattern.match.iObj ) {
+                                if( !parseArg(_pattern,pov,findPatternArgs,"iObj",object2,origCommand) ) {
+                                    findPattern = nullPatternHandler;
+                                    break;
+                                }
+                                findPatternArgs.preposition = preposition;
+                                findPattern = _pattern;                                            
+                                break;
+                            }
+                        }
+                    }
+                } else if( _pattern.match.preposition ) {
                     preposition = null;
                     if( Array.isArray(_pattern.match.preposition) ) {                                
                         for( var j = 0 ; j < _pattern.match.preposition.length ; ++j ) {
@@ -2930,6 +3087,10 @@ module.exports = function ltbl(settings) {
                         findPattern = nullPatternHandler;
                         break;
                     }                            
+                    findPattern = _pattern;
+                    break;
+                } else if( object1 == "" ) {
+                    // Just a verb & nothing else supplied
                     findPattern = _pattern;
                     break;
                 }
@@ -3079,140 +3240,11 @@ module.exports = function ltbl(settings) {
                     } else {
                         findPattern.eval(findPatternArgs);
                     }
-                } else if (firstWord == "!look" && lCase.indexOf(" ") < 0 ) {
-                    describe(true);
-                } else if ( firstWord == "!examine") {
-                    command = subSentence( command , 1);
-                    if (command != "") {
-                        var item = lookupItem(pov.location,command);
-                        if (item && item != "?") {                            
-                            decribeItem(item);
-                        } else if( !item ) {
-                            itemPtr = noCareAbout(pov.location,command);
-                            if( itemPtr.length > 0 ) {
-                                console.log("the "+itemPtr[0]+" is not important.");
-                            } else {
-                                noUnderstand();
-                            }
-                        }
-                    } else {
-                        var where = getLocation(pov.location);
-                        if (where.description) {
-                            console.log(where.description);
-                        } else {
-                            stateMachine = stateMachineFillinCreate(getLocation(pov.location),[ {msg:"How would you describe the " + where.name + "?",prop:"description"} ]);
-                        }
-                    }
                 } else if ( firstWord == "touch" 
                          || firstWord == "!smell"  
                          || firstWord == "listen" 
                           ) {
-                    console.log("TBD - add item/npc/etc smell/touch etc.");
-                } else if (firstWord == "!inventory") {
-                    if (actor.inventory.length == 0) {
-                        console.log("You are carrying nothing.");
-                    } else {
-                        annotations = [];
-                        console.log("You are carrying:");
-                        for (var i = 0; i < pov.inventory.length; ++i) {
-                            console.log(getItem(pov.inventory[i].item).name+annotate({"type":"item","item":pov.inventory[i].item}));
-                        }
-                    }
-                } else if ( firstWord == "!drop"
-                         || firstWord == "!put" 
-                         || firstWord == "!hide"
-                          ) {
-                    // Drop & put are pretty much the same, rely on 'on' / 'in' / 'behind' / 'under' for position
-                    // Hide adds the 'hidden' property requires the player to inspect the container
-                    command = subSentence( command , 1);
-                    if (command != "") {
-                        var where = getLocation(pov.location);
-                        var what = command;
-                        var holder = "contains";
-                        var existingItem = lookupItem(pov.location,what, "actor");
-                        var objectWhere = null;
-                        var sep = command.indexOf(" on ");
-                        var hidden = false;
-                        if (firstWord == "!hide") {
-                            hidden = true;
-                        }
-                        if (sep > 0) {
-                            objectWhere = command.substring(sep + 4);
-                            command = command.substring(0, sep);
-                            holder = "supports";
-                        } else {
-                            sep = command.indexOf(" in ");
-                            if (sep > 0) {
-                                objectWhere = command.substring(sep + 4);
-                                command = command.substring(0, sep);
-                            } else {
-                                sep = command.indexOf(" inside ");
-                                if (sep > 0) {
-                                    objectWhere = command.substring(sep + 8);
-                                    command = command.substring(0, sep);
-                                } else {
-                                    sep = command.indexOf(" behind ");
-                                    if (sep > 0) {
-                                        objectWhere = command.substring(sep + 8);
-                                        command = command.substring(0, sep);
-                                        holder = "behind";
-                                    } else {
-                                        sep = command.indexOf(" under ");
-                                        if (sep > 0) {
-                                            objectWhere = command.substring(sep + 7);
-                                            command = command.substring(0, sep);
-                                            holder = "under";
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        // we are relative to another object
-                        if (objectWhere) {
-                            where = lookupItem(pov.location,objectWhere);
-                            if (where) {
-                                where = getItem(where);
-                            }
-                            if (!where) {
-                                dontSee(where,pov.location,origCommand);
-                            }
-                        }
-                        if (where) {
-                            if (existingItem) {
-                                if (existingItem != "?") {
-                                    for (var i = 0; i < pov.inventory.length; ++i) {
-                                        if (pov.inventory[i].item == existingItem) {
-                                            if (!where[holder]) {
-                                                where[holder] = [];
-                                            }
-                                            if (hidden) {
-                                                pov.inventory[i].hidden = true;
-                                            } else if (pov.inventory[i].hidden) {
-                                                delete pov.inventory[i].hidden;
-                                            }
-                                            where[holder].push(pov.inventory[i]);
-                                            pov.inventory.splice(i, 1);
-                                            break;
-                                        }
-                                    }
-                                }
-                            } else if( pov.isGod ) {                            
-                                var name = extractNounAndAdj(what);
-                                name = getUniqueItemName(name,"item",calcCommonPrefix(pov.location,pov.location));
-                                setItem(name,{ name: command });
-                                if (!where[holder]) {
-                                    where[holder] = [];
-                                }
-                                var itemEnv = { item: name };
-                                if (hidden) {
-                                    itemEnv.hidden = true;
-                                }
-                                where[holder].push(itemEnv);
-                            } else {
-                                dontSee(what,pov.location,origCommand);
-                            }
-                        }
-                    }
+                    console.log("TBD - add item/npc/etc smell/touch etc.");                
                 } else if ( firstWord == "!eat" 
                          || firstWord == "!wear" 
                          || firstWord == "!light" 
@@ -3612,7 +3644,7 @@ module.exports = function ltbl(settings) {
                     } else {
                         console.log("????");
                     }
-                } else if ( firstWord == "!ask" 
+                /*} else if ( firstWord == "!ask" 
                          || firstWord == "!tell"  
                          || firstWord == "!give"  
                          || firstWord == "!show"  
@@ -3665,7 +3697,7 @@ module.exports = function ltbl(settings) {
                         } else {
                             noUnderstand();
                         }
-                    }                   
+                    }*/
                 } else if ( 
                     firstWord == "!sit" 
                  || firstWord == "!lie" 
