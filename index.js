@@ -852,32 +852,39 @@ module.exports = function ltbl(settings) {
             }
         }
         if (loc.contains) {
-            var contains = "there is ";
-            if (loc.contains.length > 1) {
-                contains = "there are ";
-            }
+            var _contains = [];
             for (var i = 0; i < loc.contains.length; ++i) {
-                if (i) {
-                    contains += " , ";
-                    if ((i + 1) == loc.contains.length) {
-                        contains += "and";
+                if( !loc.contains[i].described ) {
+                    _contains.push(loc.contains[i]);
+                }
+            }
+            if( _contains.length > 0 ) {
+                var contains = "there is ";
+                if (_contains.length > 1) {
+                    contains = "there are ";
+                }
+                for (var i = 0; i < _contains.length; ++i) {
+                    if (i) {
+                        contains += " , ";
+                        if ((i + 1) == _contains.length) {
+                            contains += "and";
+                        }
+                    }
+                    var ip = getItem(_contains[i].item);
+                    if( ip ) {
+                        var iname = ip.name;
+                        if ("AEIOUYW".indexOf(iname[0]))
+                            contains += " a ";
+                        else
+                            contains += " an ";
+                        contains += iname+annotate({"type":"item","item":_contains[i].item});
                     }
                 }
-                var ip = getItem(loc.contains[i].item);
-                if( ip ) {
-                    var iname = ip.name;
-                    if ("AEIOUYW".indexOf(iname[0]))
-                        contains += " a ";
-                    else
-                        contains += " an ";
-                    contains += iname+annotate({"type":"item","item":loc.contains[i].item});
+                if (where) {
+                    contains += " " + where + ".";
                 }
+                console.log(contains);
             }
-            if (where) {
-                contains += " " + where + ".";
-            }
-
-            console.log(contains);
         }
         if (loc.wall) {
             for (var dir in loc.wall) {
