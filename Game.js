@@ -1,0 +1,433 @@
+class GameUtility {
+    topRoomName(locName) {
+        var location = locName.split("/");
+        if( location.length > 1 ) {
+            return location[0];
+        }
+        return null;
+    }
+    calcCommonPrefix(loc1,loc2) {
+        if( loc1 && loc2 ) {
+            loc1 = this.topRoomName(loc1);
+            loc2 = this.topRoomName(loc2);            
+            if( loc1 && !loc2 )
+                return loc1+"/";
+            if( loc2 && !loc1 )
+                return loc2+"/";
+            if( loc1 && loc1 == loc2 )
+                return loc1+"/";
+        }
+        return null;
+    }
+    getLocationFromLCased(locations,name) {
+        if( locations ) {
+            for( var loc in locations ) {
+                var low = loc;
+                if( low.toLowerCase() == name ) {
+                    return loc;
+                }
+            }
+        }
+        return null;
+    }
+};
+module.exports = class Game {
+    //------------------
+    constructor() {
+        this.state = {};
+        this.actor = {
+            name : "me",
+            inventory: [],
+            location : null
+        };
+        this.metadata = {
+            title: null,
+            author: null,
+            authorEmail: null,
+            description: null,
+            version: "1",
+            IFID: null
+        };
+        this.god = {
+            name : "god",
+            isGod : true,
+            inventory: [],
+            location : null
+        };
+        this.locations = { };
+        this.items = { };
+        this.npc = { };
+        this.util = new GameUtility();
+        this.map = null;
+        this.pov = this.actor;
+    }
+    //------------------
+    cloneFrom(_game){
+        this.actor = JSON.parse(JSON.stringify(_game.actor));
+        this.metadata = JSON.parse(JSON.stringify(_game.metadata));
+        this.god = JSON.parse(JSON.stringify(_game.god));    
+        this.locations = JSON.parse(JSON.stringify(_game.locations));
+        this.items = JSON.parse(JSON.stringify(_game.items));
+        this.npc = JSON.parse(JSON.stringify(_game.npc));
+        this.map = null;
+        this.pov = this.actor;
+    }
+    //------------------
+    getLocation(name) {
+        var location = null;
+        if( name ) {
+            name = name.split("/");                
+            location = this.locations[name[0]];
+            if( name.length > 1 ) {
+                for( var i = 1 ; location && i < name.length ; ++i ) {
+                    if( location.locations ) {
+                        location = location.locations[name[i]];
+                    } else {
+                        location = null;
+                    }
+                }
+            }
+        }
+        return location;
+    }
+    //--------------------------------
+    getItemFromLCased(name) {
+        name.toLowerCase();
+        name = name.split("/");       
+        if( name.length > 1 ) {
+            var location = null;
+            name[0] = this.util.getLocationFromLCased(this.locations,name[0]);
+            if( name[0] )
+                location = this.locations[name[0]];
+            var i = 1;
+            while( location && (i+1) < name.length ) {
+                if( location.locations ) {
+                    name[i] = this.util.getLocationFromLCased(location,name[i]);
+                    if( name[i] )
+                       location = location[name[i]];
+                    else
+                       location = null;
+                 } else {
+                    location = null;
+                }
+                i = i + 1;
+            }
+            if( location && location.items )
+            {
+                name[ name.length - 1 ] = this.util.getLocationFromLCased(location.items,namename[ name.length - 1 ]);
+                return name.join("/");
+            }
+        } else { 
+            return this.util.getLocationFromLCased(this.items,name[0]);
+        }
+        return null;
+    }
+    //--------------------------------
+    getItem(name) {
+        if( name ) {
+            name = name.split("/");
+            if( name.length > 1 ) {
+                var location = this.locations[name[0]];
+                var i = 1;
+                while( location && (i+1) < name.length ) {
+                    if( location.locations ) {
+                        location = location.locations[name[i]];
+                    } else {
+                        location = null;
+                    }
+                    i = i + 1;
+                }
+                if( location ) {
+                    if( location.items ) {
+                        return location.items[name[name.length-1]];
+                    }
+                }            
+            } else {
+                return this.items[name[0]];
+            }
+        }
+        return null;
+    }
+    //-----------------------------------
+    setItem(name,pi) {        
+        name = name.split("/");
+        if( name.length > 1 ) {
+            location = this.locations[name[0]];
+            for( var i = 1 ; location && i < (name.length-1) ; ++i ) {
+                if( location.locations ) {
+                    location = location.locations[name[i]];
+                } else {
+                    location = null;
+                }
+            }
+            if( location ) {
+                if( !location.items ) {
+                    location.items = {};
+                }
+                location.items[name[name.length-1]] = pi;
+            }
+        } else {
+            this.items[name[0]] = pi;
+        }    
+    }
+    //-----------------------------------    
+    getUniqueItemName(name,altname,prefix) {
+        var fullName = null;
+        if (!name) {
+            name = altname;
+        }
+        if( prefix ) {
+            fullName = prefix+name;
+        } else {
+            fullName = name;
+        }
+        if( this.getItem(fullName) ) {
+            var counter = 1;
+            while( this.getItem(fullName+counter) ) {
+                counter = counter + 1;
+            }
+            fullName = fullName+counter;
+        }
+        return fullName;
+    }
+    //-----------------------------------
+    setObjectState(name,value) {
+        this.state["Obj"+name] = value;
+    };
+    //-----------------------------------
+    getObjectState(name) {
+        var si = this.getItem(name);
+        var state = null;
+        if( si ) {
+            state = this.state["Obj"+name];
+            if( !state ) {
+                state = si.state;
+                if( !state ) {
+                    if( si.type == "door" ) {
+                        if( si.lockable || si.key ) {
+                            state = "locked";
+                        } else {
+                            state = "closed";
+                        }
+                    }
+                }
+            }
+        }
+        return state;
+    }
+    //-----------------------------------
+    getDoor(name) {
+        return this.getItem(name);
+    }
+    //-----------------------------------
+    setDoor(name,di) {        
+        this.setItem(name,di);
+    }
+    //-----------------------------------
+    getNpc(name) {
+        name = name.split("/");
+        if( name.length > 1 ) {
+            var location = this.locations[name[0]];
+            var i = 1;
+            while( location && (i+1) < name.length ) {
+                if( location.locations ) {
+                    location = location.locations[name[i]];
+                } else {
+                    location = null;
+                }
+                i = i + 1;
+            }
+            if( location ) {
+                if( location.npc ) {
+                    return location.npc[name[name.length-1]];
+                }
+            }            
+        } else {
+            return this.npc[name[0]];
+        }
+        return null;
+    }
+    //-----------------------------------
+    setNpc(name,ni) {
+        this.npc[name] = ni;
+    }
+    //-----------------------------------
+    setLocation(name,room) {
+        var location = null;
+        name = name.split("/");
+        location = this.locations[name[0]];
+        if( !location ) {
+            if( name.length > 1 ) {
+                this.locations[name[0]] = {};
+                location = this.locations[name[0]];
+            } else {
+                this.locations[name[0]] = room;
+            }
+        }
+        if( name.length > 1 ) {
+            for( var i = 1 ; location && i < name.length ; ++i ) {
+                if( !location.locations ) {
+                    location.locations = {};
+                }
+                if( i == name.length - 1) {
+                    location.locations[name[i]] = room;
+                    break;
+                } else {
+                    if( !location.locations[name[i]] ) {
+                        location.locations[name[i]] = {};
+                    }
+                    location = location.locations[name[i]];
+                }
+            }
+        }
+        return location;
+    }
+    //-----------------------------------
+    findLocations(name) {
+        var list = [];
+        var inexactList = [];
+        name = name.toLowerCase();
+        var _findLocations = function(_locations,name,prefix) {
+            for(var loc in _locations ) {
+                var _loc = _locations[loc];
+                if( _loc.name ) {
+                    var _lname = _loc.name;
+                    _lname = _lname.toLowerCase();
+                    if( name == _lname ) {
+                        list.push(prefix+loc);
+                    } else if( _lname.indexOf(name) >= 0 ) {
+                        inexactList.push(prefix+loc);
+                    }
+                } else if( _loc.description ) {
+                    var _lname = _loc.description;
+                    _lname = _lname.toLowerCase();
+                    if( _lname.indexOf(name) >= 0 ) {
+                        inexactList.push(prefix+loc);
+                    }
+                }
+                if( _loc.locations ) {
+                    _findLocations(_loc.locations,name,prefix+loc+"/");
+                }
+            }
+        };
+        _findLocations(this.locations,name,"");
+        if( list.length == 0 ) {
+            list = inexactList;
+        }
+        return list;
+    }
+    //---------------------------------------------------------------------------
+    // Create a spacial map of from the logical description
+    createMap() {
+        var _game = this;
+        var visited = {};
+        var adjustLevel = function(dir,level) {
+            if( dir.direction ) {
+                // Delta to level 
+                return level+dir.direction;
+            }
+            return level;
+        }
+        var createMapLow = function (row, col, level, _loc, bounds, emitRooms) {
+            if (!visited[_loc]) {
+                visited[_loc] = true;
+                emitRooms(row, col, level, _loc, bounds);
+                if (level < bounds.startLevel)
+                    bounds.startLevel = level;
+                if (level > bounds.endLevel)
+                    bounds.endLevel = level;
+                if (row < bounds.startRow)
+                    bounds.startRow = row;
+                if (row > bounds.endRow)
+                    bounds.endRow = row;
+                if (col < bounds.startCol)
+                    bounds.startCol = col;
+                if (col > bounds.endCol)
+                    bounds.endCol = col;
+                var loc = _game.getLocation(_loc);
+                if( !loc ) {
+                    loc = { name : "undefined"};
+                }
+                if (loc.w) {
+                    if( !loc.w.teleport ) {
+                        createMapLow(row, col - 1, adjustLevel(loc.w,level), loc.w.location, bounds, emitRooms);
+                    }
+                }
+                if (loc.e) {
+                    if( !loc.e.teleport ) {
+                        createMapLow(row, col + 1, adjustLevel(loc.e,level), loc.e.location, bounds, emitRooms);
+                    }
+                }
+                if (loc.n) {
+                    if( !loc.n.teleport ) {
+                        createMapLow(row - 1, col, adjustLevel(loc.n,level), loc.n.location, bounds, emitRooms);
+                    }
+                }
+                if (loc.nw) {
+                    if( !loc.nw.teleport ) {
+                        createMapLow(row - 1, col - 1, adjustLevel(loc.nw,level), loc.nw.location, bounds, emitRooms);
+                    }
+                }
+                if (loc.ne) {
+                    if( !loc.ne.teleport ) {
+                        createMapLow(row - 1, col + 1, adjustLevel(loc.ne,level), loc.ne.location, bounds, emitRooms);
+                    }
+                }
+                if (loc.s) {
+                    if( !loc.s.teleport ) {
+                        createMapLow(row + 1, col, adjustLevel(loc.s,level), loc.s.location, bounds, emitRooms);
+                    }
+                }
+                if (loc.sw) {
+                    if( !loc.sw.teleport ) {
+                        createMapLow(row + 1, col - 1, adjustLevel(loc.sw,level), loc.sw.location, bounds, emitRooms);
+                    }
+                }
+                if (loc.se) {
+                    if( !loc.se.teleport ) {
+                        createMapLow(row + 1, col + 1, adjustLevel(loc.se,level), loc.se.location, bounds, emitRooms);
+                    }
+                }
+                if (loc.d) {
+                    if( !loc.d.teleport ) {
+                        createMapLow(row, col, level - 1, loc.d.location, bounds, emitRooms);
+                    }
+                }
+                if (loc.u) {
+                    if( !loc.u.teleport ) {
+                        createMapLow(row, col, level + 1, loc.u.location, bounds, emitRooms);
+                    }
+                }
+            }
+        };
+        var bounds = {
+            startLevel: 0,
+            endLevel: 0,
+            startRow: 0,
+            endRow: 0,
+            startCol: 0,
+            endCol: 0
+        };
+        createMapLow(0, 0, 0, this.pov.location, bounds, function (row, col, level, loc, bounds) { });
+        visited = {};
+        var nLevel = (bounds.endLevel - bounds.startLevel + 1);
+        var nRow = (bounds.endRow - bounds.startRow + 1);
+        var nCol = (bounds.endCol - bounds.startCol + 1);
+        var levels = [];
+        for (var l = 0; l < nLevel; ++l) {
+            var rows = [];
+            for (var r = 0; r < nRow; ++r) {
+                var cols = [];
+                for (var c = 0; c < nCol; ++c) {
+                    cols.push(null);
+                }
+                rows.push(cols);
+            }
+            levels.push(rows);
+        }
+        createMapLow(0, 0, 0, this.pov.location, bounds, function (row, col, level, loc, bounds) {
+            levels[level - bounds.startLevel][row - bounds.startRow][col - bounds.startCol] = loc;
+        });
+        return { levels: levels, location: { room: this.pov.location, level: -bounds.startLevel, row: -bounds.startRow, col: - bounds.startCol } };
+    }
+};
