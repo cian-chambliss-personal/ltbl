@@ -286,6 +286,17 @@ module.exports = function ltbl(settings) {
             this.pov = this.actor;
         }
         //------------------
+        cloneFrom(_game){
+            this.actor = JSON.parse(JSON.stringify(_game.actor));
+            this.metadata = JSON.parse(JSON.stringify(_game.metadata));
+            this.god = JSON.parse(JSON.stringify(_game.god));    
+            this.locations = JSON.parse(JSON.stringify(_game.locations));
+            this.items = JSON.parse(JSON.stringify(_game.items));
+            this.npc = JSON.parse(JSON.stringify(_game.npc));
+            this.map = null;
+            this.pov = this.actor;
+        }
+        //------------------
         getLocation(name) {
             var location = null;
             if( name ) {
@@ -644,11 +655,9 @@ module.exports = function ltbl(settings) {
             return { levels: levels, location: { room: this.pov.location, level: -bounds.startLevel, row: -bounds.startRow, col: - bounds.startCol } };
         }
     };
-    var game = new Game();   
-    var allowGodMode = true;    
-     
-    
-    
+    var game = new Game();
+    var godGame = null;
+    var allowGodMode = true;
     var recalcLocation = function (_map, location) {
         for (var l = 0; l < _map.levels.length; ++l) {
             var rows = _map.levels[l];
@@ -1216,7 +1225,7 @@ module.exports = function ltbl(settings) {
                 game.getLocation(game.getLocation(lastNonVoid)[lastNonVoidDirection].location)[reverseDirection(lastNonVoidDirection)].direction = -lastNonVoidDelta;
             }
             clearVoid();
-            describe();
+            describeLocation();
         }  else {
             roomName = calcRoomName(prefix,null);
             game.pov.location = roomName;
@@ -1248,7 +1257,7 @@ module.exports = function ltbl(settings) {
                 game.getLocation(game.pov.location).o = { location : pendingItemOut };
                 pendingItemOut = null;
             }
-            describe();
+            describeLocation();
         }    
     };
 
@@ -1336,7 +1345,7 @@ module.exports = function ltbl(settings) {
         }
     };
 
-    var describe = function (noVoid) {
+    var describeLocation = function (noVoid) {
         if( renderMap ) {
             if( !game.map || game.map.location.room != game.pov.location ) {
                 if (!game.map) {
@@ -1443,7 +1452,7 @@ module.exports = function ltbl(settings) {
                             pendingItemOut = null;
                             pendingGoInsideItem = null;
                             game.map = null;
-                            describe();
+                            describeLocation();
                         }                        
                     }
                 });
@@ -2514,7 +2523,7 @@ module.exports = function ltbl(settings) {
                 verb : "!look"
             }, 
             eval : function(args) {
-                describe(true);
+                describeLocation(true);
             }
         },
         {
@@ -3171,7 +3180,7 @@ module.exports = function ltbl(settings) {
             }
             if (lCase.trim() == "") {
                 console.log("Pardon?");
-                describe();
+                describeLocation();
             /*} else if (mode == 'door?') {
                 // TBD make separate commands for door/passage etc Make
                 lCase = lCase.trim();
@@ -3340,7 +3349,7 @@ module.exports = function ltbl(settings) {
                                         }
                                         game.getLocation(lastNonVoidPendingVoid)[reverseDirection(lastNonVoidDirection)].direction = -lastNonVoidDelta;
                                         game.map = null;
-                                        describe();
+                                        describeLocation();
                                     }
                                 } else {
                                     if (lCase == "n") {
@@ -3391,7 +3400,7 @@ module.exports = function ltbl(settings) {
                                         lastLocation = game.pov.location
                                         lastDirection = lCase;
                                         game.pov.location = posCell;
-                                        describe();
+                                        describeLocation();
                                     } else {
                                         lastLocation = game.pov.location;                                    
                                         var voidCounter = 1;
@@ -3411,7 +3420,7 @@ module.exports = function ltbl(settings) {
                                             lastNonVoidPendingVoid = game.pov.location;
                                         }
                                         game.map = null;
-                                        describe();
+                                        describeLocation();
                                     }
                                 }
                             } else {
@@ -3442,11 +3451,11 @@ module.exports = function ltbl(settings) {
                                 lastLocation = game.pov.location;
                                 lastDirection = lCase;
                                 game.pov.location = nextLoc.location;
-                                describe();
+                                describeLocation();
                             }
                         }
                     } else {
-                        describe(false);
+                        describeLocation(false);
                     }
                 } else if (firstWord == "!makedoor" && game.pov.isGod ) {
                     command = subSentence( command , 1);
@@ -3472,7 +3481,7 @@ module.exports = function ltbl(settings) {
                                     game.getLocation(game.pov.location)[reverseDirection(lastDirection)].door = name;
                                     game.pov.location = lastLocation;
                                     game.map = null;
-                                    describe();
+                                    describeLocation();
                                 }
                             });
                         } else if( lCase == "lastdirection" ) { 
@@ -3495,7 +3504,7 @@ module.exports = function ltbl(settings) {
                                             game.getLocation(game.pov.location)[reverseDirection(lastDirection)].door = name;
                                         }
                                         game.map = null;
-                                        describe();
+                                        describeLocation();
                                     }
                                 });
                             } else {
@@ -3687,7 +3696,7 @@ module.exports = function ltbl(settings) {
                                     if( game.getLocation(ip.location) ) {
                                         game.pov.location = ip.location;
                                         game.map = null;
-                                        describe();
+                                        describeLocation();
                                     }
                                 } else if( game.pov.isGod ) {
                                     // Make a top level object... 
@@ -3696,7 +3705,7 @@ module.exports = function ltbl(settings) {
                                         pendingItemOut = game.pov.location; 
                                         game.pov.location = null;
                                         game.map = null;
-                                        describe();
+                                        describeLocation();
                                     }
                                 }
                             } else if( allowPosture(ip,firstWord) ) {
@@ -3760,7 +3769,7 @@ module.exports = function ltbl(settings) {
                                     recalcLocation(game.map, game.pov.location);
                                 }
                                 renderMap =  renderMapLevelText(game.map);
-                                describe(false);
+                                describeLocation(false);
                             }
                         }
                         else if( command == "small" )
@@ -3768,13 +3777,13 @@ module.exports = function ltbl(settings) {
                             if( mapScale != "small" ) {
                                 mapScale = "small" ;
                                 renderMap =  renderMapLevelText(game.map);
-                                describe(false);
+                                describeLocation(false);
                             }
                         } else if( command == "normal" ) {
                             if( mapScale == "small" ) {
                                 mapScale = null;
                                 renderMap =  renderMapLevelText(game.map);
-                                describe(false);
+                                describeLocation(false);
                             }
                         }
                         else if( command == "!hide" )
@@ -3793,7 +3802,7 @@ module.exports = function ltbl(settings) {
                             if( game.getLocation(game.pov.location).type == "void" ) {
                                 clearVoid();
                                 game.pov.location = lastNonVoid;
-                                describe();
+                                describeLocation();
                             }
                         }
                     }
@@ -3802,13 +3811,22 @@ module.exports = function ltbl(settings) {
                     if( command && command.length ) {
                         if( command == game.god.name ) {
                             if( allowGodMode ) {
+                                if( godGame ) {
+                                    game = godGame;
+                                }
                                 game.pov = game.god;
                             } else {
                                 console.log("God mode not available.")
                             }
                         } else if( command == game.actor.name ) {
                             if( game.pov.isGod ) {
-                                game.state = {};
+                                if( godGame ) {
+                                    // Work from a copy
+                                    game = new Game();
+                                    game.cloneFrom(godGame);
+                                } else {
+                                    game.state = {};
+                                }
                             }
                             game.pov = game.actor;
                         }
@@ -3876,10 +3894,11 @@ module.exports = function ltbl(settings) {
                     allowGodMode = true;
                     game.god = obj.god;
                     game.pov = game.god;
+                    godGame = game;
                 } else {
                     allowGodMode = false;
                     game.pov = game.actor;
-                }
+                }                
                 while (game.getLocation("room" + roomNum)) {
                     roomNum = roomNum + 1;
                 }
@@ -3890,7 +3909,7 @@ module.exports = function ltbl(settings) {
                         recalcLocation(game.map, game.pov.location);
                     }
                     renderMap =  renderMapLevelText(game.map);
-                    describe(false);
+                    describeLocation(false);
                 }                
                 onComplete(null, true);
             } else {
@@ -3908,7 +3927,7 @@ module.exports = function ltbl(settings) {
         generate({ folder : folder , settings : settings , metadata : game.metadata, actor : game.actor, getLocation : function(name) { return game.getLocation(name); } , locations : game.locations , items : game.items , npc : game.npc });
     }
     return {
-        describe: describe,
+        describe: describeLocation,
         parseCommand: parseCommand,
         loadGame: loadGame,
         exportTads: exportTads
