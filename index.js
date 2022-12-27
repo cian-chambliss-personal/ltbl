@@ -223,36 +223,9 @@ module.exports = function ltbl(settings) {
     ];
     
     var Game = require('./Game');
-    var game = new Game();
-    var godGame = null;
-    var allowGodMode = true;
-    var recalcLocation = function (_map, location) {
-        for (var l = 0; l < _map.levels.length; ++l) {
-            var rows = _map.levels[l];
-            for (var r = 0; r < rows.length; ++r) {
-                var cols = rows[r];
-                for (var c = 0; c < cols.length; ++c) {
-                    if (cols[c] == location) {
-                        _map.location.room = location;
-                        _map.location.level = l;
-                        _map.location.row = r;
-                        _map.location.col = c;
-                        return true;
-                    }
-                }
-            }
-        }
-        return false;
-    }
-    var renderMapLevelText = function (_map) {
-        var render = require("./render-map-text.js");
-        if( mapScale == "small" ) {
-            return render( { map : _map , getLocation : function(name) { return game.getLocation(name); } , viewportHeight : 16 , viewportWidth : 40 , small : true} );
-        }
-        return render( { map : _map , getLocation : function(name) { return game.getLocation(name); } , viewportHeight : 16 , viewportWidth : 40 } );
-    };
+    var game = new Game(settings);
+    var godGame = null;    
     var renderMap = null;
-    var mapScale = null;
     var helper = require("./helper.js")({spellCorrect:settings.spellCorrect});
     var camelCase = helper.camelCase;
     var extractNounAndAdj = helper.extractNounAndAdj;
@@ -279,22 +252,7 @@ module.exports = function ltbl(settings) {
         }
         return newText;                            
     };
-    //---------------------------------------------------------------------------
-    // Save off to file....
-    var saveFile = function () {
-        var obj = { 
-            metadata: game.metadata, 
-            actor: game.actor, 
-            locations: game.locations, 
-            items: game.items, 
-            npc: game.npc 
-        };
-        if( allowGodMode ) {
-            obj.god = game.god;
-        }
-        fs.writeFile(settings.filename, JSON.stringify(obj, null, "  "), function (err, data) { });
-    };
-
+    
     //---------------------------------------------------------------------------
     // Build a map....
     var reverseDirection = function (dir) {
@@ -919,9 +877,9 @@ module.exports = function ltbl(settings) {
                 if (!game.map) {
                     game.map = game.createMap();
                 } else if (game.pov.location && game.map.location.room != game.pov.location) {
-                    recalcLocation(game.map, game.pov.location);
+                    game.recalcLocation(game.map, game.pov.location);
                 }
-                renderMap =  renderMapLevelText(game.map);
+                renderMap =  game.renderMapLevelText(game.map);
             }            
         }
         if( game.pov.isGod ) {
@@ -1000,7 +958,7 @@ module.exports = function ltbl(settings) {
                 ],
                 execute : stateMachineFillin,
                 start: stateMachineFillinStart,
-                done: function(sm) { saveFile(); }
+                done: function(sm) { game.saveFile(); }
             };
             stateMachine.start(stateMachine);
          } else if (game.pov.location && !noVoid ) {
@@ -2893,7 +2851,7 @@ module.exports = function ltbl(settings) {
                                 if (!game.map) {
                                     game.map = game.createMap();
                                 } else if (game.map.location.room != game.pov.location) {
-                                    recalcLocation(game.map, game.pov.location);
+                                    game.recalcLocation(game.map, game.pov.location);
                                 }
                                 var level = game.map.location.level;
                                 var row = game.map.location.row;
@@ -3334,23 +3292,23 @@ module.exports = function ltbl(settings) {
                                 if (!game.map) {
                                     game.map = game.createMap();
                                 } else if (game.pov.location && game.map.location.room != game.pov.location) {
-                                    recalcLocation(game.map, game.pov.location);
+                                    game.recalcLocation(game.map, game.pov.location);
                                 }
-                                renderMap =  renderMapLevelText(game.map);
+                                renderMap =  game.renderMapLevelText(game.map);
                                 describeLocation(false);
                             }
                         }
                         else if( command == "small" )
                         {
-                            if( mapScale != "small" ) {
-                                mapScale = "small" ;
-                                renderMap =  renderMapLevelText(game.map);
+                            if( game.mapScale != "small" ) {
+                                game.mapScale = "small" ;
+                                renderMap =  game.renderMapLevelText(game.map);
                                 describeLocation(false);
                             }
                         } else if( command == "normal" ) {
-                            if( mapScale == "small" ) {
-                                mapScale = null;
-                                renderMap =  renderMapLevelText(game.map);
+                            if( game.mapScale == "small" ) {
+                                game.mapScale = null;
+                                renderMap =  game.renderMapLevelText(game.map);
                                 describeLocation(false);
                             }
                         }
@@ -3378,7 +3336,7 @@ module.exports = function ltbl(settings) {
                     command = subSentence( command , 1);
                     if( command && command.length ) {
                         if( command == game.god.name ) {
-                            if( allowGodMode ) {
+                            if( game.allowGodMode ) {
                                 if( godGame ) {
                                     game = godGame;
                                 }
@@ -3390,7 +3348,7 @@ module.exports = function ltbl(settings) {
                             if( game.pov.isGod ) {
                                 if( godGame ) {
                                     // Work from a copy
-                                    game = new Game();
+                                    game = new Game(settings);
                                     game.cloneFrom(godGame);
                                 } else {
                                     game.state = {};
@@ -3402,7 +3360,7 @@ module.exports = function ltbl(settings) {
                         console.log("You are "+game.pov.name);
                     }
                 } else if (lCase == "save") {
-                    saveFile();
+                    game.saveFile();
                 } else if (  '0' < firstWord[0] && firstWord[0] <= '9' && game.pov.isGod ) {
                     var index = Number.parseInt(firstWord);
                     if( index > annotations.length || index < 1 ) {
@@ -3450,45 +3408,22 @@ module.exports = function ltbl(settings) {
     //---------------------------------------------------------------------------
     // Load a Game from JSON
     var loadGame = function (onComplete) {
-        fs.readFile(settings.filename, (err, data) => {
-            if (!err) {
-                var obj = JSON.parse(data);
-                game.metadata = obj.metadata;
-                game.actor = obj.actor;                
-                game.locations = obj.locations;
-                game.items = obj.items;
-                game.npc = obj.npc;
-                if( obj.god ) {
-                    allowGodMode = true;
-                    game.god = obj.god;
-                    game.pov = game.god;
-                    godGame = game;
-                } else {
-                    allowGodMode = false;
-                    game.pov = game.actor;
-                }                
-                while (game.getLocation("room" + roomNum)) {
-                    roomNum = roomNum + 1;
-                }
-                if( allowGodMode ) {
-                    if (!game.map) {
-                        game.map = game.createMap();
-                    } else if (game.pov.location && game.map.location.room != game.pov.location) {
-                        recalcLocation(game.map, game.pov.location);
-                    }
-                    renderMap =  renderMapLevelText(game.map);
-                    describeLocation(false);
-                }                
-                onComplete(null, true);
-            } else {
+        game.loadGame(function(err, loaded) {
+            if( !loaded ) {
                 game.god.location = "void1";
                 game.pov = game.god;
                 game.setLocation(game.god.location,{ "type" : "void" , "name" : "void" , "description" : "void" });
                 game.map = game.createMap();
-                renderMap =  renderMapLevelText(game.map);
-                onComplete(err, false);
+                renderMap =  game.renderMapLevelText();
+            } else {
+                if( game.allowGodMode ) {
+                    renderMap =  game.renderMapLevelText();
+                    describeLocation(false);
+                    godGame = game;
+                }                
             }
-        });
+            onComplete(err,loaded);
+         } );
     };
     var exportTads = function (folder) {
         var generate = require("./generate-tads");
