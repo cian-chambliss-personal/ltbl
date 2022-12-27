@@ -33,7 +33,8 @@ class GameUtility {
 };
 module.exports = class Game {
     //------------------
-    constructor() {
+    constructor(_settings) {
+        this.settings = _settings;
         this.state = {};
         this.actor = {
             name : "me",
@@ -59,9 +60,85 @@ module.exports = class Game {
         this.npc = { };
         this.util = new GameUtility();
         this.map = null;
+        this.mapScale = null;
         this.pov = this.actor;
+        this.allowGodMode = true;
     }
     //------------------
+    recalcLocation(_map, location) {
+        for (var l = 0; l < _map.levels.length; ++l) {
+            var rows = _map.levels[l];
+            for (var r = 0; r < rows.length; ++r) {
+                var cols = rows[r];
+                for (var c = 0; c < cols.length; ++c) {
+                    if (cols[c] == location) {
+                        _map.location.room = location;
+                        _map.location.level = l;
+                        _map.location.row = r;
+                        _map.location.col = c;
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+    //------------------
+    renderMapLevelText() {
+        var render = require("./render-map-text.js");
+        var _game = this;
+        if( this.mapScale == "small" ) {
+            return render( { map : this.map , getLocation : function(name) { return _game.getLocation(name); } , viewportHeight : 16 , viewportWidth : 40 , small : true} );
+        }
+        return render( { map : this.map , getLocation : function(name) { return _game.getLocation(name); } , viewportHeight : 16 , viewportWidth : 40 } );
+    };
+    //---------------------------------------------------------------------------
+    saveFile() {
+        var obj = { 
+            metadata: this.metadata, 
+            actor: this.actor, 
+            locations: this.locations, 
+            items: this.items, 
+            npc: this.npc 
+        };
+        if( this.allowGodMode ) {
+            obj.god = this.god;
+        }
+        var fs = require("fs");
+        fs.writeFile(this.settings.filename, JSON.stringify(obj, null, "  "), function (err, data) { });
+    };
+    //------------------
+    loadGame(onComplete) {
+        var fs = require("fs");
+        fs.readFile(this.settings.filename, (err, data) => {
+            if (!err) {
+                var obj = JSON.parse(data);
+                this.metadata = obj.metadata;
+                this.actor = obj.actor;                
+                this.locations = obj.locations;
+                this.items = obj.items;
+                this.npc = obj.npc;
+                if( obj.god ) {
+                    this.allowGodMode = true;
+                    this.god = obj.god;
+                    this.pov = this.god;
+                } else {
+                    this.allowGodMode = false;
+                    this.pov = this.actor;
+                }                
+                if( this.allowGodMode ) {
+                    if (!this.map) {
+                        this.map = this.createMap();
+                    } else if (this.pov.location && this.map.location.room != this.pov.location) {
+                        this.recalcLocation(this.map, this.pov.location);
+                    }                    
+                }                
+                onComplete(null, true);
+            } else {
+                onComplete(err, false);
+            }
+        });
+    };    
     cloneFrom(_game){
         this.actor = JSON.parse(JSON.stringify(_game.actor));
         this.metadata = JSON.parse(JSON.stringify(_game.metadata));
