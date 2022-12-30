@@ -106,6 +106,9 @@ module.exports = function(settings) {
                 if( sm.doAbort ) {
                     sm.doAbort(sm);
                 }
+                if( sm.nested ) {
+                    sm.nested = null;
+                }
                 return "abort";
             }
             sm.aborting = false;
@@ -113,6 +116,13 @@ module.exports = function(settings) {
         }
         advanceTest();
         var curState = sm.states[sm.state];
+        var parentState = null;
+        if( sm.nested ) {
+            for( var i = 0 ; i < sm.nested.length ; ++i ) {
+                parentState = curState;
+                curState = curState.choices[ sm.nested[i] ];
+            }
+        }
         if( !command || command.length == 0 ) {
             if( sm.askAbort ) {
                 sm.aborting = true;
@@ -124,7 +134,7 @@ module.exports = function(settings) {
         }
         if( curState.choices ) {
             var choiceNum = Number.parseInt(command);            
-            if( 1 <= choiceNum && choiceNum <= sm.states[sm.state].choices.length ) {
+            if( 1 <= choiceNum && choiceNum <= curState.choices.length ) {
                 if( curState.multiple ) {
                     // Array of strings representing a multiple state...
                     if(  !sm.data[curState.prop] ) {
@@ -145,16 +155,53 @@ module.exports = function(settings) {
                         }
                     }
                 } else {
-                    if( curState.choices[choiceNum-1].value ) 
+                    if( curState.choices[choiceNum-1].abort ) {
+                        if( sm.nested ) {
+                            // Abort a tree...
+                            if( sm.nested.length > 1 ) {
+                                sm.nested.pop;
+                            } else {
+                                sm.nested = null;
+                            }
+                            displayMessage(sm,parentState);
+                            return "retry";
+                        }
+                        // Abort command
+                        return "abort"; 
+                    } else if( curState.choices[choiceNum-1].choices ) {
+                        // Tree of choices....                        
+                        if( !sm.nested ) {
+                            sm.nested = [choiceNum-1];
+                        } else {
+                            sm.nested.push(choiceNum-1);
+                        }
+                        displayMessage(sm,curState.choices[choiceNum-1]);
+                        return "retry";
+                    } else if( curState.choices[choiceNum-1].value ) {
                         sm.data[curState.prop] = curState.choices[choiceNum-1].value;
-                    else
+                    } else {
+                        if( sm.nested ) {
+                            sm.nested = null;
+                        }
                         delete sm.data[curState.prop];
+                    }
                 }
             } else {
                 outputText("You must pick a number between 1 and "+curState.choices.length);
             }
         }  else {
-            sm.data[curState.prop] = command;
+            if( curState.yesNo ) {
+                if(  command == "y" ) {
+                    sm.data[curState.prop] = true;
+                } else if( command == "n" ) {
+                    sm.data[curState.prop] = false;
+                } else {
+                    outputText("You must type 'y' or 'n'");
+                    return "retry";
+                }
+            } else {
+                sm.data[curState.prop] = command;
+            }
         }
         if( (sm.state+1) < sm.states.length ) {
             if( sm.states[sm.state+1].test ) {
@@ -168,6 +215,9 @@ module.exports = function(settings) {
         }
         if( sm.done ) {
             sm.done(sm);
+        }
+        if( sm.nested ) {
+            sm.nested = null;
         }
         return "abort";
     };
