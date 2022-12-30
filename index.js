@@ -861,7 +861,7 @@ module.exports = function ltbl(settings) {
             disclosedContents(item,itemPtr,itemPtr.supports,"supports","on",search);
         }
         if( itemPtr.contains && (itemState != "closed" && itemState != "locked") ) {
-            disclosedContents(item,itemPtr,itemPtr.contains,"contains","under",search);
+            disclosedContents(item,itemPtr,itemPtr.contains,"contains","inside",search);
         }
         if( itemPtr.under && preposition == "under" ) {
             disclosedContents(item,itemPtr,itemPtr.under,"under","under",search);
@@ -1970,6 +1970,8 @@ module.exports = function ltbl(settings) {
                     if( !foundItem ) {
                         pLoc.contains.push({item:args.iObj})
                     }
+                } else if( !ip ) {
+                    console.log(args.iObj+" was not found!");
                 }
                 var listName = null;
                 if( args.preposition == "on") {
@@ -2031,7 +2033,7 @@ module.exports = function ltbl(settings) {
             if( from )
                 prop = "under";
         }
-        if( ip.contains && (args.preposition == "in"||args.preposition == "from") && !from ) {
+        if( ip.contains && (args.preposition == "in"||args.preposition == "contains"||args.preposition == "from") && !from ) {
             from = lookupItemArr(args.dObj,ip.contains);
             if( from )
                 prop = "contains";
@@ -2046,12 +2048,13 @@ module.exports = function ltbl(settings) {
             }
         }
         if( from ) {
-            for (var i = 0; i < ip[prop].length; ++i) {
-                if (ip[prop][i].item == from) {
+            var listPtr = ip[prop];
+            for (var i = 0; i < listPtr.length; ++i) {
+                if (listPtr[i].item == from) {
                     if( !game.pov.inventory ) {
                         game.pov.inventory = [];
                     }
-                    game.pov.inventory.push(ip[prop][i]);
+                    game.pov.inventory.push(listPtr[i]);
                     ip[prop].splice(i, 1);                            
                     console.log("Taken.");
                     break;
