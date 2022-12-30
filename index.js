@@ -1018,6 +1018,10 @@ module.exports = function ltbl(settings) {
                     break;
                  }
             }
+        } else if( command == '{*}' ) { 
+            for (var i = 0; i < arr.length; ++i) {
+                candidates.push( arr[i].item );
+            }
         } else {
             for (var i = 0; i < arr.length; ++i) {
                 var item = arr[i].item;
@@ -1028,6 +1032,18 @@ module.exports = function ltbl(settings) {
                         itemName = item;
                         break;
                     } else {
+                        if( ptr.alias ) {
+                            for (var j = 0; j <  ptr.alias.length; ++j) {
+                                lname = ptr.alias[j];
+                                if (command == lname.toLowerCase()) {
+                                    itemName = item;
+                                    break;
+                                }
+                            }
+                            if( itemName ) {
+                                break;
+                            }
+                        }
                         var iparts = getPartsOfSpeech(lname);
                         var foundPart = false;
                         for (var j = 0; j < parts.noun.length; ++j) {
@@ -1141,7 +1157,9 @@ module.exports = function ltbl(settings) {
                     itemName = lookupItemLow(parts,disclosed,command,candidates);
                 }
             }
-            if (!itemName) {                
+            if( command == "{*}") {
+                itemName = candidates.join("\n");
+            } else if (!itemName) {                
                 if (candidates.length == 1) {
                     itemName = candidates[0];
                 } else if (candidates.length > 1) {
@@ -1940,10 +1958,18 @@ module.exports = function ltbl(settings) {
                 if( args.new_iObj ) {
                     // we need to put the iObj in location
                     var pLoc = game.getLocation(game.pov.location);
+                    var foundItem = false;
                     if( !pLoc.contains ) {
                         pLoc.contains = [];
                     }
-                    pLoc.contains.push({item:args.iObj})
+                    for( var i = 0 ; i < pLoc.contains.length ; ++i ) {
+                        if( pLoc.contains[i].item == args.iObj ) {
+                            foundItem = true;
+                        }
+                    }
+                    if( !foundItem ) {
+                        pLoc.contains.push({item:args.iObj})
+                    }
                 }
                 var listName = null;
                 if( args.preposition == "on") {
@@ -2453,7 +2479,23 @@ module.exports = function ltbl(settings) {
                         findPatternArgs.states = [];
                     }
                     findPatternArgs[argName] = name;
-                    findPatternArgs.states.push({msg:(name+" does not exist, do you want to create one?"),prop:"new_"+argName,yesNo : true});
+                    var createChoices = [{ text : 'Create new object for "'+name+'"' , value : "<create>" }];
+                    // If items 
+                    var findAll = lookupItem(game.pov.location,"{*}").split("\n");
+                    if( findAll && findAll.length > 0 ) {
+                        if( findAll.length > 1 ) {
+                            var subChoices = [];
+                            for( var i = 0 ; i < findAll.length ; ++i ) {
+                                subChoices.push({text : 'Alias for '+game.getItem(findAll[i]).name , value : findAll[i] });
+                            }
+                            subChoices.push({text : 'Return to top' , abort : true });
+                            createChoices.push({text : 'Object is Alias', msg : 'Object '+name, choices : subChoices });
+                        } else if( findAll[0] && findAll[0] != '' ){
+                            createChoices.push({text : 'Alias for '+game.getItem(findAll[0]).name , value : findAll[0] });
+                        }
+                    }                    
+                    createChoices.push({text : 'Abort the command' , abort : true});
+                    findPatternArgs.states.push({msg:(name+" does not exist"),prop:"new_"+argName,choices : createChoices });
                     return true;
                 } else {
                     dontSee(name,game.pov.location,origCommand);
@@ -2768,7 +2810,18 @@ module.exports = function ltbl(settings) {
                             for(var prop in sm.data ) {
                                 if( prop.substring(0,4) == "new_") {
                                     if( sm.data[prop] ) {
-                                        createObjects.push(prop.substring(4));
+                                        if( sm.data[prop] == "<create>" ) {
+                                            createObjects.push(prop.substring(4));
+                                        } else {
+                                            var aliasName = sm.data[prop.substring(4)];
+                                            var aliasItem = game.getItem(sm.data[prop]);
+                                            sm.data[prop.substring(4)] = sm.data[prop];
+                                            if( !aliasItem.alias ) {
+                                                aliasItem.alias = [aliasName];
+                                            } else {
+                                                aliasItem.alias.push(aliasName);
+                                            }
+                                        }
                                     } else {
                                         missingObjects = true;
                                         break;
@@ -2779,11 +2832,10 @@ module.exports = function ltbl(settings) {
                                 console.log("Objects were missing, aborted...")
                             } else {
                                 for(var i = 0 ; i < createObjects.length ; ++i ) {
-                                    var friendlyName = sm.data[createObjects[i]];
+                                    var friendlyName = sm.data[createObjects[i]];                                    
                                     var name = extractNounAndAdj(friendlyName);
                                     name = game.getUniqueItemName(name,"item",game.util.calcCommonPrefix(game.pov.location,game.pov.location));
                                     game.setItem(name,{ name: friendlyName });
-                                    console.log("Created item "+name);
                                     sm.data[createObjects[i]] = name;
                                 }
                                 // Create game.items
