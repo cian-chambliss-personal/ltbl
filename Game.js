@@ -226,9 +226,13 @@ module.exports = class Game {
         return null;
     }
     //-----------------------------------
-    setItem(name,pi) {        
+    setItem(name,pi) {
+        var location;
         name = name.split("/");
         if( name.length > 1 ) {
+            if( !this.locations[name[0]] ) {
+                this.locations[name[0]] = {};
+            }
             location = this.locations[name[0]];
             for( var i = 1 ; location && i < (name.length-1) ; ++i ) {
                 if( location.locations ) {
