@@ -56,11 +56,11 @@ module.exports = function ltbl(settings) {
         "x" : "!examine",
         "examine" : "!examine",
         "search" : "!search",
-        "touch" : "touch",
-        "feel" : "touch",
+        "touch" : "!touch",
+        "feel" : "!touch",
         "smell" : "!smell",
         "sniff" : "!smell",
-        "listen" : "listen",
+        "listen" : "!listen",
         "i": "!inventory",
         "inventory" : "!inventory",
         "take" : "!take",
@@ -2372,6 +2372,81 @@ module.exports = function ltbl(settings) {
                 }
             }
         },
+        { 
+            match : {
+                verb : "!smell",
+                dObj : "noactor"
+            } , 
+            eval : function(args) {
+                var ip = game.getItem(args.dObj);
+                if (ip.smell && ip.smell.description ) {
+                    console.log(ip.smell.description);
+                } else {
+                    console.log("You notice no smell in particular.");
+                }
+            },
+            godEval: function(args) {
+                var ip = game.getItem(args.dObj);
+                if (ip.smell && ip.smell.description ) {
+                    console.log(ip.smell.description);
+                } else {
+                    if( !ip.smell ) {
+                        ip.smell = {};
+                    }
+                    stateMachine = stateMachineFillinCreate(ip.smell,[ {msg:"Describe the smell of " + ip.name + "?",prop:"description"} ]);
+                }
+            }
+        },
+        { 
+            match : {
+                verb : "!touch",
+                dObj : "noactor"
+            } , 
+            eval : function(args) {
+                var ip = game.getItem(args.dObj);
+                if (ip.touch && ip.touch.description ) {
+                    console.log(ip.touch.description);
+                } else {
+                    console.log("You don't notice anything out of the ordinary.");
+                }
+            },
+            godEval: function(args) {
+                var ip = game.getItem(args.dObj);
+                if (ip.touch && ip.touch.description ) {
+                    console.log(ip.touch.description);
+                } else {
+                    if( !ip.touch ) {
+                        ip.touch = {};
+                    }
+                    stateMachine = stateMachineFillinCreate(ip.touch,[ {msg:"Describe how " + ip.name + " feels to the touch?",prop:"description"} ]);
+                }
+            }
+        },
+        { 
+            match : {
+                verb : "!listen",
+                dObj : "noactor"
+            } , 
+            eval : function(args) {
+                var ip = game.getItem(args.dObj);
+                if (ip.sound && ip.sound.description ) {
+                    console.log(ip.sound.description);
+                } else {
+                    console.log("You don't notice any sound.");
+                }
+            },
+            godEval: function(args) {
+                var ip = game.getItem(args.dObj);
+                if (ip.sound && ip.sound.description ) {
+                    console.log(ip.sound.description);
+                } else {
+                    if( !ip.sound ) {
+                        ip.sound = {};
+                    }
+                    stateMachine = stateMachineFillinCreate(ip.sound,[ {msg:"Describe how " + ip.name + " sounds?",prop:"description"} ]);
+                }
+            }        
+        },
         {
             match : {
                 verb : ["!give","!show"],
@@ -2850,9 +2925,9 @@ module.exports = function ltbl(settings) {
                     } else {
                         findPattern.eval(findPatternArgs);
                     }
-                } else if ( firstWord == "touch" 
+                } else if ( firstWord == "!touch" 
                          || firstWord == "!smell"  
-                         || firstWord == "listen" 
+                         || firstWord == "!listen" 
                           ) {
                     console.log("TBD - add item/game.npc/etc smell/touch etc.");                
                 } else if ( firstWord == "!eat" 
