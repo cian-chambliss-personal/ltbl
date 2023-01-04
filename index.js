@@ -70,6 +70,7 @@ module.exports = function ltbl(settings) {
         "read" : "!read",
         "eat" : "!eat",
         "wear" : "!wear",
+        "doff" : "!doff",
         "light": "!light",
         "affix" : "!affix",
         "sit" : "!sit",
@@ -839,6 +840,7 @@ module.exports = function ltbl(settings) {
     var decribeItem = function(item,preposition,search) {
         var itemPtr = game.getItem(item);
         var itemState = game.getObjectState(item);
+        var itemStateAccess = null;
         if (itemPtr.description) {
             console.log(itemPtr.description);
         } else if(game.pov.isGod) {
@@ -847,20 +849,31 @@ module.exports = function ltbl(settings) {
             console.log(itemPtr.name);
         }
         if( itemState ) {
-            if( itemState == "locked" ) {
-                console.log("The "+itemPtr.name+" is locked");
-            } else if( itemState == "closed" ) {
-                console.log("The "+itemPtr.name+" is closed");
-            } else if( itemState == "open" ) {
-                console.log("The "+itemPtr.name+" is open");
-            } else if( itemState == "broken" ) {
+            if( itemState.access ) {
+                itemStateAccess = itemState.access;
+            }
+            if( itemState.broken ) {
                 console.log("The "+itemPtr.name+" is broken");
+            } else if( itemState.locked == "locked" ) {
+                console.log("The "+itemPtr.name+" is locked");
+            } else if( itemState.access == "open" ) {
+                console.log("The "+itemPtr.name+" is open");
+            } else if( itemState.locked == "unlocked" ) {
+                console.log("The "+itemPtr.name+" is unlocked but closed.");
+            } else if( itemState.access == "closed" ) {
+                console.log("The "+itemPtr.name+" is closed");
+            }
+            if( itemState.lit ) {
+                console.log("The "+itemPtr.name+" is lit.");
+            }
+            if( itemState.worn ) {
+                console.log("The "+itemPtr.name+" is being worn.");
             }
         }
         if( itemPtr.supports ) {
             disclosedContents(item,itemPtr,itemPtr.supports,"supports","on",search);
         }
-        if( itemPtr.contains && (itemState != "closed" && itemState != "locked") ) {
+        if( itemPtr.contains && itemStateAccess != "closed" ) {
             disclosedContents(item,itemPtr,itemPtr.contains,"contains","inside",search);
         }
         if( itemPtr.under && preposition == "under" ) {
@@ -2208,23 +2221,16 @@ module.exports = function ltbl(settings) {
                 if (where) {
                     if (where[holder]) {
                         var found = false;
-                        for (var i = 0; i < game.pov.inventory.length; ++i) {
-                            if (game.pov.inventory[i].item == args.dObj) {
-                                if (args.verb == "!hide") {
-                                    game.pov.inventory[i].hidden = true;
-                                } else if (game.pov.inventory[i].hidden) {
-                                    delete game.pov.inventory[i].hidden;
-                                }
-                                where[holder].push(game.pov.inventory[i]);
-                                game.pov.inventory.splice(i, 1);
-                                console.log("Ok.");
-                                found = true;
-                                break;
+                        var dropped = game.dropObject(dObj);
+                        console.log(dropped.response);
+                        if( dropped.found ) {                            
+                            if (args.verb == "!hide") {
+                                objRef.hidden = true;
+                            } else if (objRef.hidden) {
+                                delete objRef.hidden;
                             }
-                        }
-                        if( !found ) {
-                            console.log("You don't have "+ args.dObj+"!");
-                        }
+                            where[holder].push(objRef);
+                        }        
                     } else {
                         console.log("You cannot place "+what.name+" "+args.preposition+" "+where.name);
                     }
@@ -2260,13 +2266,19 @@ module.exports = function ltbl(settings) {
             eval : function(args) {
                 var objState = game.getObjectState(args.dObj);
                 var ip = game.getItem(args.dObj);
-                if( objState == "open" ) {
+                var itemStateAccess = null;
+                var itemStateLock = null;
+                if( objState ) {
+                    itemStateAccess = objState.access;
+                    itemStateLock = objState.lock;
+                }
+                if( itemStateAccess == "open" ) {
                     console.log("The " + ip.name + " is already open");
-                } else if( objState == "closed" ) {
-                    game.setObjectState(args.dObj,"open");
-                    console.log("Ok, you opened the " + ip.name);
-                } else if( objState == "locked" ) {
+                } else if( itemStateLock == "locked" ) {
                     console.log("The " + ip.name + " is locked");
+                } else if( itemStateAccess == "closed" ) {
+                    game.setObjectState(args.dObj,"access","open");
+                    console.log("Ok, you opened the " + ip.name);
                 } else {
                     console.log(ip.name + " cannot be opened.");
                 }
@@ -2280,12 +2292,18 @@ module.exports = function ltbl(settings) {
             eval : function(args) {
                 var objState = game.getObjectState(args.dObj);
                 var ip = game.getItem(args.dObj);
-                if( objState == "open" ) {
-                    game.setObjectState(args.dObj,"closed");
+                var itemStateAccess = null;
+                var itemStateLock = null;
+                if( objState ) {
+                    itemStateAccess = objState.access;
+                    itemStateLock = objState.lock;
+                }
+                if( itemStateAccess == "open" ) {
+                    game.setObjectState(args.dObj,"access","closed");
                     console.log("Ok, you closed the " + ip.name);
-                } else if( objState == "closed" ) {
+                } else if( itemStateAccess == "closed" ) {
                     console.log("The " + ip.name + " is already closed");
-                } else if( objState == "locked" ) {
+                } else if( itemStateLock == "locked" ) {
                     console.log("The " + ip.name + " is not open");
                 } else {
                     console.log(ip.name + " cannot be closed.");
@@ -2303,21 +2321,30 @@ module.exports = function ltbl(settings) {
                 var objState = game.getObjectState(args.dObj);
                 var ip = game.getItem(args.dObj);
                 var kp = game.getItem(args.iObj);
+                var itemStateAccess = null;
+                var itemStateLock = null;
+                if( objState ) {
+                    itemStateAccess = objState.access;
+                    itemStateLock = objState.lock;
+                }
                 if( ip.key != args.iObj ) {
                     if( ip.key ) {
                         console.log("The " + kp.name + " doesn't fit "+ip.dObj);
                     } else {
                         console.log("The " + kp.name + " cannot be locked");
                     }
-                } else if( objState == "locked" ) {
+                } else if( itemStateLock == "locked" ) {
                     console.log("The " + ip.name + " is already locked");
+                } else if( itemStateAccess == "open" ) {
+                    game.setObjectState(args.dObj,"access","closed");
+                    game.setObjectState(args.dObj,"lock","locked");
+                    console.log("First closing, " + ip.name + " is now locked");
                 } else {
-                    game.setObjectState(args.dObj,"locked");
+                    game.setObjectState(args.dObj,"lock","locked");
                     console.log("Ok, " + ip.name + " is now locked");
                 }
             },
             godEval: function(args) {
-                var objState = game.getObjectState(args.dObj);
                 var ip = game.getItem(args.dObj);
                 var kp = game.getItem(args.iObj);
                 ip.key = args.iObj;
@@ -2336,16 +2363,20 @@ module.exports = function ltbl(settings) {
                 var objState = game.getObjectState(args.dObj);
                 var ip = game.getItem(args.dObj);
                 var kp = game.getItem(args.iObj);
+                var itemStateLock = null;
+                if( objState ) {
+                    itemStateLock = objState.lock;
+                }                
                 if( ip.key != args.iObj ) {
                     if( ip.key ) {
                         console.log("The " + kp.name + " doesn't fit "+ip.dObj);
                     } else {
                         console.log("The " + kp.name + " cannot be unlocked");
                     }
-                } else if( objState != "locked" ) {
+                } else if( itemStateLock != "locked" ) {
                     console.log("The " + ip.name + " is not locked");
                 } else {
-                    game.setObjectState(args.dObj,"closed");
+                    game.setObjectState(args.dObj,"lock","unlocked");
                     console.log("Ok, " + ip.name + " is now unlocked");
                 }
             }
@@ -2446,6 +2477,78 @@ module.exports = function ltbl(settings) {
                     stateMachine = stateMachineFillinCreate(ip.sound,[ {msg:"Describe how " + ip.name + " sounds?",prop:"description"} ]);
                 }
             }        
+        },
+        {
+            match : {
+                verb : "!eat",
+                dObj : "actor"
+            } , 
+            eval : function(args) {
+                var ip = game.getItem(args.dObj);
+                if (ip && ip.type ==  "food" ) {
+                    console.log(game.dropObject(args.dObj).response);
+                } else {
+                    console.log("You cannot eat "+ip.name+".");
+                }
+            }
+        },
+        {
+            match : {
+                verb : "!wear",
+                dObj : "actor"
+            } , 
+            eval : function(args) {
+                var ip = game.getItem(args.dObj);
+                if (ip && ip.type ==  "wearable" ) {
+                    var is = game.getObjectState(args.dObj);
+                    if( is.worn ) {
+                        console.log("You area already wearing "+ip.name+".");
+                    } else {
+                        is.worn = true;
+                        console.log("Ok");
+                    }
+                } else {
+                    console.log("You cannot wear "+ip.name+".");
+                }
+            }
+        },
+        {
+            match : {
+                verb : "!doff",
+                dObj : "actor"
+            } , 
+            eval : function(args) {
+                var ip = game.getItem(args.dObj);
+                if (ip && ip.worn ) {
+                    delete ip.worn;
+                    console.log("Ok.");
+                } else {
+                    console.log("You are not wearing "+ip.name+".");
+                }
+            }
+        },
+        {
+            match : {
+                verb : "!light",
+                dObj : "actor"
+            } , 
+            eval : function(args) {
+                var ip = game.getItem(args.dObj);
+                if (ip && ip.type ==  "light" ) {
+                    var is = game.getObjectState(args.dObj);
+                    if( is.lit && is.lit > 0 ) {
+                        console.log(ip.name+" is already lit.");
+                    } else if( it.level && ip.level > 0 ) {
+                        is.lit = ip.level;
+                        console.log("Ok.");
+                    } else {
+                        is.lit = 10;
+                        console.log("Ok.");
+                    }
+                } else {
+                    console.log("You cannot light "+ip.name+".");
+                }
+            }
         },
         {
             match : {
@@ -2925,11 +3028,6 @@ module.exports = function ltbl(settings) {
                     } else {
                         findPattern.eval(findPatternArgs);
                     }
-                } else if ( firstWord == "!touch" 
-                         || firstWord == "!smell"  
-                         || firstWord == "!listen" 
-                          ) {
-                    console.log("TBD - add item/game.npc/etc smell/touch etc.");                
                 } else if ( firstWord == "!eat" 
                          || firstWord == "!wear" 
                          || firstWord == "!light" 
@@ -3086,8 +3184,10 @@ module.exports = function ltbl(settings) {
                             var isBlocked = false;
                             if( nextLoc.door ) {
                                 var objState = game.getObjectState(nextLoc.door);
-                                if( objState != "open" && objState != "broken" ) {
-                                    isBlocked = true;
+                                if( objState ) {
+                                    if( objState.access == "closed" ) {
+                                        isBlocked = true;
+                                    }
                                 }
                             }
                             if( isBlocked && !game.pov.isGod ) {
