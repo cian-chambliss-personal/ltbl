@@ -272,8 +272,12 @@ module.exports = class Game {
         return fullName;
     }
     //-----------------------------------
-    setObjectState(name,value) {
-        this.state["Obj"+name] = value;
+    setObjectState(name,prop,value) {
+        name = "Obj"+name;
+        if( !this.state[name] ) {
+            this.state[name] = {};
+        }
+        this.state[name][prop] = value;
     };
     //-----------------------------------
     getObjectState(name) {
@@ -286,10 +290,22 @@ module.exports = class Game {
                 if( !state ) {
                     if( si.type == "door" ) {
                         if( si.lockable || si.key ) {
-                            state = "locked";
+                            state = { "access" : "closed" , "lock" : "locked" };
                         } else {
-                            state = "closed";
+                            state = { "access" : "closed" };
                         }
+                    }
+                } else if (typeof state === 'string' || state instanceof String) {
+                    if( state == "locked" ) {
+                        state = { "access" : "closed" , "lock" : "locked" };
+                    } else if( state == "closed" ) {
+                        if( si.lockable || si.key ) {
+                            state = { "access" : "closed" , "lock" : "locked" };
+                        } else {
+                            state = { "access" : "closed" };
+                        }
+                    } else if( state == "open" ) {
+                        state = { "access" : "open" };
                     }
                 }
             }
@@ -397,6 +413,26 @@ module.exports = class Game {
         }
         return list;
     }
+    //---------------------------------------------------------------------------
+    dropObject(dObj) {
+        var found = false;
+        var objRef = null;
+        var response = null;
+        for (var i = 0; i < this.pov.inventory.length; ++i) {
+            if (this.pov.inventory[i].item == args.dObj) {
+                objRef = this.pov.inventory[i];
+                this.pov.inventory.splice(i, 1);
+                response = "Ok.";
+                found = true;
+                break;
+            }
+        }
+        if( !found ) {            
+            response = "You don't have "+ getItem(dObj).name+"!";
+        }
+        return { found : found , response : response , objRef : objRef };
+    }
+
     //---------------------------------------------------------------------------
     // Create a spacial map of from the logical description
     createMap() {
