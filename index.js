@@ -3249,15 +3249,22 @@ module.exports = function ltbl(settings) {
                                 ],function(sm) {
                                     if( sm.data.name  && sm.data.name.length > 1  ) {
                                         var name = extractNounAndAdj(sm.data.name);
+                                        var lastLocDir = null;
+                                        var curLocDir = null;
                                         name = game.getUniqueItemName(name,"door",game.util.calcCommonPrefix(game.pov.location,lastLocation));
                                         game.setDoor(name,{ name: sm.data.name , type : "door"});
-                                        if( !game.getLocation(lastLocation)[lastDirection]
-                                         && !game.getLocation(game.pov.location)[reverseDirection(lastDirection)] ) {
+                                        lastLocDir = game.getLocation(lastLocation)[lastDirection];
+                                        curLocDir = game.getLocation(game.pov.location)[reverseDirection(lastDirection)]
+                                        if( !lastLocDir
+                                         && !curLocDir 
+                                          ) {
                                             game.getLocation(lastLocation)[lastDirection] = { location : game.pov.location , door : name };
                                             game.getLocation(game.pov.location)[reverseDirection(lastDirection)] = { location : lastLocation , door : name};
+                                        } else if( lastLocDir && curLocDir ) {
+                                            lastLocDir.door = name;
+                                            curLocDir.door = name;
                                         } else {
-                                            game.getLocation(lastLocation)[lastDirection].door = name;
-                                            game.getLocation(game.pov.location)[reverseDirection(lastDirection)].door = name;
+                                            console.log("Locations are not paired from "+lastDirection);
                                         }
                                         game.map = null;
                                         describeLocation();
