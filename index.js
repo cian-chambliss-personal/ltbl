@@ -2023,6 +2023,96 @@ module.exports = function ltbl(settings) {
                     console.log(ip.name+" has been placed in "+pLoc.name);
                 }
             }
+        },    
+        {
+            match : {
+                verb : "!makedoor",
+                direction: true
+            },
+            eval : function(args) {
+                if (game.getLocation(game.pov.location)) {
+                    var nextLoc = game.getLocation(game.pov.location)[args.direction];
+                    if (nextLoc) {
+                        lastDirection = args.direction;
+                        lastLocation = game.pov.location;
+                        game.pov.location = nextLoc.location;
+                        stateMachine = stateMachineFillinCreate({},[
+                            {msg:"Door name:",prop:"name"}
+                        ],function(sm) {
+                            if( sm.data.name  && sm.data.name.length > 1  ) {
+                                var name = extractNounAndAdj(sm.data.name);
+                                name = game.getUniqueItemName(name,"door",game.util.calcCommonPrefix(game.pov.location,lastLocation));
+                                game.setDoor(name,{ name: sm.data.name , type : "door" });
+                                game.getLocation(lastLocation)[lastDirection].door = name;
+                                game.getLocation(game.pov.location)[reverseDirection(lastDirection)].door = name;
+                                game.pov.location = lastLocation;
+                                game.map = null;
+                                describeLocation();
+                            }
+                        });
+                    } else {
+                        console.log("There is no opening to the "+args.direction);
+                    }
+                } else {
+                    console.log("There is no starting location.");
+                }
+            }
+        },
+        {
+            match : {
+                verb : "!makedoor"
+            },
+            eval : function(args) {
+                if( lastDirection && lastLocation  ) {
+                    stateMachine = stateMachineFillinCreate({},[
+                        {msg:"Door name:",prop:"name"}
+                    ],function(sm) {
+                        if( sm.data.name  && sm.data.name.length > 1  ) {
+                            var name = extractNounAndAdj(sm.data.name);
+                            var lastLocDir = null;
+                            var curLocDir = null;
+                            name = game.getUniqueItemName(name,"door",game.util.calcCommonPrefix(game.pov.location,lastLocation));
+                            game.setDoor(name,{ name: sm.data.name , type : "door"});
+                            lastLocDir = game.getLocation(lastLocation)[lastDirection];
+                            curLocDir = game.getLocation(game.pov.location)[reverseDirection(lastDirection)]
+                            if( !lastLocDir
+                            && !curLocDir 
+                                ) {
+                                game.getLocation(lastLocation)[lastDirection] = { location : game.pov.location , door : name };
+                                game.getLocation(game.pov.location)[reverseDirection(lastDirection)] = { location : lastLocation , door : name};
+                            } else if( lastLocDir && curLocDir ) {
+                                lastLocDir.door = name;
+                                curLocDir.door = name;
+                            } else {
+                                console.log("Locations are not paired from "+lastDirection);
+                            }
+                            game.map = null;
+                            describeLocation();
+                        }
+                    });
+                } else {
+                    console.log("There is no ending location. lastLocation="+lastLocation+" lastDirection="+lastDirection+ " game.pov.location="+game.pov.location);
+                }
+            }
+        },
+        {
+            match : {
+                verb : [ "!makepath","!makepassage","!makestairs"]
+            },
+            eval : function(args) {
+                if( lastLocation ) {
+                    var dirCType = args.verb.substring(5);
+                    if( game.getLocation(lastLocation)[lastDirection] ) {
+                        game.getLocation(lastLocation)[lastDirection].type = dirCType;
+                        game.getLocation(game.pov.location)[reverseDirection(lastDirection)].type = dirCType;
+                    } else if( !game.getLocation(game.pov.location)[reverseDirection(lastDirection)] ) {
+                        game.getLocation(lastLocation)[lastDirection] = { location : game.pov.location , type : dirCType};
+                        game.getLocation(game.pov.location)[reverseDirection(lastDirection)] = {location : lastLocation , type : dirCType};
+                    }
+                } else {
+                    console.log("There is no starting location.");
+                }
+            }
         }
     ];
 
@@ -2867,6 +2957,17 @@ module.exports = function ltbl(settings) {
                     }                            
                     findPattern = _pattern;
                     break;
+                } else if( _pattern.match.direction ) {
+                    // Verb + direction
+                    if( isDirection(object1) ) {
+                        findPatternArgs.direction = isDirection(object1).primary;
+                        findPattern = _pattern;
+                        break;    
+                    } else if( object1 != "" ) {
+                        console.log("Expected a direction");
+                        findPattern = nullPatternHandler;
+                        break;
+                    }
                 } else if( object1 == "" ) {
                     // Just a verb & nothing else supplied
                     findPattern = _pattern;
@@ -3213,7 +3314,7 @@ module.exports = function ltbl(settings) {
                     } else {
                         describeLocation(false);
                     }
-                } else if (firstWord == "!makedoor" && game.pov.isGod ) {
+                /*} else if (firstWord == "!makedoor" && game.pov.isGod ) {
                     command = subSentence( command , 1);
                     if( isDirection(command) ) {
                         lCase = isDirection(command).primary;
@@ -3291,7 +3392,7 @@ module.exports = function ltbl(settings) {
                         }
                     } else {
                         console.log("There is no starting location.");
-                    }
+                    }*/
                 } else if (lCase == "location outside" || lCase == "is outside") {                    
                     setLocationType("outside");
                 } else if (lCase == "location ship" || lCase == "is ship") {
