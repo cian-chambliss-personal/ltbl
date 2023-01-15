@@ -18,9 +18,12 @@ module.exports = function ltbl(settings) {
       }
      */
     var stateMachine = null;
-    var annotations = [];    
-    var _SM = require("./state-machine")({output : function(txt) {
+    var annotations = []; 
+    var outputText = function(txt) {
         console.log(txt);
+    };
+    var _SM = require("./state-machine")({output : function(txt) {
+        outputText(txt);
     }});
     var stateMachineFillin = _SM.fillin;
     var stateMachineFillinStart = _SM.fillinStart;
@@ -91,7 +94,8 @@ module.exports = function ltbl(settings) {
             "lie down" : "!lie",
             "stand up" : "!stand",
             "go in" : "!goin",
-            "go inside" : "!goin"
+            "go inside" : "!goin",
+            "save play" : "!saveplay"
         },
         postures : {
             "stand" : {
@@ -347,37 +351,37 @@ module.exports = function ltbl(settings) {
         }
         var describeNav = function (dir, name, rawDir) {
             if (dir.type == "stairs") {
-                console.log("There are stairs leading " + name + "."+annotate({"type":"dir","dir":rawDir}));
+                outputText("There are stairs leading " + name + "."+annotate({"type":"dir","dir":rawDir}));
             } else if (dir.type == "passage") {
-                console.log("There is a passage leading " + name + "."+annotate({"type":"dir","dir":rawDir}));
+                outputText("There is a passage leading " + name + "."+annotate({"type":"dir","dir":rawDir}));
             } else if (dir.type == "path") {
-                console.log("There is a path leading " + name + "."+annotate({"type":"dir","dir":rawDir}));
+                outputText("There is a path leading " + name + "."+annotate({"type":"dir","dir":rawDir}));
             } else if (dir.door) {
                 if (dir.open) {
-                    console.log("To the " + name + " is open " + game.getDoor(dir.door).name+annotate({"type":"dir","dir":rawDir}));
+                    outputText("To the " + name + " is open " + game.getDoor(dir.door).name+annotate({"type":"dir","dir":rawDir}));
                 } else {
-                    console.log("To the " + name + " is " + game.getDoor(dir.door).name+annotate({"type":"dir","dir":rawDir}));
+                    outputText("To the " + name + " is " + game.getDoor(dir.door).name+annotate({"type":"dir","dir":rawDir}));
                 }
             } else {
                 if( dir.direction ) {
                     if( dir.direction > 0 ) {
-                        console.log("To the " + name + " is passage leading up."+annotate({"type":"dir","dir":rawDir}));
+                        outputText("To the " + name + " is passage leading up."+annotate({"type":"dir","dir":rawDir}));
                     } else {
-                        console.log("To the " + name + " is passage leading down."+annotate({"type":"dir","dir":rawDir}));
+                        outputText("To the " + name + " is passage leading down."+annotate({"type":"dir","dir":rawDir}));
                     }
                 } else {                
-                    console.log("To the " + name + " is " + (game.getLocation(dir.location).name || game.getLocation(dir.location).description) + "."+annotate({"type":"dir","dir":rawDir}));
+                    outputText("To the " + name + " is " + (game.getLocation(dir.location).name || game.getLocation(dir.location).description) + "."+annotate({"type":"dir","dir":rawDir}));
                 }
             }
         };
         if( !loc ) {
-            console.log("Null for "+locationId);
+            outputText("Null for "+locationId);
         }
         if( loc.type == "void") {
             if (loc.name) {
-                console.log(chalk.bold(loc.name));
+                outputText(chalk.bold(loc.name));
             } else if (loc.description) {
-                console.log(loc.description);
+                outputText(loc.description);
             }
             
         } else {
@@ -386,27 +390,27 @@ module.exports = function ltbl(settings) {
                     var topLoc = locationId.split("/")[0];
                     var topLocType = topLocationTypes[game.getLocation(topLoc).type];
                     if( topLocType ) {
-                        console.log(topLocType.membership+" "+game.getLocation(topLoc).name+annotate({"type":"location.topLoc","location":topLoc }));
+                        outputText(topLocType.membership+" "+game.getLocation(topLoc).name+annotate({"type":"location.topLoc","location":topLoc }));
                     }
                 }
                 if(loc.type)
-                    console.log("Type: "+chalk.bold(loc.type)+annotate({"type":"location.type"}));
+                    outputText("Type: "+chalk.bold(loc.type)+annotate({"type":"location.type"}));
                 else
-                    console.log("Type: "+chalk.bold("inside")+annotate({"type":"location.type"}));
+                    outputText("Type: "+chalk.bold("inside")+annotate({"type":"location.type"}));
             }
             if (loc.name) {
-                console.log(chalk.bold(loc.name)+annotate({"type":"location.name"}));
+                outputText(chalk.bold(loc.name)+annotate({"type":"location.name"}));
             } else if(game.pov.isGod && !depth ) {
-                console.log(chalk.bold("No name")+annotate({"type":"location.name"}));
+                outputText(chalk.bold("No name")+annotate({"type":"location.name"}));
             }
             if (loc.description) {
                 var roomDescription = loc.description;
                 if( game.pov.isGod && settings.spellCorrect ) {
                     roomDescription = spellCorrectText(roomDescription);
                 } 
-                console.log(roomDescription+annotate({"type":"location.description"}));
+                outputText(roomDescription+annotate({"type":"location.description"}));
             } else if(game.pov.isGod&& !depth ) {
-                console.log(chalk.bold("No description")+annotate({"type":"location.description"}));
+                outputText(chalk.bold("No description")+annotate({"type":"location.description"}));
             }
         }
         if (loc.contains) {
@@ -441,7 +445,7 @@ module.exports = function ltbl(settings) {
                 if (where) {
                     contains += " " + where + ".";
                 }
-                console.log(contains);
+                outputText(contains);
             }
         }
         if (loc.wall) {
@@ -484,7 +488,7 @@ module.exports = function ltbl(settings) {
             for( var _npc in game.npc) {
                 var  ni = game.getNpc(_npc);
                 if( ni.location == locationId ) {
-                    console.log(ni.name+" is here."+annotate({"type":"npc","npc":_npc}));
+                    outputText(ni.name+" is here."+annotate({"type":"npc","npc":_npc}));
                 }
             }
         }
@@ -636,13 +640,38 @@ module.exports = function ltbl(settings) {
         if( connectedVoid.count > 1 ) {
             var newRoomMap = {};
             // Create rooms for all the voids....
+            var minRow = 1000 , minCol = 1000, maxRow = 0, maxCol = 0;
+            for( var voidRoom in connectedVoid.voids ) {
+                var srcRoom = connectedVoid.voids[voidRoom];
+
+                if( Number.isFinite(srcRoom.row) && Number.isFinite(srcRoom.col) ) {
+                    if( maxRow < srcRoom.row ) {
+                        maxRow = srcRoom.row;
+                    } 
+                    if( maxCol < srcRoom.col ) {
+                        maxCol = srcRoom.col;
+                    }
+                    if( minRow > srcRoom.row ) {
+                        minRow = srcRoom.row;
+                    } 
+                    if( minCol > srcRoom.col ) {
+                        minCol = srcRoom.col;
+                    }
+                }
+            }
             for( var voidRoom in connectedVoid.voids ) {
                 var _name = parts.name;
                 var roomDesc = data.room;
                 var srcRoom = connectedVoid.voids[voidRoom];
                 var suffix = srcRoom.edge;
                 if( !suffix && Number.isFinite(srcRoom.row) && Number.isFinite(srcRoom.col) ) {
-                    suffix = "r"+srcRoom.row+"c"+srcRoom.col;
+                    if( maxCol > minCol && maxRow > minRow ) {
+                       suffix = "r"+srcRoom.row+"c"+srcRoom.col;
+                    } else if( maxRow > minRow ) {
+                        suffix = "r"+srcRoom.row;
+                    } else if( maxCol > minCol ) {
+                        suffix = "c"+srcRoom.col;
+                    }
                 } else if( !suffix ) {
                     suffix = "part";
                 }
@@ -817,9 +846,9 @@ module.exports = function ltbl(settings) {
                 }
             }
             if( discovered.length > 0 ) {
-                console.log("You discover "+contents(discovered)+" "+preposition+" "+itemPtr.name);
+                outputText("You discover "+contents(discovered)+" "+preposition+" "+itemPtr.name);
             } else {
-                console.log("You find nothing else "+preposition+" "+itemPtr.name);
+                outputText("You find nothing else "+preposition+" "+itemPtr.name);
             }
             return true;
         }
@@ -829,10 +858,10 @@ module.exports = function ltbl(settings) {
             }
         }
         if( discovered.length > 1 ) {
-            console.log("There are "+contents(discovered)+" "+preposition+" "+itemPtr.name);
+            outputText("There are "+contents(discovered)+" "+preposition+" "+itemPtr.name);
             return true;
         } else if( discovered.length == 1 ) {
-            console.log("There is "+contents(discovered)+" "+preposition+" "+itemPtr.name);
+            outputText("There is "+contents(discovered)+" "+preposition+" "+itemPtr.name);
             return true;
         }
         return false;
@@ -842,32 +871,32 @@ module.exports = function ltbl(settings) {
         var itemState = game.getObjectState(item);
         var itemStateAccess = null;
         if (itemPtr.description) {
-            console.log(itemPtr.description);
+            outputText(itemPtr.description);
         } else if(game.pov.isGod) {
             stateMachine = stateMachineFillinCreate(itemPtr,[ {msg:"How would you describe the " + item + "?",prop:"description"} ]);
         } else {
-            console.log(itemPtr.name);
+            outputText(itemPtr.name);
         }
         if( itemState ) {
             if( itemState.access ) {
                 itemStateAccess = itemState.access;
             }
             if( itemState.broken ) {
-                console.log("The "+itemPtr.name+" is broken");
+                outputText("The "+itemPtr.name+" is broken");
             } else if( itemState.locked == "locked" ) {
-                console.log("The "+itemPtr.name+" is locked");
+                outputText("The "+itemPtr.name+" is locked");
             } else if( itemState.access == "open" ) {
-                console.log("The "+itemPtr.name+" is open");
+                outputText("The "+itemPtr.name+" is open");
             } else if( itemState.locked == "unlocked" ) {
-                console.log("The "+itemPtr.name+" is unlocked but closed.");
+                outputText("The "+itemPtr.name+" is unlocked but closed.");
             } else if( itemState.access == "closed" ) {
-                console.log("The "+itemPtr.name+" is closed");
+                outputText("The "+itemPtr.name+" is closed");
             }
             if( itemState.lit ) {
-                console.log("The "+itemPtr.name+" is lit.");
+                outputText("The "+itemPtr.name+" is lit.");
             }
             if( itemState.worn ) {
-                console.log("The "+itemPtr.name+" is being worn.");
+                outputText("The "+itemPtr.name+" is being worn.");
             }
         }
         if( itemPtr.supports ) {
@@ -949,7 +978,7 @@ module.exports = function ltbl(settings) {
                 if( statusLine != null ) {
                     screen.push(statusLine);
                 }
-                console.log(screen.join("\n"));
+                outputText(screen.join("\n"));
             }
         }
         if( noVoid ) {
@@ -1016,6 +1045,10 @@ module.exports = function ltbl(settings) {
                      && sm.data.room.length > 1 
                       ) {
                         locationDefine(sm.data);
+                        if( !game.actor.location ) 
+                        {
+                            game.actor.location = game.pov.location;
+                        }
                     }
                 });
             }
@@ -1176,9 +1209,9 @@ module.exports = function ltbl(settings) {
                 if (candidates.length == 1) {
                     itemName = candidates[0];
                 } else if (candidates.length > 1) {
-                    console.log("which " + command + "?");
+                    outputText("which " + command + "?");
                     for (var i = 0; i < candidates.length; ++i) {
-                        console.log(game.getItem(candidates[i]).name);
+                        outputText(game.getItem(candidates[i]).name);
                     }
                     itemName = "?"; // ambiguouse
                 } else if( game.pov.isGod && command.substring(0,1) == "@" ) {                    
@@ -1275,7 +1308,7 @@ module.exports = function ltbl(settings) {
             execute : stateMachineFillin,
             start: stateMachineFillinStart,
             askAbort: function() {
-                console.log("Do you want to quit? (y to quit)");
+                outputText("Do you want to quit? (y to quit)");
             },
             done: function(sm) {
                 var vc = sm.data;
@@ -1322,7 +1355,7 @@ module.exports = function ltbl(settings) {
         var emitResponse = function(response,vc,stateId) {
             if( typeof(response) == "string" ) {
                 annotations = [];
-                console.log( response + annotate({ type:"conv" , npc : vc.npc , action : vc.action , preposition  : vc.preposition , topic : vc.topic }) );
+                outputText( response + annotate({ type:"conv" , npc : vc.npc , action : vc.action , preposition  : vc.preposition , topic : vc.topic }) );
                 return true;
             } else if( response.then ) {
                 var responseIndex = game.state[stateId+".then"];
@@ -1390,7 +1423,7 @@ module.exports = function ltbl(settings) {
                 }
                 if( response.say ) {
                     annotations = [];
-                    console.log( response.say + annotate({ type:"conv" , npc : vc.npc , action : vc.action , preposition  : vc.preposition , topic : vc.topic }));
+                    outputText( response.say + annotate({ type:"conv" , npc : vc.npc , action : vc.action , preposition  : vc.preposition , topic : vc.topic }));
                 }
                 if( response.score ) {
                     if( !game.state[stateId+".score"] ) {
@@ -1399,7 +1432,7 @@ module.exports = function ltbl(settings) {
                             game.state.Score = 0;
                         }
                         game.state.Score = game.state.Score + response.score;
-                        console.log("Score went up by "+response.score+" Points");
+                        outputText("Score went up by "+response.score+" Points");
                     }
                 }
                 //if( response.die ) {
@@ -1488,18 +1521,18 @@ module.exports = function ltbl(settings) {
                     roomPtr.type = ltype;
                 }
             } else if( !roomPtr.type && ltype == "inside" ) {
-                console.log("Yes it is.");
+                outputText("Yes it is.");
             } else if( roomPtr.type == ltype ) {
-                console.log("Yes it is.");
+                outputText("Yes it is.");
             } else {
-                console.log("No, it isn't.");
+                outputText("No, it isn't.");
             }
         } else {
-            console.log("You are nowhere.");
+            outputText("You are nowhere.");
         }
     };
     var noUnderstand = function() {
-        console.log("What was that?");
+        outputText("What was that?");
     };
     var dontSee = function (what,locationId,command) {
         var dontCare = noCareAbout(locationId,what);
@@ -1508,16 +1541,16 @@ module.exports = function ltbl(settings) {
                 if( command.indexOf(what) >= 0 ) {
                     command = command.split(what).join("the "+dontCare[0]);
                 }
-                console.log("You cannot " + command);
+                outputText("You cannot " + command);
             } else {
-                console.log("I don't know what you want me to do with the " + dontCare[0]);
+                outputText("I don't know what you want me to do with the " + dontCare[0]);
             }
         } else {
-            console.log("You see no " + what);
+            outputText("You see no " + what);
         }
     };
     var dontSeeNpc = function (npc,locationId,command) {
-        console.log("You dont see " + npc);
+        outputText("You dont see " + npc);
     };
     var clearVoid = function() {
         var voidCounter = 1;
@@ -1777,31 +1810,31 @@ module.exports = function ltbl(settings) {
             if( ip ) {
                 var noPostures = true;                
                 if( ip.name ) {
-                    console.log(chalk.bold("Name\n"+ip.name)+" "+annotate({"type":"item.name","item":anno.item}))
+                    outputText(chalk.bold("Name\n"+ip.name)+" "+annotate({"type":"item.name","item":anno.item}))
                 } else {
-                    console.log(chalk.bold("Name\nnone")+" "+annotate({"type":"item.name","item":anno.item}))
+                    outputText(chalk.bold("Name\nnone")+" "+annotate({"type":"item.name","item":anno.item}))
                 }
-                console.log(chalk.bold("Description"));
+                outputText(chalk.bold("Description"));
                 if( ip.description ) {
-                    console.log(ip.description+annotate({"type":"item.description","item":anno.item}))
+                    outputText(ip.description+annotate({"type":"item.description","item":anno.item}))
                 } else {
-                    console.log("No description"+annotate({"type":"item.description","item":anno.item}))
+                    outputText("No description"+annotate({"type":"item.description","item":anno.item}))
                 }
-                console.log(chalk.bold("Content"));
+                outputText(chalk.bold("Content"));
                 if( ip.content ) {
-                    console.log(ip.content+annotate({"type":"item.content","item":anno.content}))
+                    outputText(ip.content+annotate({"type":"item.content","item":anno.content}))
                 } else {
-                    console.log("No readable content"+annotate({"type":"item.content","item":anno.item}))
+                    outputText("No readable content"+annotate({"type":"item.content","item":anno.item}))
                 }
                 if( ip.postures ) {
                     if( ip.postures.length ) {
-                        console.log(chalk.bold("Nested Room Supported Postures"))
-                        console.log(ip.postures.join(",")+annotate({"type":"item.postures","item":anno.item}))
+                        outputText(chalk.bold("Nested Room Supported Postures"))
+                        outputText(ip.postures.join(",")+annotate({"type":"item.postures","item":anno.item}))
                         noPostures = false;
                     }
                 }
                 if( noPostures ) {
-                    console.log("Not a Nested room"+annotate({"type":"item.postures","item":anno.item}))
+                    outputText("Not a Nested room"+annotate({"type":"item.postures","item":anno.item}))
                 }
                 /*
                 if( ip.contains ) {
@@ -1841,28 +1874,28 @@ module.exports = function ltbl(settings) {
                 var dp = loc[anno.dir];
                 if( dp ) {
                     annotations = [];
-                    console.log(chalk.bold("Location"));
-                    console.log(dp.location+" "+annotate({"type":"dir.location","dir":anno.dir}))
-                    console.log(chalk.bold("Type"));
+                    outputText(chalk.bold("Location"));
+                    outputText(dp.location+" "+annotate({"type":"dir.location","dir":anno.dir}))
+                    outputText(chalk.bold("Type"));
                     if( dp.type ) {
-                        console.log(dp.type+" "+annotate({"type":"dir.type","dir":anno.dir}))
+                        outputText(dp.type+" "+annotate({"type":"dir.type","dir":anno.dir}))
                     } else {
-                        console.log("Default "+annotate({"type":"dir.type","dir":anno.dir}))
+                        outputText("Default "+annotate({"type":"dir.type","dir":anno.dir}))
                     }
                     if( dp.wall ) {
-                        console.log("Wall: "+dp.wall+annotate({"type":"dir.wall","dir":anno.dir}));
+                        outputText("Wall: "+dp.wall+annotate({"type":"dir.wall","dir":anno.dir}));
                     } else {
                         if( loc.type == "outside" && game.getLocation(dp.location).type == "outside" ) {
-                            console.log("Wall Default - none outside"+annotate({"type":"dir.wall","dir":anno.dir}));
+                            outputText("Wall Default - none outside"+annotate({"type":"dir.wall","dir":anno.dir}));
                         } else {
-                            console.log("Wall Default - inside wall"+annotate({"type":"dir.wall","dir":anno.dir}));
+                            outputText("Wall Default - inside wall"+annotate({"type":"dir.wall","dir":anno.dir}));
                         }
                     }
                     if( dp.door ) {
-                        console.log(chalk.bold("Door Name"));
-                        console.log(game.getDoor(dp.door).name+" "+annotate({"type":"door.name","door":dp.door}))
-                        console.log(chalk.bold("Door Description"));
-                        console.log(game.getDoor(dp.door).description+" "+annotate({"type":"door.description","door":dp.door}))
+                        outputText(chalk.bold("Door Name"));
+                        outputText(game.getDoor(dp.door).name+" "+annotate({"type":"door.name","door":dp.door}))
+                        outputText(chalk.bold("Door Description"));
+                        outputText(game.getDoor(dp.door).description+" "+annotate({"type":"door.description","door":dp.door}))
                     }
                 }
             }
@@ -1885,10 +1918,10 @@ module.exports = function ltbl(settings) {
             annotations = [];
             var loc =  game.getLocation(anno.location);
             if( loc ) {
-                console.log(chalk.bold("Level Type"));
-                console.log(loc.type+" "+annotate({"type":"topLoc.type","location":anno.location}))
-                console.log(chalk.bold("Level Name"));
-                console.log(loc.name+" "+annotate({"type":"topLoc.name","location":anno.location}))
+                outputText(chalk.bold("Level Type"));
+                outputText(loc.type+" "+annotate({"type":"topLoc.type","location":anno.location}))
+                outputText(chalk.bold("Level Name"));
+                outputText(loc.name+" "+annotate({"type":"topLoc.name","location":anno.location}))
             }
         } else if( anno.type == "dir.location" ) {
             var loc = game.getLocation(game.pov.location);
@@ -1931,17 +1964,17 @@ module.exports = function ltbl(settings) {
             var ni = game.getNpc(anno.npc);
             if( ni ) {
                 annotations = [];
-                console.log(chalk.bold("Name"));
+                outputText(chalk.bold("Name"));
                 if( ni.name ) {
-                    console.log(ni.name+" "+annotate({"type":"npc.name","npc":anno.npc}));
+                    outputText(ni.name+" "+annotate({"type":"npc.name","npc":anno.npc}));
                 } else {
-                    console.log("No Name "+annotate({"type":"npc.name","npc":anno.npc}));
+                    outputText("No Name "+annotate({"type":"npc.name","npc":anno.npc}));
                 }
-                console.log(chalk.bold("Description"));
+                outputText(chalk.bold("Description"));
                 if( ni.description ) {
-                    console.log(ni.description+" "+annotate({"type":"npc.name","npc":anno.npc}));
+                    outputText(ni.description+" "+annotate({"type":"npc.name","npc":anno.npc}));
                 } else {
-                    console.log("No Description "+annotate({"type":"npc.name","npc":anno.npc}));    
+                    outputText("No Description "+annotate({"type":"npc.name","npc":anno.npc}));    
                 }
             }
         } else if( anno.type == "npc.name" ) {
@@ -1984,7 +2017,7 @@ module.exports = function ltbl(settings) {
                         pLoc.contains.push({item:args.iObj})
                     }
                 } else if( !ip ) {
-                    console.log(args.iObj+" was not found!");
+                    outputText(args.iObj+" was not found!");
                 }
                 var listName = null;
                 if( args.preposition == "on") {
@@ -2004,7 +2037,7 @@ module.exports = function ltbl(settings) {
                 } else {
                     ip[listName].push({ item : args.dObj });
                 }
-                console.log("Ok");
+                outputText("Ok");
             },
         },
         {
@@ -2020,7 +2053,7 @@ module.exports = function ltbl(settings) {
                     }
                     pLoc.contains.push({item:args.dObj})
                     var ip = game.getItem(args.dObj);
-                    console.log(ip.name+" has been placed in "+pLoc.name);
+                    outputText(ip.name+" has been placed in "+pLoc.name);
                 }
             }
         },    
@@ -2051,10 +2084,10 @@ module.exports = function ltbl(settings) {
                             }
                         });
                     } else {
-                        console.log("There is no opening to the "+args.direction);
+                        outputText("There is no opening to the "+args.direction);
                     }
                 } else {
-                    console.log("There is no starting location.");
+                    outputText("There is no starting location.");
                 }
             }
         },
@@ -2084,14 +2117,14 @@ module.exports = function ltbl(settings) {
                                 lastLocDir.door = name;
                                 curLocDir.door = name;
                             } else {
-                                console.log("Locations are not paired from "+lastDirection);
+                                outputText("Locations are not paired from "+lastDirection);
                             }
                             game.map = null;
                             describeLocation();
                         }
                     });
                 } else {
-                    console.log("There is no ending location. lastLocation="+lastLocation+" lastDirection="+lastDirection+ " game.pov.location="+game.pov.location);
+                    outputText("There is no ending location. lastLocation="+lastLocation+" lastDirection="+lastDirection+ " game.pov.location="+game.pov.location);
                 }
             }
         },
@@ -2110,7 +2143,7 @@ module.exports = function ltbl(settings) {
                         game.getLocation(game.pov.location)[reverseDirection(lastDirection)] = {location : lastLocation , type : dirCType};
                     }
                 } else {
-                    console.log("There is no starting location.");
+                    outputText("There is no starting location.");
                 }
             }
         }
@@ -2159,18 +2192,18 @@ module.exports = function ltbl(settings) {
                     }
                     game.pov.inventory.push(listPtr[i]);
                     ip[prop].splice(i, 1);                            
-                    console.log("Taken.");
+                    outputText("Taken.");
                     break;
                 }
             }
         } else if(args.preposition == "on") {
-            console.log("There is no "+args.dObj+" on "+ip.name);                    
+            outputText("There is no "+args.dObj+" on "+ip.name);                    
         } else if(args.preposition == "behind") {
-            console.log("There is no "+args.dObj+" behind "+ip.name);                    
+            outputText("There is no "+args.dObj+" behind "+ip.name);                    
         } else if(args.preposition == "under") {
-            console.log("There is no "+args.dObj+" under "+ip.name);                    
+            outputText("There is no "+args.dObj+" under "+ip.name);                    
         } else {
-            console.log("There is no "+args.dObj+" in "+ip.name);
+            outputText("There is no "+args.dObj+" in "+ip.name);
         }
     };
 
@@ -2190,12 +2223,12 @@ module.exports = function ltbl(settings) {
             }, 
             eval : function(args) {
                 if (game.pov.inventory.length == 0) {
-                    console.log("You are carrying nothing.");
+                    outputText("You are carrying nothing.");
                 } else {
                     annotations = [];
-                    console.log("You are carrying:");
+                    outputText("You are carrying:");
                     for (var i = 0; i < game.pov.inventory.length; ++i) {
-                        console.log(game.getItem(game.pov.inventory[i].item).name+annotate({"type":"item","item":game.pov.inventory[i].item}));
+                        outputText(game.getItem(game.pov.inventory[i].item).name+annotate({"type":"item","item":game.pov.inventory[i].item}));
                     }
                 }
             }
@@ -2265,7 +2298,7 @@ module.exports = function ltbl(settings) {
                         if (where.contains.length == 0) {
                             delete where.contains;
                         }
-                        console.log("Taken.");
+                        outputText("Taken.");
                         taken = true;
                         break;
                     }
@@ -2312,7 +2345,7 @@ module.exports = function ltbl(settings) {
                     if (where[holder]) {
                         var found = false;
                         var dropped = game.dropObject(dObj);
-                        console.log(dropped.response);
+                        outputText(dropped.response);
                         if( dropped.found ) {                            
                             if (args.verb == "!hide") {
                                 objRef.hidden = true;
@@ -2322,10 +2355,10 @@ module.exports = function ltbl(settings) {
                             where[holder].push(objRef);
                         }        
                     } else {
-                        console.log("You cannot place "+what.name+" "+args.preposition+" "+where.name);
+                        outputText("You cannot place "+what.name+" "+args.preposition+" "+where.name);
                     }
                 } else {
-                    console.log("You don't see "+ args.iObj+"!");   
+                    outputText("You don't see "+ args.iObj+"!");   
                 }
             }
         },
@@ -2363,14 +2396,14 @@ module.exports = function ltbl(settings) {
                     itemStateLock = objState.lock;
                 }
                 if( itemStateAccess == "open" ) {
-                    console.log("The " + ip.name + " is already open");
+                    outputText("The " + ip.name + " is already open");
                 } else if( itemStateLock == "locked" ) {
-                    console.log("The " + ip.name + " is locked");
+                    outputText("The " + ip.name + " is locked");
                 } else if( itemStateAccess == "closed" ) {
                     game.setObjectState(args.dObj,"access","open");
-                    console.log("Ok, you opened the " + ip.name);
+                    outputText("Ok, you opened the " + ip.name);
                 } else {
-                    console.log(ip.name + " cannot be opened.");
+                    outputText(ip.name + " cannot be opened.");
                 }
            }
         },
@@ -2390,13 +2423,13 @@ module.exports = function ltbl(settings) {
                 }
                 if( itemStateAccess == "open" ) {
                     game.setObjectState(args.dObj,"access","closed");
-                    console.log("Ok, you closed the " + ip.name);
+                    outputText("Ok, you closed the " + ip.name);
                 } else if( itemStateAccess == "closed" ) {
-                    console.log("The " + ip.name + " is already closed");
+                    outputText("The " + ip.name + " is already closed");
                 } else if( itemStateLock == "locked" ) {
-                    console.log("The " + ip.name + " is not open");
+                    outputText("The " + ip.name + " is not open");
                 } else {
-                    console.log(ip.name + " cannot be closed.");
+                    outputText(ip.name + " cannot be closed.");
                 }
             }
         },
@@ -2419,19 +2452,19 @@ module.exports = function ltbl(settings) {
                 }
                 if( ip.key != args.iObj ) {
                     if( ip.key ) {
-                        console.log("The " + kp.name + " doesn't fit "+ip.dObj);
+                        outputText("The " + kp.name + " doesn't fit "+ip.dObj);
                     } else {
-                        console.log("The " + kp.name + " cannot be locked");
+                        outputText("The " + kp.name + " cannot be locked");
                     }
                 } else if( itemStateLock == "locked" ) {
-                    console.log("The " + ip.name + " is already locked");
+                    outputText("The " + ip.name + " is already locked");
                 } else if( itemStateAccess == "open" ) {
                     game.setObjectState(args.dObj,"access","closed");
                     game.setObjectState(args.dObj,"lock","locked");
-                    console.log("First closing, " + ip.name + " is now locked");
+                    outputText("First closing, " + ip.name + " is now locked");
                 } else {
                     game.setObjectState(args.dObj,"lock","locked");
-                    console.log("Ok, " + ip.name + " is now locked");
+                    outputText("Ok, " + ip.name + " is now locked");
                 }
             },
             godEval: function(args) {
@@ -2439,7 +2472,7 @@ module.exports = function ltbl(settings) {
                 var kp = game.getItem(args.iObj);
                 ip.key = args.iObj;
                 ip.state = "locked";
-                console.log("Ok, " + ip.name + " is now keyed to "+kp.name);
+                outputText("Ok, " + ip.name + " is now keyed to "+kp.name);
             }
         },
         {
@@ -2459,15 +2492,15 @@ module.exports = function ltbl(settings) {
                 }                
                 if( ip.key != args.iObj ) {
                     if( ip.key ) {
-                        console.log("The " + kp.name + " doesn't fit "+ip.dObj);
+                        outputText("The " + kp.name + " doesn't fit "+ip.dObj);
                     } else {
-                        console.log("The " + kp.name + " cannot be unlocked");
+                        outputText("The " + kp.name + " cannot be unlocked");
                     }
                 } else if( itemStateLock != "locked" ) {
-                    console.log("The " + ip.name + " is not locked");
+                    outputText("The " + ip.name + " is not locked");
                 } else {
                     game.setObjectState(args.dObj,"lock","unlocked");
-                    console.log("Ok, " + ip.name + " is now unlocked");
+                    outputText("Ok, " + ip.name + " is now unlocked");
                 }
             }
         },
@@ -2479,15 +2512,15 @@ module.exports = function ltbl(settings) {
             eval : function(args) {
                 var ip = game.getItem(args.dObj);
                 if (ip.content) {
-                    console.log(ip.content);
+                    outputText(ip.content);
                 } else {
-                    console.log("There is nothing written on the "+ip.name);
+                    outputText("There is nothing written on the "+ip.name);
                 }
             },
             godEval: function(args) {
                 var ip = game.getItem(args.dObj);
                 if (ip.content) {
-                    console.log(ip.content);
+                    outputText(ip.content);
                 } else {
                     stateMachine = stateMachineFillinCreate(ip,[ {msg:"What do you see written on " + ip.name + "?",prop:"content"} ]);
                 }
@@ -2501,15 +2534,15 @@ module.exports = function ltbl(settings) {
             eval : function(args) {
                 var ip = game.getItem(args.dObj);
                 if (ip.smell && ip.smell.description ) {
-                    console.log(ip.smell.description);
+                    outputText(ip.smell.description);
                 } else {
-                    console.log("You notice no smell in particular.");
+                    outputText("You notice no smell in particular.");
                 }
             },
             godEval: function(args) {
                 var ip = game.getItem(args.dObj);
                 if (ip.smell && ip.smell.description ) {
-                    console.log(ip.smell.description);
+                    outputText(ip.smell.description);
                 } else {
                     if( !ip.smell ) {
                         ip.smell = {};
@@ -2526,15 +2559,15 @@ module.exports = function ltbl(settings) {
             eval : function(args) {
                 var ip = game.getItem(args.dObj);
                 if (ip.touch && ip.touch.description ) {
-                    console.log(ip.touch.description);
+                    outputText(ip.touch.description);
                 } else {
-                    console.log("You don't notice anything out of the ordinary.");
+                    outputText("You don't notice anything out of the ordinary.");
                 }
             },
             godEval: function(args) {
                 var ip = game.getItem(args.dObj);
                 if (ip.touch && ip.touch.description ) {
-                    console.log(ip.touch.description);
+                    outputText(ip.touch.description);
                 } else {
                     if( !ip.touch ) {
                         ip.touch = {};
@@ -2551,15 +2584,15 @@ module.exports = function ltbl(settings) {
             eval : function(args) {
                 var ip = game.getItem(args.dObj);
                 if (ip.sound && ip.sound.description ) {
-                    console.log(ip.sound.description);
+                    outputText(ip.sound.description);
                 } else {
-                    console.log("You don't notice any sound.");
+                    outputText("You don't notice any sound.");
                 }
             },
             godEval: function(args) {
                 var ip = game.getItem(args.dObj);
                 if (ip.sound && ip.sound.description ) {
-                    console.log(ip.sound.description);
+                    outputText(ip.sound.description);
                 } else {
                     if( !ip.sound ) {
                         ip.sound = {};
@@ -2576,9 +2609,9 @@ module.exports = function ltbl(settings) {
             eval : function(args) {
                 var ip = game.getItem(args.dObj);
                 if (ip && ip.type ==  "food" ) {
-                    console.log(game.dropObject(args.dObj).response);
+                    outputText(game.dropObject(args.dObj).response);
                 } else {
-                    console.log("You cannot eat "+ip.name+".");
+                    outputText("You cannot eat "+ip.name+".");
                 }
             }
         },
@@ -2592,13 +2625,13 @@ module.exports = function ltbl(settings) {
                 if (ip && ip.type ==  "wearable" ) {
                     var is = game.getObjectState(args.dObj);
                     if( is.worn ) {
-                        console.log("You area already wearing "+ip.name+".");
+                        outputText("You area already wearing "+ip.name+".");
                     } else {
                         is.worn = true;
-                        console.log("Ok");
+                        outputText("Ok");
                     }
                 } else {
-                    console.log("You cannot wear "+ip.name+".");
+                    outputText("You cannot wear "+ip.name+".");
                 }
             }
         },
@@ -2611,9 +2644,9 @@ module.exports = function ltbl(settings) {
                 var ip = game.getItem(args.dObj);
                 if (ip && ip.worn ) {
                     delete ip.worn;
-                    console.log("Ok.");
+                    outputText("Ok.");
                 } else {
-                    console.log("You are not wearing "+ip.name+".");
+                    outputText("You are not wearing "+ip.name+".");
                 }
             }
         },
@@ -2627,16 +2660,16 @@ module.exports = function ltbl(settings) {
                 if (ip && ip.type ==  "light" ) {
                     var is = game.getObjectState(args.dObj);
                     if( is.lit && is.lit > 0 ) {
-                        console.log(ip.name+" is already lit.");
+                        outputText(ip.name+" is already lit.");
                     } else if( it.level && ip.level > 0 ) {
                         is.lit = ip.level;
-                        console.log("Ok.");
+                        outputText("Ok.");
                     } else {
                         is.lit = 10;
-                        console.log("Ok.");
+                        outputText("Ok.");
                     }
                 } else {
-                    console.log("You cannot light "+ip.name+".");
+                    outputText("You cannot light "+ip.name+".");
                 }
             }
         },
@@ -2717,6 +2750,15 @@ module.exports = function ltbl(settings) {
                 }
             }
         },   
+        {
+            match: {
+                verb : "!saveplay"
+            },
+            eval : function(args) {
+                game.saveCommands();
+                outputText("Saved");
+            }
+        }
     ];
 
     var parseArg = function(game,pattern,findPatternArgs,argName,name,origCommand) {
@@ -2964,7 +3006,7 @@ module.exports = function ltbl(settings) {
                         findPattern = _pattern;
                         break;    
                     } else if( object1 != "" ) {
-                        console.log("Expected a direction");
+                        outputText("Expected a direction");
                         findPattern = nullPatternHandler;
                         break;
                     }
@@ -2981,6 +3023,8 @@ module.exports = function ltbl(settings) {
     var parseCommand = function (command) {
         if( stateMachine ) {
             // Set of prompts....
+            if( command && command.length > 0 && !stateMachine.aborting )
+               game.logCommand(command);
             var res = stateMachine.execute(stateMachine,command);
             if( res == "next") {
                 stateMachine.state = stateMachine.state + 1;
@@ -2997,6 +3041,8 @@ module.exports = function ltbl(settings) {
             var lCaseWords =  lCase.split(" ");
             var firstWord = lCaseWords[0].trim(); 
             var firstPhrase = null;
+            if( command && command.length > 0 )
+               game.logCommand(command);
             if( game.pov ) {
                 if( game.pov.isGod ) {
                     if( godWordMap.firstWord[firstWord] ) {
@@ -3029,7 +3075,7 @@ module.exports = function ltbl(settings) {
                 }
             }
             if (lCase.trim() == "") {
-                console.log("Pardon?");
+                outputText("Pardon?");
                 describeLocation();
             /*} else if (mode == 'door?') {
                 // TBD make separate commands for door/passage etc Make
@@ -3111,7 +3157,7 @@ module.exports = function ltbl(settings) {
                                 }
                             }
                             if( missingObjects ) {
-                                console.log("Objects were missing, aborted...")
+                                outputText("Objects were missing, aborted...")
                             } else {
                                 for(var i = 0 ; i < createObjects.length ; ++i ) {
                                     var friendlyName = sm.data[createObjects[i]];                                    
@@ -3156,15 +3202,15 @@ module.exports = function ltbl(settings) {
                             var ip = game.getItem(existingItem);
                             if (game.pov.isGod && !ip.type) {
                                 ip.type = thingType;
-                                console.log(command + " is " + thingType + ".");
+                                outputText(command + " is " + thingType + ".");
                             } else if (ip.type != thingType) {
-                                console.log("You cannot " + firstWord + " " + command);
+                                outputText("You cannot " + firstWord + " " + command);
                             } else {
                                 if( !game.pov.isGod ) {
                                     // TBD - add bookkeeping
-                                    console.log("You " + firstWord + " " + command);
+                                    outputText("You " + firstWord + " " + command);
                                 } else {
-                                    console.log(command + " is " + thingType + ".");
+                                    outputText(command + " is " + thingType + ".");
                                 }
                             }
                         } else if (existingItem != "?") {
@@ -3279,7 +3325,7 @@ module.exports = function ltbl(settings) {
                                     }
                                 }
                             } else {
-                                console.log("You cannot go that way.");
+                                outputText("You cannot go that way.");
                             }
                         } else {
                             var isBlocked = false;
@@ -3292,7 +3338,7 @@ module.exports = function ltbl(settings) {
                                 }
                             }
                             if( isBlocked && !game.pov.isGod ) {
-                                console.log("The door is closed!");
+                                outputText("The door is closed!");
                             } else {
                                 if( game.pov.location ) {
                                     if( game.getLocation(game.pov.location).type == "void" && game.getLocation(nextLoc.location).type != "void" ) {
@@ -3365,20 +3411,20 @@ module.exports = function ltbl(settings) {
                                             lastLocDir.door = name;
                                             curLocDir.door = name;
                                         } else {
-                                            console.log("Locations are not paired from "+lastDirection);
+                                            outputText("Locations are not paired from "+lastDirection);
                                         }
                                         game.map = null;
                                         describeLocation();
                                     }
                                 });
                             } else {
-                                console.log("There is no ending location. lastLocation="+lastLocation+" lastDirection="+lastDirection+ " game.pov.location="+game.pov.location);
+                                outputText("There is no ending location. lastLocation="+lastLocation+" lastDirection="+lastDirection+ " game.pov.location="+game.pov.location);
                             }
                         } else {
-                            console.log("There is no opening to the "+lCase);
+                            outputText("There is no opening to the "+lCase);
                         }
                     } else {
-                        console.log("There is no starting location.");
+                        outputText("There is no starting location.");
                     }
                 } else if ( (firstWord == "!makepath" || firstWord == "!makepassage" || firstWord == "!makestairs") && game.pov.isGod ) {
                     if( lastLocation ) {
@@ -3391,7 +3437,7 @@ module.exports = function ltbl(settings) {
                             game.getLocation(game.pov.location)[reverseDirection(lastDirection)] = {location : lastLocation , type : dirCType};
                         }
                     } else {
-                        console.log("There is no starting location.");
+                        outputText("There is no starting location.");
                     }*/
                 } else if (lCase == "location outside" || lCase == "is outside") {                    
                     setLocationType("outside");
@@ -3410,12 +3456,12 @@ module.exports = function ltbl(settings) {
                 } else if (lCase == "location") {
                     if (game.pov.location) {
                         if (game.getLocation(game.pov.location).type) {
-                            console.log("Location is " + game.getLocation(game.pov.location).type + ".");
+                            outputText("Location is " + game.getLocation(game.pov.location).type + ".");
                         } else {
-                            console.log("Location is inside.");
+                            outputText("Location is inside.");
                         }
                     } else {
-                        console.log("You are nowhere.");
+                        outputText("You are nowhere.");
                     }
 
                 } else if( firstWord == "then") {
@@ -3461,10 +3507,10 @@ module.exports = function ltbl(settings) {
                                 }
                             }
                         } else {
-                            console.log("then requires a prior action");    
+                            outputText("then requires a prior action");    
                         }
                     } else {
-                        console.log("then what?");
+                        outputText("then what?");
                     }
                 } else if( firstWord == "or" ) {
                     // alt script
@@ -3495,7 +3541,7 @@ module.exports = function ltbl(settings) {
                             }
                         }
                     } else {
-                        console.log("or not.");
+                        outputText("or not.");
                     }
                 } else if( firstWord == "score") {
                     // linear script
@@ -3508,17 +3554,17 @@ module.exports = function ltbl(settings) {
                                 if( ptr ) {
                                     ptr.score = value; 
                                 } else {
-                                    console.log("Must have run a conversation to set an associated score");
+                                    outputText("Must have run a conversation to set an associated score");
                                 }
                             }
                         } else {
-                            console.log("Must be in game.god mode to set score");
+                            outputText("Must be in game.god mode to set score");
                         }
                     } else {
                         if( game.state.Score ) {
-                            console.log("Score: "+game.state.Score);
+                            outputText("Score: "+game.state.Score);
                         } else {
-                            console.log("Score: 0");
+                            outputText("Score: 0");
                         }
                     }
                 } else if ( firstWord == "acquire" && game.pov.isGod ) {
@@ -3530,12 +3576,12 @@ module.exports = function ltbl(settings) {
                         if( ptr ) {
                             ptr.give = existingItem; 
                         } else {
-                            console.log("Must have run a conversation to acquire an item");
+                            outputText("Must have run a conversation to acquire an item");
                         }                
                     } else if( existingItem != "?" ) {
-                        console.log(command+" does not exist");
+                        outputText(command+" does not exist");
                     } else {
-                        console.log("????");
+                        outputText("????");
                     }                
                 } else if ( 
                     firstWord == "!sit" 
@@ -3573,15 +3619,15 @@ module.exports = function ltbl(settings) {
                                     }
                                 }
                             } else if( allowPosture(ip,firstWord) ) {
-                                console.log("You "+firstWord + " on " + ip.name + ".");
+                                outputText("You "+firstWord + " on " + ip.name + ".");
                             } else if( game.pov.isGod ) {
                                 if( !ip.postures ) {
                                     ip.postures = [];
                                 }
                                 ip.postures.push(firstWord);
-                                console.log("You can now "+firstWord + " on " + ip.name + ".");
+                                outputText("You can now "+firstWord + " on " + ip.name + ".");
                             } else {
-                                console.log("You cannot "+firstWord + " on " + ip.name + ".");
+                                outputText("You cannot "+firstWord + " on " + ip.name + ".");
                             }
                         } else if (existingItem != "?") {
                             dontSee(command,game.pov.location,origCommand);
@@ -3594,17 +3640,17 @@ module.exports = function ltbl(settings) {
                         {
                             var list = game.findLocations(command);
                             for( var i = 0 ; i < list.length ; ++i ) {
-                                console.log(chalk.bold(list[i]));
+                                outputText(chalk.bold(list[i]));
                                 console.dir(game.getLocation(list[i]),{ depth : 6 , colors : true});                                
                             }
                             list = findItems(command);
                             for( var i = 0 ; i < list.length ; ++i ) {
-                                console.log(chalk.bold(list[i]));
+                                outputText(chalk.bold(list[i]));
                                 console.dir(game.getItem(list[i]), { depth : 6 , colors : true});
                             }
                             list = findNPCs(command);
                             for( var i = 0 ; i < list.length ; ++i ) {
-                                console.log(chalk.bold(list[i]));
+                                outputText(chalk.bold(list[i]));
                                 console.dir(game.getNpc(list[i]), { depth : 6 , colors : true});
                             }
                         }
@@ -3619,7 +3665,7 @@ module.exports = function ltbl(settings) {
                 } else if ( game.pov.isGod && firstWord == "nocare") {
                     // test 'I don't care for a room
                     if( game.pov.location ) {
-                        console.log(noCareAbout(game.pov.location));
+                        outputText(noCareAbout(game.pov.location));
                     }
                 } else if (firstWord == "map") {
                     if( game.pov.isGod ) {
@@ -3658,7 +3704,7 @@ module.exports = function ltbl(settings) {
                             }
                         }
                     } else {
-                        console.log("You don't have a map");
+                        outputText("You don't have a map");
                     }
                 } else if ( firstWord == "b" ) {
                     if( game.pov.isGod ) {
@@ -3680,7 +3726,7 @@ module.exports = function ltbl(settings) {
                                 }
                                 game.pov = game.god;
                             } else {
-                                console.log("God mode not available.")
+                                outputText("God mode not available.")
                             }
                         } else if( command == game.actor.name ) {
                             if( game.pov.isGod ) {
@@ -3695,14 +3741,14 @@ module.exports = function ltbl(settings) {
                             game.pov = game.actor;
                         }
                     } else {
-                        console.log("You are "+game.pov.name);
+                        outputText("You are "+game.pov.name);
                     }
                 } else if (lCase == "save") {
                     game.saveFile();
                 } else if (  '0' < firstWord[0] && firstWord[0] <= '9' && game.pov.isGod ) {
                     var index = Number.parseInt(firstWord);
                     if( index > annotations.length || index < 1 ) {
-                        console.log("No footnote "+index+" defined");
+                        outputText("No footnote "+index+" defined");
                     } else {
                         doAnnotation(annotations[index-1]);
                     }
@@ -3710,12 +3756,12 @@ module.exports = function ltbl(settings) {
                     if (lCase.split(" ").length > 1) {
                         lCase = lCase.split(" ")[1];
                         if( helpText.subtopic[lCase]) {
-                            console.log(helpText.subtopic[lCase].help.join("\n"));                            
+                            outputText(helpText.subtopic[lCase].help.join("\n"));                            
                         } else {
-                            console.log("Unrecognized help category '"+lCase+"'\n"+helpText.help.join("\n"));
+                            outputText("Unrecognized help category '"+lCase+"'\n"+helpText.help.join("\n"));
                         }
                     } else {
-                        console.log(helpText.help.join("\n"));
+                        outputText(helpText.help.join("\n"));
                     }
                 } else {
                     var verb = lCase.split(" ")[0];
@@ -3736,7 +3782,7 @@ module.exports = function ltbl(settings) {
                             }
                         }
                     } else {
-                        console.log("Command not handled");
+                        outputText("Command not handled");
                     }
                 }
             }
@@ -3754,7 +3800,10 @@ module.exports = function ltbl(settings) {
                 game.map = game.createMap();
                 renderMap =  game.renderMapLevelText();
             } else {
-                if( game.allowGodMode ) {
+                if( settings.action == "play") {
+                    game.pov = game.actor;
+                    game.allowGodMode = false;
+                } else if( game.allowGodMode ) {
                     renderMap =  game.renderMapLevelText();
                     describeLocation(false);
                     godGame = game;
@@ -3765,7 +3814,7 @@ module.exports = function ltbl(settings) {
     };
     var exportTads = function (folder) {
         var generate = require("./generate-tads");
-        generate({ folder : folder , settings : settings , metadata : game.metadata, actor : game.actor, getLocation : function(name) { return game.getLocation(name); } , locations : game.locations , items : game.items , npc : game.npc });
+        generate({ folder : folder , settings : settings , metadata : game.metadata, game : game , actor : game.actor, getLocation : function(name) { return game.getLocation(name); } , locations : game.locations , items : game.items , npc : game.npc });
     }
     return {
         describe: describeLocation,

@@ -5,6 +5,7 @@ const path = require("path");
 module.exports = function(args) {
     var folder = args.folder;
     var settings = args.settings;
+    var game = args.game;
     var metadata = args.metadata;
     var actor = args.actor;
     var getLocation = args.getLocation;
@@ -12,11 +13,31 @@ module.exports = function(args) {
     var doors = args.doors;
     var items = args.items;
     var npc = args.npc;
-    var topics = args.topics;
     var reservedNames = require("./reserved.json");
     var helper = require("./helper.js")();
     var getPartsOfSpeech = helper.getPartsOfSpeech;
     var directionTags = helper.directionTags();
+    var safePrefixAdd = function(prefix,loc) {
+        if( prefix ) {
+            return prefix+"/"+loc;
+        }
+        return loc;
+    };
+    var cleanupSymName = function(name) {
+        name = name.split("/");
+        if( name.length > 1 ) {
+            for(var i = 1 ; i < name.length ; ++i ) {
+                name[i] = name[i][0].toUpperCase() + name[i].substring(1);
+            }
+            name = name.join("");
+        } else {
+            name = name[0];
+        }
+        if (reservedNames[name]) {
+            name = reservedNames[name];
+        }
+        return name;
+    };
 
     var generateTads = function (tadsSrc) {
         var main = path.parse(settings.filename).name + ".t";
@@ -39,11 +60,8 @@ module.exports = function(args) {
         ];
         var emitItem = function (it, depth, props) {
             var _srcLines = []
-            var ip = items[it];
-            var oName = it;
-            if (reservedNames[oName]) {
-                oName = reservedNames[oName];
-            }
+            var ip = game.getItem(it);
+            var oName = cleanupSymName(it);
             if (depth > 0) {
                 oName = ("+++++++++++++++++".substring(0, depth)) + " " + oName;
             }
@@ -133,10 +151,7 @@ module.exports = function(args) {
         };
         var itemEmitted = {};
         var emitCharacter = function (_actor) {
-            var roomDObj = _actor.location;
-            if (reservedNames[roomDObj]) {
-                roomDObj = reservedNames[roomDObj];
-            }
+            var roomDObj = cleanupSymName(_actor.location);
             var actorType = "Person";            
             if( _actor.name == actor.name ) {
                 actorType = "Actor";
@@ -336,24 +351,18 @@ module.exports = function(args) {
                     }
                 }
             }
-            if (reservedNames[dir.location]) {
-                return reservedNames[dir.location];
-            }
-            return dir.location.split(".").join("");
+            return cleanupSymName(dir.location);
         };
         var  emitRooms = function( _locations , prefix) {
             for (loc in _locations) {
                 var room = _locations[loc];
                 if( room.locations ) {
-                    emitRooms(room.locations,prefix+loc);
+                    emitRooms(room.locations,safePrefixAdd(prefix,loc));
                     if(!room.description ) {
                         continue;
                     }
                 }
-                var roomDObj = prefix+loc;
-                if (reservedNames[roomDObj]) {
-                    roomDObj = reservedNames[roomDObj];
-                }
+                var roomDObj = cleanupSymName(safePrefixAdd(prefix,loc));
                 if (room.type == "outside") {
                     srcLines.push(roomDObj + ": OutdoorRoom");
                 } else if (room.type == "dark") {

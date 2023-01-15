@@ -63,6 +63,27 @@ module.exports = class Game {
         this.mapScale = null;
         this.pov = this.actor;
         this.allowGodMode = true;
+        this.rememberCommands = true;
+        this.commands = [];
+    }
+    //---------------------
+    logCommand(command) {
+        if( this.rememberCommands ) {
+           this.commands.push(command);
+        }
+    }
+    saveCommands() {
+        if( this.commands.length ) {
+            var fs = require("fs");
+            var path = require("path");
+            var count = 1;
+            var baseName = path.dirname(this.settings.filename)+"/transcript_";
+            while( fs.existsSync(baseName+count+".txt") )
+                ++count;
+            fs.writeFile(baseName+count+".txt",this.commands.join("\r\n"),function(err) { if(err) console.log("Error writing play file "+err); });    
+            return true;
+        }
+        return false;
     }
     //------------------
     recalcLocation(_map, location) {
@@ -118,7 +139,7 @@ module.exports = class Game {
                 this.locations = obj.locations;
                 this.items = obj.items;
                 this.npc = obj.npc;
-                if( obj.god ) {
+                if( obj.god && this.settings.action != "play" ) {
                     this.allowGodMode = true;
                     this.god = obj.god;
                     this.pov = this.god;
