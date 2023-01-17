@@ -186,6 +186,32 @@ module.exports = function ltbl(settings) {
         return txt;
         //"₀₁₂₃₄₅₆₇₈₉₍₎₊₋₌"
     };
+    var esPlural = ["s", "ss", "sh", "ch", "x", "z"];
+    var singularFromPlural = function(wrd) {
+         wrd = wrd.trim();   
+        if( wrd.length > 3 && wrd.substring(wrd.length-2) == "es" ) {
+            for( var i = 0 ; i < esPlural.length ; ++i ) {
+                if( wrd.substring(wrd.length-2-esPlural[i].length) == esPlural[i]+"es" ) {
+                    return wrd.substring(0,wrd.length-2);
+                }
+            }
+        }  
+        if( wrd.substring(wrd.length-1) == "s" ) {
+            return wrd.substring(0,wrd.length-1);
+        }
+        return wrd; 
+    };
+    var pluralFromSingular  = function(wrd) {
+        wrd = wrd.trim();
+        if( wrd.length > 1 ) {
+            for( var i = 0 ; i < esPlural.length ; ++i ) {
+                if( wrd.substring(wrd.length-2) == esPlural[i] ) {
+                    return wrd+"es";
+                }
+            }
+        }
+        return wrd+"s"; 
+    };
     return {
         camelCase : camelCase,
         extractNounAndAdj : extractNounAndAdj,
@@ -193,6 +219,8 @@ module.exports = function ltbl(settings) {
         isVerb : isVerb,
         isArticle : isArticle,
         superScript: superScript,
+        singularFromPlural : singularFromPlural ,
+        pluralFromSingular : pluralFromSingular ,
         directionTags : function() { return ["s", "n", "e", "w", "u", "d", "sw", "se", "nw", "ne"]; }
     }
 };

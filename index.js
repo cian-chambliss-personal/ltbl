@@ -86,7 +86,10 @@ module.exports = function ltbl(settings) {
         "open" : "!open" ,
         "close" : "!close" ,
         "unlock" : "!unlock" ,
-        "lock" : "!lock" 
+        "lock" : "!lock",
+        "buy" : "!buy",
+        "sell" : "!sell",
+        "quit" : "!quit" 
         },
         firstTwoWord : {
             "talk to"  : "!talkto",
@@ -237,6 +240,8 @@ module.exports = function ltbl(settings) {
     var getPartsOfSpeech = helper.getPartsOfSpeech;
     var isVerb = helper.isVerb;
     var isArticle = helper.isArticle;
+    var singularFromPlural = helper.singularFromPlural;
+    var pluralFromSingular = helper.pluralFromSingular;
     var invalidateMap = function() {
         game.map = null;
         render(game.getLocation(game.pov.location),game.pov.location, 0);
@@ -435,7 +440,10 @@ module.exports = function ltbl(settings) {
                     var ip = game.getItem(_contains[i].item);
                     if( ip ) {
                         var iname = ip.name;
-                        if ("AEIOUYW".indexOf(iname[0]))
+                        if( _contains[i].scalar && _contains[i].scalar > 1 ) {
+                            iname = " " + _contains[i].scalar + " " + ip.plural;
+                        }
+                        else if ("AEIOUYW".indexOf(iname[0]))
                             contains += " a ";
                         else
                             contains += " an ";
@@ -830,7 +838,12 @@ module.exports = function ltbl(settings) {
                 if( text != "" ) {
                     text = text + " , ";
                 }
-                text = text + game.getItem(list[i].item).name;
+                var ip = game.getItem(list[i].item);
+                if( list[i].scalar && list[i].scalar > 1 ) {
+                    text = text + "" + list[i].scalar + " " + ip.plural;
+                } else {
+                    text = text + ip.name;
+                }
                 if( !disclosedList[list[i].item] ) {
                     // Disclose content for further object interaction
                     disclosedList[list[i].item] = prop+" "+item;
@@ -1995,6 +2008,7 @@ module.exports = function ltbl(settings) {
         {
             match : {
                 verb : [ "!drop","!put","!hide" ],
+                dObjScalar : true,
                 dObj : "create" ,
                 iObj : "create" ,
                 preposition : ["on","from","in","inside","under","behind"]
@@ -2043,6 +2057,7 @@ module.exports = function ltbl(settings) {
         {
             match : {
                 verb : [ "!drop" ],
+                dObjScalar : true,
                 dObj : "create" ,
             } , 
             eval : function(args) {
@@ -2051,7 +2066,11 @@ module.exports = function ltbl(settings) {
                     if( !pLoc.contains ) {
                         pLoc.contains = [];
                     }
-                    pLoc.contains.push({item:args.dObj})
+                    var ip =  {item:args.dObj};
+                    if( args.dObjScalar ) {
+                        ip.scalar = args.dObjScalar;
+                    }
+                    pLoc.contains.push(ip);
                     var ip = game.getItem(args.dObj);
                     outputText(ip.name+" has been placed in "+pLoc.name);
                 }
@@ -2792,21 +2811,26 @@ module.exports = function ltbl(settings) {
                         findPatternArgs.states = [];
                     }
                     findPatternArgs[argName] = name;
-                    var createChoices = [{ text : 'Create new object for "'+name+'"' , value : "<create>" }];
-                    // If items 
-                    var findAll = lookupItem(game.pov.location,"{*}").split("\n");
-                    if( findAll && findAll.length > 0 ) {
-                        if( findAll.length > 1 ) {
-                            var subChoices = [];
-                            for( var i = 0 ; i < findAll.length ; ++i ) {
-                                subChoices.push({text : 'Alias for '+game.getItem(findAll[i]).name , value : findAll[i] });
+                    var createChoices = null;
+                    if( findPatternArgs[argName+"Scalar"]) {
+                        createChoices = [{ text : 'Create a new object type for "'+name+'"' , value : "<createtype>" }]; 
+                    } else {
+                        createChoices = [{ text : 'Create new object for "'+name+'"' , value : "<create>" }];
+                        // If items 
+                        var findAll = lookupItem(game.pov.location,"{*}").split("\n");
+                        if( findAll && findAll.length > 0 ) {
+                            if( findAll.length > 1 ) {
+                                var subChoices = [];
+                                for( var i = 0 ; i < findAll.length ; ++i ) {
+                                    subChoices.push({text : 'Alias for '+game.getItem(findAll[i]).name , value : findAll[i] });
+                                }
+                                subChoices.push({text : 'Return to top' , abort : true });
+                                createChoices.push({text : 'Object is Alias', msg : 'Object '+name, choices : subChoices });
+                            } else if( findAll[0] && findAll[0] != '' ){
+                                createChoices.push({text : 'Alias for '+game.getItem(findAll[0]).name , value : findAll[0] });
                             }
-                            subChoices.push({text : 'Return to top' , abort : true });
-                            createChoices.push({text : 'Object is Alias', msg : 'Object '+name, choices : subChoices });
-                        } else if( findAll[0] && findAll[0] != '' ){
-                            createChoices.push({text : 'Alias for '+game.getItem(findAll[0]).name , value : findAll[0] });
                         }
-                    }                    
+                    }               
                     createChoices.push({text : 'Abort the command' , abort : true});
                     findPatternArgs.states.push({msg:(name+" does not exist"),prop:"new_"+argName,choices : createChoices });
                     return true;
@@ -2819,6 +2843,18 @@ module.exports = function ltbl(settings) {
     };
 
     var nullPatternHandler = { eval : function() {} };
+    var extractScalar = function(obj,origCommand) {
+        var words = obj.split(" ");
+        var scalar = 0;
+        if( words.length > 1 ) {
+            if( '0' <= words[0][0] && words[0][0] <= '9' ) {
+               scalar = Number.parseInt(words[0]);
+               words[0] = "";
+               obj = words.join(" ").trim();
+            }
+        }
+        return { obj :obj , scalar : scalar };
+    };
     var lookupCommandHandle = function(commands,cmd,findPatternArgs) {
         var findPattern = null;
         var firstWord = cmd.firstWord;
@@ -2873,6 +2909,11 @@ module.exports = function ltbl(settings) {
                                 findPattern = _pattern;
                                 break;
                             } else if( _pattern.match.dObj ) {
+                                if( _pattern.match.dObjScalar ) {
+                                    var es = extractScalar(object2,origCommand);
+                                    object2 = es.obj;
+                                    findPatternArgs.dObjScalar = es.scalar;
+                                }
                                 if( !parseArg(game,_pattern,findPatternArgs,"dObj",object2,origCommand) ) {
                                     findPattern = nullPatternHandler;
                                     break;
@@ -2882,6 +2923,11 @@ module.exports = function ltbl(settings) {
                                 break;
                             }
                         } else if( _pattern.match.dObj ) {
+                            if( _pattern.match.dObjScalar ) {
+                                var es = extractScalar(object1,origCommand);
+                                object1 = es.obj;
+                                findPatternArgs.dObjScalar = es.scalar;
+                            }
                             if( !parseArg(game,_pattern,findPatternArgs,"dObj",object1,origCommand) ) {
                                 findPattern = nullPatternHandler;
                                 break;
@@ -2929,6 +2975,11 @@ module.exports = function ltbl(settings) {
                                     findPattern = _pattern;
                                     break;
                                 } else if( _pattern.match.dObj ) {
+                                    if( _pattern.match.dObjScalar ) {
+                                        var es = extractScalar(object2,origCommand);
+                                        object2 = es.obj;
+                                        findPatternArgs.dObjScalar = es.scalar;
+                                    } 
                                     if( !parseArg(game,_pattern,findPatternArgs,"dObj",object2,origCommand) ) {
                                         findPattern = nullPatternHandler;
                                         break;
@@ -2938,6 +2989,11 @@ module.exports = function ltbl(settings) {
                                     break;
                                 }
                             } else if( _pattern.match.dObj ) {
+                                if( _pattern.match.dObjScalar ) {
+                                    var es = extractScalar(object1,origCommand);
+                                    object1 = es.obj;
+                                    findPatternArgs.dObjScalar = es.scalar;
+                                }
                                 if( !parseArg(game,_pattern,findPatternArgs,"dObj",object1,origCommand) ) {
                                     findPattern = nullPatternHandler;
                                     break;
@@ -2956,7 +3012,12 @@ module.exports = function ltbl(settings) {
                                && !_pattern.match.iObj
                                && !_pattern.match.subject
                                  ) {
-                            if( !parseArg(game,_pattern,findPatternArgs,"dObj",object1,origCommand) ) {
+                                    if( _pattern.match.dObjScalar ) {
+                                        var es = extractScalar(object1,origCommand);
+                                        object1 = es.obj;
+                                        findPatternArgs.dObjScalar = es.scalar;
+                                    }
+                                if( !parseArg(game,_pattern,findPatternArgs,"dObj",object1,origCommand) ) {
                                 findPattern = nullPatternHandler;
                                 break;
                             }                            
@@ -2978,7 +3039,12 @@ module.exports = function ltbl(settings) {
                             preposition = null;
                         }
                     }
-                } else if( _pattern.match.dObj ) {                            
+                } else if( _pattern.match.dObj ) {
+                    if( _pattern.match.dObjScalar ) {
+                        var es = extractScalar(object1,origCommand);
+                        object1 = es.obj;
+                        findPatternArgs.dObjScalar = es.scalar;
+                    }
                     if( !parseArg(game,_pattern,findPatternArgs,"dObj",object1,origCommand) ) {
                         findPattern = nullPatternHandler;
                         break;
@@ -3031,9 +3097,6 @@ module.exports = function ltbl(settings) {
             } else if( res != "retry")
                 stateMachine = null;
             return true;    
-        }       
-        if (lCase == 'quit' || lCase == 'exit') {
-            return false;
         } else {
             var origCommand = command;
             var lCase = command;
@@ -3074,7 +3137,9 @@ module.exports = function ltbl(settings) {
                     lCaseWords =  lCase.split(" ");
                 }
             }
-            if (lCase.trim() == "") {
+            if( firstWord == "!quit") {
+                return false;
+            } else if (lCase.trim() == "") {
                 outputText("Pardon?");
                 describeLocation();
             /*} else if (mode == 'door?') {
@@ -3135,10 +3200,14 @@ module.exports = function ltbl(settings) {
                         stateMachine = stateMachineFillinCreate(findPatternArgs,findPatternArgs.states,function(sm) {
                             var missingObjects = false;
                             var createObjects = [];
+                            var objectTypes = {};
                             for(var prop in sm.data ) {
                                 if( prop.substring(0,4) == "new_") {
                                     if( sm.data[prop] ) {
-                                        if( sm.data[prop] == "<create>" ) {
+                                        if( sm.data[prop] == "<create>" || sm.data[prop] == "<createtype>" ) {
+                                            if( sm.data[prop] == "<createtype>" ) {
+                                                objectTypes[prop.substring(4)] = true;
+                                            }
                                             createObjects.push(prop.substring(4));
                                         } else {
                                             var aliasName = sm.data[prop.substring(4)];
@@ -3162,8 +3231,17 @@ module.exports = function ltbl(settings) {
                                 for(var i = 0 ; i < createObjects.length ; ++i ) {
                                     var friendlyName = sm.data[createObjects[i]];                                    
                                     var name = extractNounAndAdj(friendlyName);
-                                    name = game.getUniqueItemName(name,"item",game.util.calcCommonPrefix(game.pov.location,game.pov.location));
-                                    game.setItem(name,{ name: friendlyName });
+                                    if( !name ) {
+                                        name = friendlyName;
+                                    }
+                                    if( objectTypes[createObjects[i]] ) {
+                                        name = singularFromPlural(name);
+                                        name = game.getUniqueItemName(name,"item");
+                                        game.setItem(name,{ name: name , plural : pluralFromSingular(name) , multiple : true});
+                                    } else {
+                                        name = game.getUniqueItemName(name,"item",game.util.calcCommonPrefix(game.pov.location,game.pov.location));
+                                        game.setItem(name,{ name: friendlyName });
+                                    }
                                     sm.data[createObjects[i]] = name;
                                 }
                                 // Create game.items
