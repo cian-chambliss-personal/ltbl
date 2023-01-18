@@ -2075,7 +2075,72 @@ module.exports = function ltbl(settings) {
                     outputText(ip.name+" has been placed in "+pLoc.name);
                 }
             }
-        },    
+        },
+        {
+            match : {
+                verb : ["!give","!show"],
+                dObj : "*",
+                subject : "createnpc",
+                article : ["the","a","an","my"," "]
+            } ,
+            eval : function(args) {
+                if( args.verb == "!give" )
+                    verbCommand.action = "give";
+                else
+                    verbCommand.action = "show";
+                verbCommand.npc = args.subject;
+                verbCommand.topic = args.dObj;
+                if( !processScript() ) {
+                    defineScript();
+                }
+            }
+        },
+        {
+            match : {
+                verb : ["!talkto","!ask","!tell"],
+                dObj : "topic",
+                subject : "createnpc",
+                preposition: ["about","for"]
+            } ,
+            eval : function(args) {
+                if( args.verb == "!talkto" )
+                    verbCommand.action = "talkto";
+                else if( args.verb == "!tell" )
+                    verbCommand.action = "tell";
+                else
+                    verbCommand.action = "ask";
+                verbCommand.npc = args.subject;
+                verbCommand.topic = args.dObj;
+                verbCommand.preposition = args.preposition;
+                if( !processScript() ) {
+                    defineScript();
+                }
+            }
+        },
+        {
+            match : {
+                verb : ["!talkto","!hi","!bye","!leave","!notice"],
+                subject : "createnpc"
+            } ,
+            eval : function(args) {
+                if( args.verb == "!hi" )
+                    verbCommand.action = "hi";
+                else if( args.verb == "!bye" )
+                    verbCommand.action = "bye";
+                else if( args.verb == "!leave" )
+                    verbCommand.action = "leave";
+                else if( args.verb == "!notice" )
+                    verbCommand.action = "notice";
+                else
+                    verbCommand.action = "talkto";
+                verbCommand.npc = args.subject;
+                verbCommand.topic = null;
+                verbCommand.preposition = null;
+                if( !processScript() ) {
+                    defineScript();
+                }
+            }
+        },
         {
             match : {
                 verb : "!makedoor",
@@ -2733,11 +2798,7 @@ module.exports = function ltbl(settings) {
                 verbCommand.topic = args.dObj;
                 verbCommand.preposition = args.preposition;
                 if( !processScript() ) {
-                    if (game.pov.isGod ) {
-                        defineScript();
-                    } else {
-                        noUnderstand();
-                    }
+                    noUnderstand();
                 }
             }
         },       
@@ -2761,11 +2822,7 @@ module.exports = function ltbl(settings) {
                 verbCommand.topic = null;
                 verbCommand.preposition = null;
                 if( !processScript() ) {
-                    if (game.pov.isGod ) {
-                        defineScript();
-                    } else {
-                        noUnderstand();
-                    }
+                    noUnderstand();
                 }
             }
         },   
@@ -2792,6 +2849,16 @@ module.exports = function ltbl(settings) {
                 objName = objName[0];
                 findPatternArgs[argName] = objName;
                 return true;
+            } else if( pattern.match[argName] == "createnpc" ) {
+                // Add a state
+                if( !findPatternArgs.states ) {
+                    findPatternArgs.states = [];
+                }
+                findPatternArgs[argName] = name;
+                createChoices = [{ text : 'Create new player called "'+name+'"' , value : "<createnpc>" }];
+                createChoices.push({text : 'Abort the command' , abort : true});
+                findPatternArgs.states.push({msg:(name+" does not exist"),prop:"new_"+argName,choices : createChoices });
+                return true;       
             } else {
                 dontSeeNpc(name,game.pov.location,origCommand);                
             }
@@ -3200,6 +3267,7 @@ module.exports = function ltbl(settings) {
                         stateMachine = stateMachineFillinCreate(findPatternArgs,findPatternArgs.states,function(sm) {
                             var missingObjects = false;
                             var createObjects = [];
+                            var createNPCs = [];
                             var objectTypes = {};
                             for(var prop in sm.data ) {
                                 if( prop.substring(0,4) == "new_") {
@@ -3209,6 +3277,8 @@ module.exports = function ltbl(settings) {
                                                 objectTypes[prop.substring(4)] = true;
                                             }
                                             createObjects.push(prop.substring(4));
+                                        } else if( sm.data[prop] == "<createnpc>" ) {
+                                            createNPCs.push(prop.substring(4));
                                         } else {
                                             var aliasName = sm.data[prop.substring(4)];
                                             var aliasItem = game.getItem(sm.data[prop]);
@@ -3243,6 +3313,17 @@ module.exports = function ltbl(settings) {
                                         game.setItem(name,{ name: friendlyName });
                                     }
                                     sm.data[createObjects[i]] = name;
+                                }
+                                for( var i = 0 ; i < createNPCs.length ; ++i ) {
+                                    var friendlyName = sm.data[createNPCs[i]];
+                                    var newNPC = friendlyName.toLowerCase().trim();
+                                    _npc = {
+                                        name : newNPC ,
+                                        description : friendlyName ,
+                                        location : game.pov.location 
+                                    };
+                                    game.setNpc(camelCase(newNPC),_npc);
+                                    sm.data[createNPCs[i]] = newNPC;
                                 }
                                 // Create game.items
                                 sm.data.pattern.eval(sm.data);
