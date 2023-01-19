@@ -49,56 +49,57 @@ module.exports = function(settings) {
             if( sm.state >= sm.states.length ) {
                 if( sm.done ) {
                     sm.done(sm);
+                }             
+            } else {
+                while( sm.states[sm.state].test ) {
+                    var testResult = sm.states[sm.state].test(sm,command);
+                    if( testResult == "expand" ) {
+                        // expand the commands & make new start of the state array
+                        var newStates = sm.states[sm.state].states.filter(() => true);
+                        if( (sm.state+1) < sm.states.length ) {
+                            newStates = newStates.concat(sm.states.slice(sm.state+1)); 
+                        }
+                        sm.state = 0;
+                        sm.states = newStates;
+                        if( newStates.length == 0 ) {
+                            if( sm.doAbort ) {
+                                sm.doAbort(sm);
+                            }
+                            if( sm.done ) {
+                                sm.done(sm);
+                            }
+                            return "abort";
+                        }
+                    } else if( testResult.substring(0,7) == "expand." ) {
+                        // Branching (alternate state)
+                        testResult = testResult.substring(7);
+                        var newStates = sm.states[sm.state][testResult].filter(() => true);
+                        if( (sm.state+1) < sm.states.length ) {
+                            newStates = newStates.concat(sm.states.slice(sm.state+1)); 
+                        }
+                        sm.state = 0;
+                        sm.states = newStates;
+                        if( newStates.length == 0 ) {
+                            if( sm.doAbort ) {
+                                sm.doAbort(sm);
+                            }
+                            if( sm.done ) {
+                                sm.done(sm);
+                            }
+                            return "abort";
+                        }
+                    } else if( testResult == "execute" ) {
+                        break;
+                    } else {
+                        sm.state = sm.state + 1;
+                        if( (sm.state+1) >= sm.states.length ) {
+                            if( sm.done ) {
+                                sm.done(sm);
+                            }
+                            return "abort";
+                        }
+                    } 
                 }
-            }
-            while( sm.states[sm.state].test ) {
-                var testResult = sm.states[sm.state].test(sm,command);
-                if( testResult == "expand" ) {
-                    // expand the commands & make new start of the state array
-                    var newStates = sm.states[sm.state].states.filter(() => true);
-                    if( (sm.state+1) < sm.states.length ) {
-                        newStates = newStates.concat(sm.states.slice(sm.state+1)); 
-                    }
-                    sm.state = 0;
-                    sm.states = newStates;
-                    if( newStates.length == 0 ) {
-                        if( sm.doAbort ) {
-                            sm.doAbort(sm);
-                        }
-                        if( sm.done ) {
-                            sm.done(sm);
-                        }
-                        return "abort";
-                    }
-                } else if( testResult.substring(0,7) == "expand." ) {
-                    // Branching (alternate state)
-                    testResult = testResult.substring(7);
-                    var newStates = sm.states[sm.state][testResult].filter(() => true);
-                    if( (sm.state+1) < sm.states.length ) {
-                        newStates = newStates.concat(sm.states.slice(sm.state+1)); 
-                    }
-                    sm.state = 0;
-                    sm.states = newStates;
-                    if( newStates.length == 0 ) {
-                        if( sm.doAbort ) {
-                            sm.doAbort(sm);
-                        }
-                        if( sm.done ) {
-                            sm.done(sm);
-                        }
-                        return "abort";
-                    }
-                } else if( testResult == "execute" ) {
-                    break;
-                } else {
-                    sm.state = sm.state + 1;
-                    if( (sm.state+1) >= sm.states.length ) {
-                        if( sm.done ) {
-                            sm.done(sm);
-                        }
-                        return "abort";
-                    }
-                } 
             }
         };
         if( sm.aborting ) {
@@ -115,6 +116,9 @@ module.exports = function(settings) {
             return "retry";
         }
         advanceTest();
+        if( sm.state >= sm.states.length ) {
+            return "abort";
+        }
         var curState = sm.states[sm.state];
         var parentState = null;
         if( sm.nested ) {
