@@ -403,18 +403,18 @@ module.exports = function ltbl(settings) {
                     outputText("Type: "+chalk.bold("inside")+annotate({"type":"location.type"}));
             }
             if (loc.name) {
-                outputText(chalk.bold(loc.name)+annotate({"type":"location.name"}));
+                outputText("Name: "+chalk.bold(loc.name)+annotate({"type":"location.name"}));
             } else if(game.pov.isGod && !depth ) {
-                outputText(chalk.bold("No name")+annotate({"type":"location.name"}));
+                outputText("Name: "+chalk.bold("No name")+annotate({"type":"location.name"}));
             }
             if (loc.description) {
                 var roomDescription = loc.description;
                 if( game.pov.isGod && settings.spellCorrect ) {
                     roomDescription = spellCorrectText(roomDescription);
                 } 
-                outputText(roomDescription+annotate({"type":"location.description"}));
+                outputText("Description: "+roomDescription+annotate({"type":"location.description"}));
             } else if(game.pov.isGod&& !depth ) {
-                outputText(chalk.bold("No description")+annotate({"type":"location.description"}));
+                outputText("Description: "+chalk.bold("No description")+annotate({"type":"location.description"}));
             }
         }
         if (loc.contains) {
