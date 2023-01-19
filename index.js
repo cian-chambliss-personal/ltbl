@@ -1403,7 +1403,7 @@ module.exports = function ltbl(settings) {
                         game.state[stateId+".or"] = 0;
                     }
                 } else {
-                    if( !emitResponse( response.then[0],vc,stateId ) )
+                    if( !emitResponse( response.or[0],vc,stateId ) )
                         return false;
                     if( response.or.length > 1 ) {
                         game.state[stateId+".or"] = 1;
@@ -3690,23 +3690,48 @@ module.exports = function ltbl(settings) {
                                 // TBD - also look for game.items (for verbs like push/pull etc)...
                                 if( _npc ) {
                                     if( _npc.conversation[verbCommand.action] ) {
-                                        if( _npc.conversation[verbCommand.action][verbCommand.topic] ) {
-                                            var modResponse = _npc.conversation[verbCommand.action][verbCommand.topic].response;
-                                            if( typeof(modResponse) == "string" ) {
-                                                modResponse = { "or" : [modResponse,command] };
-                                            } else {
-                                                if( !modResponse.or && !modResponse.then) {
+                                        if( verbCommand.topic ) {
+                                            if( _npc.conversation[verbCommand.action][verbCommand.topic] ) {
+                                                var modResponse = _npc.conversation[verbCommand.action][verbCommand.topic].response;
+                                                if( typeof(modResponse) == "string" ) {
                                                     modResponse = { "or" : [modResponse,command] };
-                                                } else if( !modResponse.or ) {
-                                                    modResponse.or = [];
+                                                } else {
+                                                    if( !modResponse.or && !modResponse.then) {
+                                                        modResponse = { "or" : [modResponse,command] };
+                                                    } else if( !modResponse.or ) {
+                                                        modResponse.or = [];
+                                                    }
+                                                    modResponse.or.push(command);
                                                 }
-                                                modResponse.or.push(command);
-                                            }
-                                            _npc.conversation[verbCommand.action][verbCommand.topic].response = modResponse;
+                                                _npc.conversation[verbCommand.action][verbCommand.topic].response = modResponse;
+                                            } 
+                                        } else {
+                                            if( _npc.conversation[verbCommand.action] ) {
+                                                var modResponse = _npc.conversation[verbCommand.action].response;
+                                                if( typeof(modResponse) == "string" ) {
+                                                    modResponse = { "or" : [modResponse,command] };
+                                                } else {
+                                                    if( !modResponse.or && !modResponse.then) {
+                                                        modResponse = { "or" : [modResponse,command] };
+                                                    } else if( !modResponse.or ) {
+                                                        modResponse.or = [];
+                                                    }
+                                                    modResponse.or.push(command);
+                                                }
+                                                _npc.conversation[verbCommand.action].response = modResponse;
+                                            } 
                                         }
+                                    } else {
+                                        console.log("No action defined");
                                     }
+                                } else {
+                                    console.log("Need a NPC");
                                 }
+                            } else {
+                                console.log("Expected prose to follow 'or'.")
                             }
+                        } else {
+                            console.log("Need an action");
                         }
                     } else {
                         outputText("or not.");
@@ -3935,6 +3960,7 @@ module.exports = function ltbl(settings) {
                     var verb = lCase.split(" ")[0];
                     if ( isVerb(verb) ) {
                         // TBD register actions (and consequences)
+                        /*
                         verbCommand.action = verb;
                         verbCommand.npc = null;
                         verbCommand.topic = null;    
@@ -3948,7 +3974,8 @@ module.exports = function ltbl(settings) {
                             } else {
                                 noUnderstand();
                             }
-                        }
+                        }*/
+                        noUnderstand();
                     } else {
                         outputText("Command not handled ");
                     }
