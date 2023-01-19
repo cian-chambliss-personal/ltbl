@@ -17,7 +17,6 @@ module.exports = function ltbl(settings) {
          }
       }
      */
-    var stateMachine = null;
     var annotations = []; 
     var outputText = function(txt) {
         console.log(txt);
@@ -886,7 +885,7 @@ module.exports = function ltbl(settings) {
         if (itemPtr.description) {
             outputText(itemPtr.description);
         } else if(game.pov.isGod) {
-            stateMachine = stateMachineFillinCreate(itemPtr,[ {msg:"How would you describe the " + item + "?",prop:"description"} ]);
+            game.stateMachine = stateMachineFillinCreate(itemPtr,[ {msg:"How would you describe the " + item + "?",prop:"description"} ]);
         } else {
             outputText(itemPtr.name);
         }
@@ -1001,8 +1000,8 @@ module.exports = function ltbl(settings) {
                 }
             }
         }        
-        if (!game.metadata.title && !stateMachine ) {            
-            stateMachine = {
+        if (!game.metadata.title && !game.stateMachine ) {            
+            game.stateMachine = {
                 state : 0 ,
                 data : game.metadata ,
                 states : [
@@ -1015,12 +1014,12 @@ module.exports = function ltbl(settings) {
                 start: stateMachineFillinStart,
                 done: function(sm) { game.saveFile(); }
             };
-            stateMachine.start(stateMachine);
+            game.stateMachine.start(game.stateMachine);
          } else if (game.pov.location && !noVoid ) {
             render(game.getLocation(game.pov.location),game.pov.location, 0);
         } else {            
             if( lastNonVoid ) {
-                stateMachine = stateMachineFillinCreate({},[
+                game.stateMachine = stateMachineFillinCreate({},[
                     {msg:"Enter name for this location?",prop:"room"}
                 ],function(sm) {
                     if( sm.data.room  && sm.data.room.length > 1  ) {
@@ -1039,7 +1038,7 @@ module.exports = function ltbl(settings) {
                 });
             } else {
                 // First in            
-                stateMachine = stateMachineFillinCreate({},[
+                game.stateMachine = stateMachineFillinCreate({},[
                     {msg:"What kind of level?",prop:"type",choices:topLocationMenu},
                     { test : 
                         function(sm) { 
@@ -1314,7 +1313,7 @@ module.exports = function ltbl(settings) {
         } else {
             states.push({ msg : "whats the response for '"+verbCommand.action+"'?" , prop : "response"});
         }
-        stateMachine = {
+        game.stateMachine = {
             state : 0 ,
             data : verbCommand ,
             states : states,
@@ -1350,18 +1349,26 @@ module.exports = function ltbl(settings) {
                             } else {
                                 _npc.conversation[vc.action][vc.topic] = { response : vc.response };
                             }
+                            console.log('"'+vc.response+'"');
                         } else if( vc.action == "talkto" || vc.action == "hi" || vc.action == "bye" || vc.action == "leave" || vc.action == "notice" ) {
                             if( !_npc.conversation ) {
                                 _npc.conversation = {};
                             }
-                            _npc.conversation[vc.action] = { response : vc.response };    
+                            _npc.conversation[vc.action] = { response : vc.response };
+                            console.log('"'+vc.response+'"');    
+                        } else {
+                            console.log("**Bad action");
                         }
+                    } else {
+                        console.log("**No NPC")
                     }
+                } else {
+                    console.log("npc parameter not defined");
                 }
             }
         };
-        if( !stateMachine.start(stateMachine) ) {
-            stateMachine = null;
+        if( !game.stateMachine.start(game.stateMachine) ) {
+            game.stateMachine = null;
         }
     };
     var processScript = function() {
@@ -1764,7 +1771,7 @@ module.exports = function ltbl(settings) {
             choices.push({text:prompt,value:"*"});
         }
         if( choices.length > 1 ) {
-            stateMachine = stateMachineFillinCreate({word:'',fix:''},[
+            game.stateMachine = stateMachineFillinCreate({word:'',fix:''},[
                 {msg:"Change description:",prop:"word",choices:choices},
                 { test : function(sm) { 
                         if(sm.data.word == "*") 
@@ -1812,7 +1819,7 @@ module.exports = function ltbl(settings) {
                 render(game.getLocation(game.pov.location),game.pov.location, 0);
             });
         } else {
-            stateMachine = stateMachineFillinCreate(obj,[ {msg:prompt,prop:prop} ],invalidateMap);
+            game.stateMachine = stateMachineFillinCreate(obj,[ {msg:prompt,prop:prop} ],invalidateMap);
         }
     };
     var doAnnotation = function(anno) {
@@ -1864,7 +1871,7 @@ module.exports = function ltbl(settings) {
         } else if( anno.type == "item.name" ) {
             var ip = game.getItem(anno.item);
             if( ip ) {
-                stateMachine = stateMachineFillinCreate(ip,[{msg:"Change item name:",prop:"name"}]);
+                game.stateMachine = stateMachineFillinCreate(ip,[{msg:"Change item name:",prop:"name"}]);
             }
         } else if( anno.type == "item.description" ) {
             var ip = game.getItem(anno.item);
@@ -1879,7 +1886,7 @@ module.exports = function ltbl(settings) {
         } else if( anno.type == "item.postures" ) {
             var ip = game.getItem(anno.item);
             if( ip ) {
-                stateMachine = stateMachineFillinCreate(ip,[{msg:"Supported postures:",prop:"postures",choices:postureTypeList,multiple:true}]);
+                game.stateMachine = stateMachineFillinCreate(ip,[{msg:"Supported postures:",prop:"postures",choices:postureTypeList,multiple:true}]);
             }            
         } else if( anno.type == "dir" ) {
             var loc = game.getLocation(game.pov.location);
@@ -1915,7 +1922,7 @@ module.exports = function ltbl(settings) {
         } else if( anno.type == "location.name" ) {
             var loc = game.getLocation(game.pov.location);
             if( loc ) {
-                stateMachine = stateMachineFillinCreate(loc,[{msg:"Change location name:",prop:"name"}],invalidateMap);
+                game.stateMachine = stateMachineFillinCreate(loc,[{msg:"Change location name:",prop:"name"}],invalidateMap);
             }
         } else if( anno.type == "location.description" ) {
             var loc = game.getLocation(game.pov.location);
@@ -1925,7 +1932,7 @@ module.exports = function ltbl(settings) {
         } else if( anno.type == "location.type" ) {
             var loc = game.getLocation(game.pov.location);
             if( loc ) {
-                stateMachine = stateMachineFillinCreate(loc,[{msg:"Change location type:",prop:"type",choices:roomTypesMenu}],invalidateMap);
+                game.stateMachine = stateMachineFillinCreate(loc,[{msg:"Change location type:",prop:"type",choices:roomTypesMenu}],invalidateMap);
             }
         } else if( anno.type == "location.topLoc" ) {
             annotations = [];
@@ -1951,7 +1958,7 @@ module.exports = function ltbl(settings) {
             if( loc ) {
                 var dp = loc[anno.dir];
                 if( dp ) {
-                    stateMachine = stateMachineFillinCreate(dp,[{msg:"Change location type:",prop:"type",choices:dirTypesMenu}]);
+                    game.stateMachine = stateMachineFillinCreate(dp,[{msg:"Change location type:",prop:"type",choices:dirTypesMenu}]);
                 }
             }
         } else if( anno.type == "dir.wall" ) {
@@ -1966,12 +1973,12 @@ module.exports = function ltbl(settings) {
         } else if( anno.type == "door.name" ) {
             var dp = game.getDoor(anno.door);
             if(dp) {                
-                stateMachine = stateMachineFillinCreate(dp,[{msg:"Change door name:",prop:"name"}]);
+                game.stateMachine = stateMachineFillinCreate(dp,[{msg:"Change door name:",prop:"name"}]);
             }
         } else if( anno.type == "door.description" ) {
             var dp = game.getDoor(anno.door);
             if(dp) {                
-                stateMachine = stateMachineFillinCreate(dp,[{msg:"Change door description:",prop:"description"}]);
+                game.stateMachine = stateMachineFillinCreate(dp,[{msg:"Change door description:",prop:"description"}]);
             }
         } else if( anno.type == "npc" ) {
             var ni = game.getNpc(anno.npc);
@@ -1993,12 +2000,12 @@ module.exports = function ltbl(settings) {
         } else if( anno.type == "npc.name" ) {
             var ni = game.getNpc(anno.npc);
             if( ni ) {
-                stateMachine = stateMachineFillinCreate(ni,[{msg:"Change NPC name:",prop:"name"}]);
+                game.stateMachine = stateMachineFillinCreate(ni,[{msg:"Change NPC name:",prop:"name"}]);
             }
         } else if( anno.type == "npc.description" ) {
             var ni = game.getNpc(anno.npc);
             if( ni ) {
-                stateMachine = stateMachineFillinCreate(ni,[{msg:"Change NPC description:",prop:"description"}]);
+                game.stateMachine = stateMachineFillinCreate(ni,[{msg:"Change NPC description:",prop:"description"}]);
             }
         } else if( anno.type == "conv" ) {
             //{ type:"conv" , game.npc : vc.npc , action : vc.action , preposition  : vc.preposition , topic : vc.topic }
@@ -2153,7 +2160,7 @@ module.exports = function ltbl(settings) {
                         lastDirection = args.direction;
                         lastLocation = game.pov.location;
                         game.pov.location = nextLoc.location;
-                        stateMachine = stateMachineFillinCreate({},[
+                        game.stateMachine = stateMachineFillinCreate({},[
                             {msg:"Door name:",prop:"name"}
                         ],function(sm) {
                             if( sm.data.name  && sm.data.name.length > 1  ) {
@@ -2181,7 +2188,7 @@ module.exports = function ltbl(settings) {
             },
             eval : function(args) {
                 if( lastDirection && lastLocation  ) {
-                    stateMachine = stateMachineFillinCreate({},[
+                    game.stateMachine = stateMachineFillinCreate({},[
                         {msg:"Door name:",prop:"name"}
                     ],function(sm) {
                         if( sm.data.name  && sm.data.name.length > 1  ) {
@@ -2606,7 +2613,7 @@ module.exports = function ltbl(settings) {
                 if (ip.content) {
                     outputText(ip.content);
                 } else {
-                    stateMachine = stateMachineFillinCreate(ip,[ {msg:"What do you see written on " + ip.name + "?",prop:"content"} ]);
+                    game.stateMachine = stateMachineFillinCreate(ip,[ {msg:"What do you see written on " + ip.name + "?",prop:"content"} ]);
                 }
             }
         },
@@ -2631,7 +2638,7 @@ module.exports = function ltbl(settings) {
                     if( !ip.smell ) {
                         ip.smell = {};
                     }
-                    stateMachine = stateMachineFillinCreate(ip.smell,[ {msg:"Describe the smell of " + ip.name + "?",prop:"description"} ]);
+                    game.stateMachine = stateMachineFillinCreate(ip.smell,[ {msg:"Describe the smell of " + ip.name + "?",prop:"description"} ]);
                 }
             }
         },
@@ -2656,7 +2663,7 @@ module.exports = function ltbl(settings) {
                     if( !ip.touch ) {
                         ip.touch = {};
                     }
-                    stateMachine = stateMachineFillinCreate(ip.touch,[ {msg:"Describe how " + ip.name + " feels to the touch?",prop:"description"} ]);
+                    game.stateMachine = stateMachineFillinCreate(ip.touch,[ {msg:"Describe how " + ip.name + " feels to the touch?",prop:"description"} ]);
                 }
             }
         },
@@ -2681,7 +2688,7 @@ module.exports = function ltbl(settings) {
                     if( !ip.sound ) {
                         ip.sound = {};
                     }
-                    stateMachine = stateMachineFillinCreate(ip.sound,[ {msg:"Describe how " + ip.name + " sounds?",prop:"description"} ]);
+                    game.stateMachine = stateMachineFillinCreate(ip.sound,[ {msg:"Describe how " + ip.name + " sounds?",prop:"description"} ]);
                 }
             }        
         },
@@ -3154,15 +3161,16 @@ module.exports = function ltbl(settings) {
     };
 
     var parseCommand = function (command) {
-        if( stateMachine ) {
+        if( game.stateMachine ) {
             // Set of prompts....
-            if( command && command.length > 0 && !stateMachine.aborting )
+            if( command && command.length > 0 && !game.stateMachine.aborting )
                game.logCommand(command);
-            var res = stateMachine.execute(stateMachine,command);
+            var saveStatemachine = game.stateMachine;  
+            var res = game.stateMachine.execute(game.stateMachine,command);
             if( res == "next") {
-                stateMachine.state = stateMachine.state + 1;
-            } else if( res != "retry")
-                stateMachine = null;
+                game.stateMachine.state = game.stateMachine.state + 1;
+            } else if( res != "retry" && saveStatemachine == game.stateMachine)
+                game.stateMachine = null;
             return true;    
         } else {
             var origCommand = command;
@@ -3264,7 +3272,7 @@ module.exports = function ltbl(settings) {
                     if( findPatternArgs.states ) {
                         // Prompt for new elements
                         findPatternArgs.pattern = findPattern;                        
-                        stateMachine = stateMachineFillinCreate(findPatternArgs,findPatternArgs.states,function(sm) {
+                        game.stateMachine = stateMachineFillinCreate(findPatternArgs,findPatternArgs.states,function(sm) {
                             var missingObjects = false;
                             var createObjects = [];
                             var createNPCs = [];
@@ -3334,6 +3342,7 @@ module.exports = function ltbl(settings) {
                     } else {
                         findPattern.eval(findPatternArgs);
                     }
+                    
                 } else if ( firstWord == "!eat" 
                          || firstWord == "!wear" 
                          || firstWord == "!light" 
@@ -3941,7 +3950,7 @@ module.exports = function ltbl(settings) {
                             }
                         }
                     } else {
-                        outputText("Command not handled");
+                        outputText("Command not handled ");
                     }
                 }
             }

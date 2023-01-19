@@ -61,6 +61,7 @@ module.exports = class Game {
         this.util = new GameUtility();
         this.map = null;
         this.mapScale = null;
+        this.statemachine = null;
         this.pov = this.actor;
         this.allowGodMode = true;
         this.rememberCommands = true;
