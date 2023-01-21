@@ -36,6 +36,7 @@ module.exports = class Game {
     constructor(_settings) {
         this.settings = _settings;
         this.state = {};
+        this.sourceCode = "";
         this.actor = {
             name : "me",
             inventory: [],
@@ -134,6 +135,7 @@ module.exports = class Game {
         var fs = require("fs");
         fs.readFile(this.settings.filename, (err, data) => {
             if (!err) {
+                this.sourceCode = ""+data;
                 var obj = JSON.parse(data);
                 this.metadata = obj.metadata;
                 this.actor = obj.actor;                
@@ -568,5 +570,23 @@ module.exports = class Game {
             levels[level - bounds.startLevel][row - bounds.startRow][col - bounds.startCol] = loc;
         });
         return { levels: levels, location: { room: this.pov.location, level: -bounds.startLevel, row: -bounds.startRow, col: - bounds.startCol } };
+    }
+    createDumpFile(err) {
+        var dmp = {
+            action :this.settings.action ,
+            filename : this.settings.filename ,
+            source :  this.settings.sourceCode ,
+            commands : this.commands ,
+            error : err.toString(),
+            errorStack : err.stack
+        };
+        dmp = JSON.stringify(dmp);
+        var fs = require("fs");
+        var path = require("path");
+        var count = 1;
+        var baseName = path.dirname(this.settings.filename)+"/dump_";
+        while( fs.existsSync(baseName+count+".txt") )
+            ++count;
+        fs.writeFile(baseName+count+".txt",dmp ,function(err) { if(err) console.log("Error writing play file "+err); });
     }
 };

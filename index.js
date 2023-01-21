@@ -97,7 +97,8 @@ module.exports = function ltbl(settings) {
             "stand up" : "!stand",
             "go in" : "!goin",
             "go inside" : "!goin",
-            "save play" : "!saveplay"
+            "save play" : "!saveplay",
+            "look at": "!examine"
         },
         postures : {
             "stand" : {
@@ -878,14 +879,24 @@ module.exports = function ltbl(settings) {
         }
         return false;
     };
-    var decribeItem = function(item,preposition,search) {
+    var describeNPC = function(npc,preposition,search) {
+        var npcPtr = game.getNpc(npc);
+        if( npcPtr.description ) {
+            outputText(npcPtr.description);
+        } else if(game.pov.isGod) {
+            game.stateMachine = stateMachineFillinCreate(npcPtr,[ {msg:"How would you describe " + npcPtr.name + "?",prop:"description"} ]);
+        } else {
+            outputText(npcPtr.name);
+        }
+    };
+    var describeItem = function(item,preposition,search) {
         var itemPtr = game.getItem(item);
         var itemState = game.getObjectState(item);
         var itemStateAccess = null;
         if (itemPtr.description) {
             outputText(itemPtr.description);
         } else if(game.pov.isGod) {
-            game.stateMachine = stateMachineFillinCreate(itemPtr,[ {msg:"How would you describe the " + item + "?",prop:"description"} ]);
+            game.stateMachine = stateMachineFillinCreate(itemPtr,[ {msg:"How would you describe the " + (itemPtr.name || item) + "?",prop:"description"} ]);
         } else {
             outputText(itemPtr.name);
         }
@@ -2327,20 +2338,37 @@ module.exports = function ltbl(settings) {
         {
             match : {
                 verb : "!examine",
-                dObj : "*",
+                dObj : ["*","npc"],
                 preposition : ["on","under","behind","in","inside"]
             }, 
             eval : function(args) {
-                decribeItem(args.dObj,args.preposition);
+                if( args.dObjType == "npc" ) {
+                    describeNPC(args.dObj,args.preposition);
+                } else {
+                    describeItem(args.dObj,args.preposition);
+                }
             }
         } ,
         {
             match : {
                 verb : "!examine",
-                dObj : "*"
+                dObj : ["*","npc"]
             }, 
             eval : function(args) {
-                decribeItem(args.dObj);                
+                if( args.dObjType == "npc" ) {
+                    describeNPC(args.dObj);
+                } else {
+                    describeItem(args.dObj);
+                }                
+            }
+        } ,
+        {
+            match : {
+                verb : "!examine",
+                dObj : "npc"
+            }, 
+            eval : function(args) {
+                console.dir(args);                
             }
         } ,
         {
@@ -2350,7 +2378,7 @@ module.exports = function ltbl(settings) {
                 preposition : ["on","under","behind","in","inside"]
             }, 
             eval : function(args) {
-                decribeItem(args.dObj,args.preposition,true);
+                describeItem(args.dObj,args.preposition,true);
             }
         } ,
         {
@@ -2359,7 +2387,7 @@ module.exports = function ltbl(settings) {
                 dObj : "*"
             }, 
             eval : function(args) {
-                decribeItem(args.dObj,null,true);
+                describeItem(args.dObj,null,true);
             }
         } ,
         {
@@ -2846,73 +2874,98 @@ module.exports = function ltbl(settings) {
 
     var parseArg = function(game,pattern,findPatternArgs,argName,name,origCommand) {
         var objName = null;
-        if( pattern.match[argName] == "name" || pattern.match[argName] == "topic" ) {
-            // Just use name (will be resolved late)            
-            findPatternArgs[argName] = name;
-            return true;
-        } else if( pattern.match[argName] == "npc" || pattern.match[argName] == "createnpc" ) {
-            objName = findNPCs(name);
-            if( objName.length == 1 ) {
-                objName = objName[0];
-                findPatternArgs[argName] = objName;
-                return true;
-            } else if( pattern.match[argName] == "createnpc" ) {
-                // Add a state
-                if( !findPatternArgs.states ) {
-                    findPatternArgs.states = [];
-                }
+        var argArr = pattern.match[argName];
+        var checkNPC = false;
+        if( !Array.isArray(argArr) ) {
+            argArr = [argArr];
+        }
+        for( var i = 0 ; i < argArr.length ; ++i ) {
+            var argType = argArr[i];
+            if( argType == "name" || argType == "topic" ) {
+                // Just use name (will be resolved late)            
                 findPatternArgs[argName] = name;
-                createChoices = [{ text : 'Create new player called "'+name+'"' , value : "<createnpc>" }];
-                createChoices.push({text : 'Abort the command' , abort : true});
-                findPatternArgs.states.push({msg:(name+" does not exist"),prop:"new_"+argName,choices : createChoices });
-                return true;       
-            } else {
-                dontSeeNpc(name,game.pov.location,origCommand);                
-            }
-        } else {
-            if( pattern.match[argName] == "*" || pattern.match[argName] == "create" ) {
-                objName = lookupItem(game.pov.location,name);
-            } else {
-                objName = lookupItem(game.pov.location,name,pattern.match[argName]);
-            }
-            if( objName && objName != "?") {
-                findPatternArgs[argName] = objName;
+                if( argArr.length > 1 ) {
+                    findPatternArgs[argName+"Type"] = argType; 
+                }
                 return true;
-            } else if( !objName ) {
-                if( pattern.match[argName] == "create" ) {
+            } else if( argType == "npc" || argType == "createnpc" ) {
+                objName = findNPCs(name);
+                if( objName.length == 1 ) {
+                    objName = objName[0];
+                    findPatternArgs[argName] = objName;
+                    if( argArr.length > 1 ) {
+                        findPatternArgs[argName+"Type"] = "npc"; 
+                    }
+                    return true;
+                } else if( argType == "createnpc" ) {
                     // Add a state
                     if( !findPatternArgs.states ) {
                         findPatternArgs.states = [];
                     }
                     findPatternArgs[argName] = name;
-                    var createChoices = null;
-                    if( findPatternArgs[argName+"Scalar"]) {
-                        createChoices = [{ text : 'Create a new object type for "'+name+'"' , value : "<createtype>" }]; 
-                    } else {
-                        createChoices = [{ text : 'Create new object for "'+name+'"' , value : "<create>" }];
-                        // If items 
-                        var findAll = lookupItem(game.pov.location,"{*}").split("\n");
-                        if( findAll && findAll.length > 0 ) {
-                            if( findAll.length > 1 ) {
-                                var subChoices = [];
-                                for( var i = 0 ; i < findAll.length ; ++i ) {
-                                    subChoices.push({text : 'Alias for '+game.getItem(findAll[i]).name , value : findAll[i] });
-                                }
-                                subChoices.push({text : 'Return to top' , abort : true });
-                                createChoices.push({text : 'Object is Alias', msg : 'Object '+name, choices : subChoices });
-                            } else if( findAll[0] && findAll[0] != '' ){
-                                createChoices.push({text : 'Alias for '+game.getItem(findAll[0]).name , value : findAll[0] });
-                            }
-                        }
-                    }               
+                    createChoices = [{ text : 'Create new player called "'+name+'"' , value : "<createnpc>" }];
                     createChoices.push({text : 'Abort the command' , abort : true});
                     findPatternArgs.states.push({msg:(name+" does not exist"),prop:"new_"+argName,choices : createChoices });
+                    if( argArr.length > 1 ) {
+                        findPatternArgs[argName+"Type"] = "npc"; 
+                    }
                     return true;
                 } else {
-                    dontSee(name,game.pov.location,origCommand);
+                    checkNPC = true;
+                }
+            } else {
+                if( argType == "*" || argType == "create" ) {
+                    objName = lookupItem(game.pov.location,name);
+                } else {
+                    objName = lookupItem(game.pov.location,name,argType);
+                }
+                if( objName && objName != "?") {
+                    findPatternArgs[argName] = objName;
+                    if( argArr.length > 1 ) {
+                        findPatternArgs[argName+"Type"] = "item"; 
+                    }
+                    return true;
+                } else if( !objName ) {
+                    if( argType == "create" ) {
+                        // Add a state
+                        if( !findPatternArgs.states ) {
+                            findPatternArgs.states = [];
+                        }
+                        findPatternArgs[argName] = name;
+                        var createChoices = null;
+                        if( findPatternArgs[argName+"Scalar"]) {
+                            createChoices = [{ text : 'Create a new object type for "'+name+'"' , value : "<createtype>" }]; 
+                        } else {
+                            createChoices = [{ text : 'Create new object for "'+name+'"' , value : "<create>" }];
+                            // If items 
+                            var findAll = lookupItem(game.pov.location,"{*}").split("\n");
+                            if( findAll && findAll.length > 0 ) {
+                                if( findAll.length > 1 ) {
+                                    var subChoices = [];
+                                    for( var i = 0 ; i < findAll.length ; ++i ) {
+                                        subChoices.push({text : 'Alias for '+game.getItem(findAll[i]).name , value : findAll[i] });
+                                    }
+                                    subChoices.push({text : 'Return to top' , abort : true });
+                                    createChoices.push({text : 'Object is Alias', msg : 'Object '+name, choices : subChoices });
+                                } else if( findAll[0] && findAll[0] != '' ){
+                                    createChoices.push({text : 'Alias for '+game.getItem(findAll[0]).name , value : findAll[0] });
+                                }
+                            }
+                        }               
+                        createChoices.push({text : 'Abort the command' , abort : true});
+                        findPatternArgs.states.push({msg:(name+" does not exist"),prop:"new_"+argName,choices : createChoices });
+                        if( argArr.length > 1 ) {
+                            findPatternArgs[argName+"Type"] = "item"; 
+                        }
+                        return true;
+                    }
                 }
             }
         }
+        if( checkNPC )
+           dontSeeNpc(name,game.pov.location,origCommand); 
+        else               
+           dontSee(name,game.pov.location,origCommand);
         return false;
     };
 
@@ -4010,11 +4063,15 @@ module.exports = function ltbl(settings) {
     var exportTads = function (folder) {
         var generate = require("./generate-tads");
         generate({ folder : folder , settings : settings , metadata : game.metadata, game : game , actor : game.actor, getLocation : function(name) { return game.getLocation(name); } , locations : game.locations , items : game.items , npc : game.npc });
+    };
+    var createDumpFile = function(err) {
+        game.createDumpFile(err);
     }
     return {
         describe: describeLocation,
         parseCommand: parseCommand,
         loadGame: loadGame,
-        exportTads: exportTads
+        exportTads: exportTads,
+        createDumpFile: createDumpFile
     };
 };
