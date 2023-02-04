@@ -1,10 +1,23 @@
 const path = require("path");
+const { isAsyncFunction } = require("util/types");
 
 //---------------------------------------------------------------------------
-// Generate a TADs source file....
+// Generate a INFORM7 source file....
 module.exports = function(args) {
     var filename = args.filename;
     var settings = args.settings;
+    var informDirection = {
+        "e" : "east",
+        "w" : "west",
+        "n" : "north",
+        "s" : "south",
+        "sw" : "southwest",
+        "se" : "southeast",
+        "nw" : "northwest",
+        "ne" : "northeast",
+        "u" : "up",
+        "d" : "down"
+    };
     var game = args.game;
     var safePrefixAdd = function(prefix,loc) {
         if( prefix ) {
@@ -25,6 +38,8 @@ module.exports = function(args) {
         var informNameMap = {};
         var roomIdToInform = {};
         var _roomName;
+        var generatedRoom = {};
+        var directionHandled = {};
 
         // Find Rooms that require a unique name
         var  collectRooms = function( _locations , prefix) {
@@ -39,9 +54,9 @@ module.exports = function(args) {
                     }
                 }
                 if( !informNameRev[name] ) {
-                    informNameRev[name] = [prefix+loc];
+                    informNameRev[name] = [safePrefixAdd(prefix,loc)];
                 } else {
-                    informNameRev[name].push(prefix+loc);
+                    informNameRev[name].push(safePrefixAdd(prefix,loc));
                 }
                 if( room.locations ) {
                     collectRooms(room.locations,safePrefixAdd(prefix,loc));
@@ -96,12 +111,40 @@ module.exports = function(args) {
                 var uniqueName;
                 for(uniqueName in uniqueNames) {
                     informNameMap[uniqueName] = uniqueNames[uniqueName];
-                    roomIdToInform[uniqueName] = uniqueNames[uniqueName];
+                    roomIdToInform[uniqueNames[uniqueName]] = uniqueName;
                 }
             }
         }
-        for(_roomName in informNameMap ) {
-            src = src + _roomName + " is a room with id "+informNameMap[_roomName]+"\n";
+
+        var startLoc = game.actor.location;
+        if( startLoc ) {
+            var goDirection = function(room,loc,direction,pass) {
+                var goes = room[direction];
+                if( goes ) {
+                    if( pass == 1 ) {
+                        emitRoom(goes.location);
+                    } else if( !directionHandled[direction+":"+loc] ) {
+                       var revDir = game.util.reverseDirection(direction);
+                       directionHandled[revDir+":"+goes.location] = true;
+                       src = src + "The "+roomIdToInform[loc]+" is "+informDirection[revDir]+" of the "+roomIdToInform[goes.location]+".\n";
+                    }
+                }
+            };
+            var emitRoom = function(id) {
+                if( !generatedRoom[id] ) {
+                    generatedRoom[id] = true;
+                    var room = game.getLocation(id);
+                    src = src + "\nThe "+roomIdToInform[id]+" is a room.\n";
+                    for(var pass = 0 ; pass < 2 ; ++pass ) {
+                        for( var dir in informDirection ) {
+                            goDirection(room,id,dir,pass);
+                        }
+                    }
+                }
+            }
+            emitRoom(startLoc);
+        } else {
+            console.log("no starting location.");
         }
         return src;
     };

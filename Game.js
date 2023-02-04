@@ -30,6 +30,21 @@ class GameUtility {
         }
         return null;
     }
+    reverseDirection(dir) {
+        if (dir == "s") return "n";
+        if (dir == "n") return "s";
+        if (dir == "e") return "w";
+        if (dir == "w") return "e";
+        if (dir == "u") return "d";
+        if (dir == "d") return "u";
+        if (dir == "sw") return "ne";
+        if (dir == "se") return "nw";
+        if (dir == "ne") return "sw";
+        if (dir == "nw") return "se";
+        if (dir == "o") return "i";
+        if (dir == "i") return "o";
+        return dir;
+    };
 };
 module.exports = class Game {
     //------------------
