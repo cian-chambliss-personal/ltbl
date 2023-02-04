@@ -4051,6 +4051,14 @@ module.exports = function ltbl(settings) {
                 if( settings.action == "play" || settings.action == "tads" || settings.action == "inform" ) {
                     game.pov = game.actor;
                     game.allowGodMode = false;
+                    if( settings.action == "play" ) {
+                        if( game.metadata.title)
+                           console.log(chalk.bold(game.metadata.title))+"\n";
+                        if( game.metadata.description )   
+                           console.log(game.metadata.description)+"\n";
+                        if( game.metadata.title || game.metadata.description )
+                           console.log("\n");   
+                    }
                 } else if( game.allowGodMode ) {
                     renderMap =  game.renderMapLevelText();
                     describeLocation(false);

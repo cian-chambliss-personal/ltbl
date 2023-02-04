@@ -19,6 +19,9 @@ module.exports = function(args) {
         "d" : "down"
     };
     var game = args.game;
+    var quoted = function(txt) {
+        return '"'+txt+'"';
+    };
     var safePrefixAdd = function(prefix,loc) {
         if( prefix ) {
             return prefix+"/"+loc;
@@ -134,7 +137,14 @@ module.exports = function(args) {
                 if( !generatedRoom[id] ) {
                     generatedRoom[id] = true;
                     var room = game.getLocation(id);
-                    src = src + "\nThe "+roomIdToInform[id]+" is a room.\n";
+                    src = src + "\nThe "+roomIdToInform[id]+" is a room.";
+                    if( room.name && room.name != roomIdToInform[id] ) {
+                        src += ' The printed name is '+quoted(room.name); 
+                    }
+                    if( room.name && room.description && room.name != room.description ) {
+                        src += ' The description is '+quoted(room.description);
+                    }
+                    src = src + "\n";
                     for(var pass = 0 ; pass < 2 ; ++pass ) {
                         for( var dir in informDirection ) {
                             goDirection(room,id,dir,pass);
@@ -143,6 +153,21 @@ module.exports = function(args) {
                 }
             }
             emitRoom(startLoc);
+            if( src.length > 0 ) {
+                var titleSection = ""; 
+                if( game.metadata.author && game.metadata.title ) {
+                    titleSection = quoted(game.metadata.title)+" by "+game.metadata.author+"\n\n";
+                }   
+                if( game.metadata.title ) {
+                    titleSection = titleSection + "The story headline is "+quoted(game.metadata.title)+".  ";
+                }
+                if( game.metadata.description ) {
+                    titleSection = titleSection + "The story description is "+quoted(game.metadata.title)+".  ";
+                }
+                if( titleSection.length ) {
+                    src = titleSection.trim() + "\n\n" + src;
+                }
+            }
         } else {
             console.log("no starting location.");
         }
