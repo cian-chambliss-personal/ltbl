@@ -4048,7 +4048,7 @@ module.exports = function ltbl(settings) {
                 game.map = game.createMap();
                 renderMap =  game.renderMapLevelText();
             } else {
-                if( settings.action == "play") {
+                if( settings.action == "play" || settings.action == "tads" || settings.action == "inform" ) {
                     game.pov = game.actor;
                     game.allowGodMode = false;
                 } else if( game.allowGodMode ) {
@@ -4064,6 +4064,10 @@ module.exports = function ltbl(settings) {
         var generate = require("./generate-tads");
         generate({ folder : folder , settings : settings , metadata : game.metadata, game : game , actor : game.actor, getLocation : function(name) { return game.getLocation(name); } , locations : game.locations , items : game.items , npc : game.npc });
     };
+    var exportInform = function(folder) {
+        var generate = require("./generate-inform");
+        generate({ folder : folder , settings : settings , game : game });
+    }
     var createDumpFile = function(err) {
         game.createDumpFile(err);
     }
@@ -4072,6 +4076,7 @@ module.exports = function ltbl(settings) {
         parseCommand: parseCommand,
         loadGame: loadGame,
         exportTads: exportTads,
+        exportInform: exportInform,
         createDumpFile: createDumpFile
     };
 };
