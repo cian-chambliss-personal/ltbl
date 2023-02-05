@@ -18,6 +18,26 @@ module.exports = function(args) {
         "u" : "up",
         "d" : "down"
     };
+    var informDirectionToProp = {
+        "east" : "e",
+        "west" : "w",
+        "north" : "n",
+        "south" : "s",
+        "southwest" : "sw",
+        "southeast" : "se",
+        "northwest" : "nw",
+        "northeast" : "ne",
+        "up" : "u",
+        "down" : "d"
+    };
+    var hasDirectionInName = function(name) {
+        var wrds = name.toLowerCase().split(" ");
+        for( var i = 0 ; i < wrds.length ; ++i ) {
+            if( informDirectionToProp[wrds[i]] )
+                 return true;
+        }
+        return false;
+    };
     var game = args.game;
     var quoted = function(txt) {
         return '"'+txt+'"';
@@ -42,6 +62,7 @@ module.exports = function(args) {
         var roomIdToInform = {};
         var _roomName;
         var generatedRoom = {};
+        var implicitlyNamedRoom = {};
         var directionHandled = {};
 
         // Find Rooms that require a unique name
@@ -127,9 +148,14 @@ module.exports = function(args) {
                     if( pass == 1 ) {
                         emitRoom(goes.location);
                     } else if( !directionHandled[direction+":"+loc] ) {
-                       var revDir = game.util.reverseDirection(direction);
-                       directionHandled[revDir+":"+goes.location] = true;
-                       src = src + "The "+roomIdToInform[loc]+" is "+informDirection[revDir]+" of the "+roomIdToInform[goes.location]+".\n";
+                        var revDir = game.util.reverseDirection(direction);
+                        directionHandled[revDir+":"+goes.location] = true;
+                        if( hasDirectionInName(roomIdToInform[goes.location]) ) {
+                            implicitlyNamedRoom[roomIdToInform[goes.location]] = true;
+                            src += informDirection[direction]+" of the "+roomIdToInform[loc]+  " is a room called "+roomIdToInform[goes.location]+".\n";
+                        } else {
+                            src += "The "+roomIdToInform[loc]+" is "+informDirection[revDir]+" of the "+roomIdToInform[goes.location]+".\n";
+                        }
                     }
                 }
             };
@@ -137,19 +163,30 @@ module.exports = function(args) {
                 if( !generatedRoom[id] ) {
                     generatedRoom[id] = true;
                     var room = game.getLocation(id);
-                    src = src + "\nThe "+roomIdToInform[id]+" is a room.";
-                    if( room.name && room.name != roomIdToInform[id] ) {
-                        src += ' The printed name is '+quoted(room.name); 
+                    if( !implicitlyNamedRoom[roomIdToInform[id]] ) {
+                        src += "\nThe "+roomIdToInform[id]+" is a room.";
+                        if( room.name && room.name != roomIdToInform[id] ) {
+                            src += ' The printed name is '+quoted(room.name); 
+                        }
+                        if( room.name && room.description && room.name != room.description ) {
+                            src += ' The description is '+quoted(room.description);
+                        }
+                    } else {
+                        if( room.name && room.name != roomIdToInform[id] ) {
+                            src += '\nThe printed name of '+roomIdToInform[id]+' is '+quoted(room.name); 
+                        }
+                        if( room.name && room.description && room.name != room.description ) {
+                            src += '\nThe description of '+roomIdToInform[id]+' is '+quoted(room.description);
+                        }
                     }
-                    if( room.name && room.description && room.name != room.description ) {
-                        src += ' The description is '+quoted(room.description);
-                    }
-                    src = src + "\n";
+                    
+                    src += "\n";
                     for(var pass = 0 ; pass < 2 ; ++pass ) {
                         for( var dir in informDirection ) {
                             goDirection(room,id,dir,pass);
                         }
                     }
+                    src += "\n";
                 }
             }
             emitRoom(startLoc);

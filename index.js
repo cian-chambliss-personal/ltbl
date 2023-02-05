@@ -350,6 +350,11 @@ module.exports = function ltbl(settings) {
         }
         return description;
     };
+    var ifGod = function(txt) {
+        if( game.pov.isGod ) 
+           return txt;
+        return "";
+    };
     var render = function (loc,locationId, depth, where) {
         if( !depth ) {
             annotations = [];
@@ -388,7 +393,6 @@ module.exports = function ltbl(settings) {
             } else if (loc.description) {
                 outputText(loc.description);
             }
-            
         } else {
             if(game.pov.isGod && !depth ) {
                 if( locationId.indexOf("/") > 0 ) {
@@ -403,8 +407,8 @@ module.exports = function ltbl(settings) {
                 else
                     outputText("Type: "+chalk.bold("inside")+annotate({"type":"location.type"}));
             }
-            if (loc.name) {
-                outputText("Name: "+chalk.bold(loc.name)+annotate({"type":"location.name"}));
+            if (loc.name) { 
+                outputText(ifGod("Name: ")+chalk.bold(loc.name)+annotate({"type":"location.name"}));
             } else if(game.pov.isGod && !depth ) {
                 outputText("Name: "+chalk.bold("No name")+annotate({"type":"location.name"}));
             }
@@ -413,7 +417,7 @@ module.exports = function ltbl(settings) {
                 if( game.pov.isGod && settings.spellCorrect ) {
                     roomDescription = spellCorrectText(roomDescription);
                 } 
-                outputText("Description: "+roomDescription+annotate({"type":"location.description"}));
+                outputText(ifGod("Description: ")+roomDescription+annotate({"type":"location.description"}));
             } else if(game.pov.isGod&& !depth ) {
                 outputText("Description: "+chalk.bold("No description")+annotate({"type":"location.description"}));
             }
