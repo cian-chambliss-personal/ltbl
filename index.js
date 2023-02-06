@@ -88,6 +88,7 @@ module.exports = function ltbl(settings) {
         "lock" : "!lock",
         "buy" : "!buy",
         "sell" : "!sell",
+        "understand": "!understand",
         "quit" : "!quit" 
         },
         firstTwoWord : {
@@ -2250,6 +2251,35 @@ module.exports = function ltbl(settings) {
                     }
                 } else {
                     outputText("There is no starting location.");
+                }
+            }
+        },
+        {
+            match: {
+                verb : "!understand",
+                dObj : "name",
+                preposition: "as",
+                iObj : "*"
+            },
+            eval : function(args) {
+                var ip = game.getItem(args.iObj);
+                if( ip ) {
+                    var alreadySet = false;
+                    if( !ip.alias ) {
+                        ip.alias = [];
+                    }
+                    for( var i = 0 ; i < ip.alias.length ; ++i ) {
+                        if( ip.alias[i] == args.dObj ) {
+                            alreadySet = true;
+                            break;
+                        }
+                    }
+                    if( alreadySet ) {
+                        console.log(ip.name+" already known as "+args.iObj);
+                    } else {
+                        ip.alias.push(args.dObj);
+                        console.log("Ok, "+ip.name+" can be called "+args.dObj);
+                    }
                 }
             }
         }
