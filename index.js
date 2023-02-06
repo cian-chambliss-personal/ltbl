@@ -2259,10 +2259,15 @@ module.exports = function ltbl(settings) {
                 verb : "!understand",
                 dObj : "name",
                 preposition: "as",
-                iObj : "*"
+                iObj : ["*","npc"]
             },
             eval : function(args) {
-                var ip = game.getItem(args.iObj);
+                var ip = null;
+                if( args.iObjType == "npc") {
+                    ip = game.getNpc(args.iObj);
+                } else {
+                    ip = game.getItem(args.iObj);
+                }
                 if( ip ) {
                     var alreadySet = false;
                     if( !ip.alias ) {
@@ -2281,6 +2286,7 @@ module.exports = function ltbl(settings) {
                         console.log("Ok, "+ip.name+" can be called "+args.dObj);
                     }
                 }
+            
             }
         }
     ];
