@@ -64,6 +64,7 @@ module.exports = function(args) {
         var generatedRoom = {};
         var implicitlyNamedRoom = {};
         var directionHandled = {};
+        var itemNamesUsed = {};
 
         // Find Rooms that require a unique name
         var  collectRooms = function( _locations , prefix) {
@@ -159,28 +160,51 @@ module.exports = function(args) {
                     }
                 }
             };
+            var emitItems = function(contains,itemLocation,collect) {
+                var items = "";
+                var places =  "";
+                for( var i = 0 ; i < contains.length ; ++i ) {
+                    var ip = game.getItem(contains[i].item);
+                    var iName = ip.name || ip.description;
+                    if( itemNamesUsed[iName] ) {
+                        ; // TBD -  lets make the name more specific
+                        return;
+                    } else {
+                        itemNamesUsed[iName] = contains[i].item;
+                    }
+                    collect.items += "The " +ip.name+" is a thing.\n";
+                    collect.places += "The " +ip.name+itemLocation+"\n";
+                }
+            };
             var emitRoom = function(id) {
                 if( !generatedRoom[id] ) {
                     generatedRoom[id] = true;
                     var room = game.getLocation(id);
+                    var itemLocation = null;
+                    var roomSrc = "";
                     if( !implicitlyNamedRoom[roomIdToInform[id]] ) {
-                        src += "\nThe "+roomIdToInform[id]+" is a room.";
+                        roomSrc += "\nThe "+roomIdToInform[id]+" is a room.\n";
                         if( room.name && room.name != roomIdToInform[id] ) {
-                            src += ' The printed name is '+quoted(room.name); 
+                            roomSrc += 'The printed name is '+quoted(room.name)+"\n"; 
                         }
                         if( room.name && room.description && room.name != room.description ) {
-                            src += ' The description is '+quoted(room.description);
+                            roomSrc += 'The description is '+quoted(room.description)+"\n";
                         }
+                        itemLocation = " is here.";
                     } else {
                         if( room.name && room.name != roomIdToInform[id] ) {
-                            src += '\nThe printed name of '+roomIdToInform[id]+' is '+quoted(room.name); 
+                            roomSrc += 'The printed name of '+roomIdToInform[id]+' is '+quoted(room.name)+"\n"; 
                         }
                         if( room.name && room.description && room.name != room.description ) {
-                            src += '\nThe description of '+roomIdToInform[id]+' is '+quoted(room.description);
+                            roomSrc += 'The description of '+roomIdToInform[id]+' is '+quoted(room.description)+"\n";
                         }
+                        itemLocation = " is in the "+roomIdToInform[id]+".";
                     }
-                    
-                    src += "\n";
+                    var itemCollect = { items : "" , places : ""}
+                    if( room.contains ) {
+                        emitItems(room.contains,itemLocation,itemCollect);
+                    }
+                    src += itemCollect.items + roomSrc + itemCollect.places+"\n";
                     for(var pass = 0 ; pass < 2 ; ++pass ) {
                         for( var dir in informDirection ) {
                             goDirection(room,id,dir,pass);
