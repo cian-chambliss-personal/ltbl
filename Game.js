@@ -50,6 +50,10 @@ module.exports = class Game {
     //------------------
     constructor(_settings) {
         this.settings = _settings;
+        this.defaults = {
+            author: null,
+            authorEmail: null
+        };
         this.state = {};
         this.sourceCode = "";
         this.actor = {
@@ -145,39 +149,72 @@ module.exports = class Game {
         var fs = require("fs");
         fs.writeFile(this.settings.filename, JSON.stringify(obj, null, "  "), function (err, data) { });
     };
+    defaultsFilename() {
+        var os = require("os");
+        return os.homedir()+"/.ltbl-if.json";
+    }
+    //------------------
+    loadConfig(onComplete) {
+        var fs = require("fs");
+        fs.readFile(this.defaultsFilename(),(errD,dataD) => {
+            if( !errD ) {
+                try {
+                    var obj = JSON.parse(dataD);
+                    this.defaults.author = obj.author;
+                    this.defaults.authorEmail = obj.authorEmail;
+                } catch(errE) {
+                }
+            }
+            onComplete(null, true);
+        })
+    }
+    saveConfig(onComplete) {
+        var fs = require("fs");
+        fs.writeFile(this.defaultsFilename(), JSON.stringify(this.defaults, null, "  "), function (err, data) { onComplete(null, true); });
+    }
     //------------------
     loadGame(onComplete) {
         var fs = require("fs");
-        fs.readFile(this.settings.filename, (err, data) => {
-            if (!err) {
-                this.sourceCode = ""+data;
-                var obj = JSON.parse(data);
-                this.metadata = obj.metadata;
-                this.actor = obj.actor;                
-                this.locations = obj.locations;
-                this.items = obj.items;
-                this.npc = obj.npc;
-                if( obj.god && this.settings.action != "play" ) {
-                    this.allowGodMode = true;
-                    this.god = obj.god;
-                    this.pov = this.god;
-                } else {
-                    this.allowGodMode = false;
-                    this.pov = this.actor;
-                }                
-                if( this.allowGodMode ) {
-                    if (!this.map) {
-                        this.map = this.createMap();
-                    } else if (this.pov.location && this.map.location.room != this.pov.location) {
-                        this.recalcLocation(this.map, this.pov.location);
-                    }                    
-                }                
-                onComplete(null, true);
-            } else {
-                onComplete(err, false);
+        fs.readFile(this.defaultsFilename(),(errD,dataD) => {
+            if( !errD ) {
+                try {
+                    var obj = JSON.parse(dataD);
+                    this.defaults.author = obj.author;
+                    this.defaults.authorEmail = obj.authorEmail;
+                } catch(errE) {
+                }
             }
+            fs.readFile(this.settings.filename, (err, data) => {
+                if (!err) {
+                    this.sourceCode = ""+data;
+                    var obj = JSON.parse(data);
+                    this.metadata = obj.metadata;
+                    this.actor = obj.actor;                
+                    this.locations = obj.locations;
+                    this.items = obj.items;
+                    this.npc = obj.npc;
+                    if( obj.god && this.settings.action != "play" ) {
+                        this.allowGodMode = true;
+                        this.god = obj.god;
+                        this.pov = this.god;
+                    } else {
+                        this.allowGodMode = false;
+                        this.pov = this.actor;
+                    }                
+                    if( this.allowGodMode ) {
+                        if (!this.map) {
+                            this.map = this.createMap();
+                        } else if (this.pov.location && this.map.location.room != this.pov.location) {
+                            this.recalcLocation(this.map, this.pov.location);
+                        }                    
+                    }                
+                    onComplete(null, true);
+                } else {
+                    onComplete(err, false);
+                }
+            }); 
         });
-    };    
+    };
     cloneFrom(_game){
         this.actor = JSON.parse(JSON.stringify(_game.actor));
         this.metadata = JSON.parse(JSON.stringify(_game.metadata));

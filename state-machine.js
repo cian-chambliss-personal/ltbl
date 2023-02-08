@@ -128,13 +128,17 @@ module.exports = function(settings) {
             }
         }
         if( !command || command.length == 0 ) {
-            if( sm.askAbort ) {
-                sm.aborting = true;
-                sm.askAbort();
+            if( curState.default && curState.default.length ) {
+                command = curState.default;
             } else {
-                displayMessage(sm,curState);
+                if( sm.askAbort ) {
+                    sm.aborting = true;
+                    sm.askAbort();
+                } else {
+                    displayMessage(sm,curState);
+                }
+                return "retry";
             }
-            return "retry";
         }
         if( curState.choices ) {
             var choiceNum = Number.parseInt(command);            

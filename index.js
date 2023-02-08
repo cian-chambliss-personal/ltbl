@@ -1023,8 +1023,8 @@ module.exports = function ltbl(settings) {
                 states : [
                     { msg : "What is the title of your interactive fiction?" , prop : "title" },
                     { msg : "How would you describe this interactive fiction work?" , prop : "description" },
-                    { msg : "What is you name (byline)?" , prop : "author"  },
-                    { msg : "What is you email?" , prop : "authorEmail" },
+                    { msg : "What is you name (byline)?" , prop : "author" , default :  game.defaults.author },
+                    { msg : "What is you email?" , prop : "authorEmail" , default :  game.defaults.authorEmail },
                 ],
                 execute : stateMachineFillin,
                 start: stateMachineFillinStart,
@@ -2286,7 +2286,6 @@ module.exports = function ltbl(settings) {
                         console.log("Ok, "+ip.name+" can be called "+args.dObj);
                     }
                 }
-            
             }
         }
     ];
@@ -4115,14 +4114,46 @@ module.exports = function ltbl(settings) {
     var exportInform = function(folder) {
         var generate = require("./generate-inform");
         generate({ folder : folder , settings : settings , game : game });
-    }
+    };
     var createDumpFile = function(err) {
         game.createDumpFile(err);
-    }
+    };
+    var stateMachineCommand = function(command) {
+        if( game.stateMachine ) {
+            // Set of prompts....
+            var saveStatemachine = game.stateMachine;  
+            var res = game.stateMachine.execute(game.stateMachine,command);
+            if( res == "next") {
+                game.stateMachine.state = game.stateMachine.state + 1;
+            } else if( res != "retry" && saveStatemachine == game.stateMachine)
+                game.stateMachine = null;
+            return true;    
+        }
+        return false;
+    };
+    var configDefaults = function(onComplete) {
+        game.loadConfig(function(err,data) {
+            game.stateMachine = {
+                state : 0 ,
+                data : game.defaults ,
+                states : [
+                    { msg : "What is you name (byline)?" , prop : "author" , default :  game.defaults.author },
+                    { msg : "What is you email?" , prop : "authorEmail" , default : game.defaults.authorEmail },
+                ],
+                execute : stateMachineFillin,
+                start: stateMachineFillinStart,
+                done: function(sm) { game.saveConfig(function() { console.log("Saved config."); }); }
+            };
+            game.stateMachine.start(game.stateMachine);
+            onComplete(null,true);
+        });
+    };
     return {
         describe: describeLocation,
         parseCommand: parseCommand,
         loadGame: loadGame,
+        config: configDefaults,
+        stateMachineCommand: stateMachineCommand,
         exportTads: exportTads,
         exportInform: exportInform,
         createDumpFile: createDumpFile
