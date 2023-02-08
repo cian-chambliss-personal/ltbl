@@ -86,6 +86,17 @@ module.exports = class Game {
         this.allowGodMode = true;
         this.rememberCommands = true;
         this.commands = [];
+        this.design = {
+            lastNonVoid : null,
+            lastNonVoidDirection : null,
+            lastNonVoidDelta : 0,
+            lastNonVoidPendingVoid : null,
+            roomNum : 1,
+            lastLocation : null,
+            lastDirection : null,
+            pendingGoInsideItem : null,
+            pendingItemOut : null
+        };
     }
     //---------------------
     logCommand(command) {
