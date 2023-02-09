@@ -86,6 +86,7 @@ module.exports = class Game {
         this.allowGodMode = true;
         this.rememberCommands = true;
         this.commands = [];
+        this.statusLine = null;
         this.design = {
             lastNonVoid : null,
             lastNonVoidDirection : null,
@@ -95,8 +96,17 @@ module.exports = class Game {
             lastLocation : null,
             lastDirection : null,
             pendingGoInsideItem : null,
-            pendingItemOut : null
+            pendingItemOut : null,
+            
         };
+        this.verbCommand = {
+            action : null,
+            npc : null,
+            preposition  :null,
+            topic : null
+        };
+        this.annotations = [];
+        this.renderMap = null;
     }
     //---------------------
     logCommand(command) {
