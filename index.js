@@ -220,6 +220,8 @@ module.exports = function ltbl(settings) {
     var helper = require("./helper.js")({spellCorrect:settings.spellCorrect});
     var camelCase = helper.camelCase;
     var extractNounAndAdj = helper.extractNounAndAdj;
+    var extractNounAndAdjAlways = helper.extractNounAndAdjAlways;
+    var extractScalar = helper.extractScalar;
     var getPartsOfSpeech = helper.getPartsOfSpeech;
     var isVerb = helper.isVerb;
     var isArticle = helper.isArticle;
@@ -540,20 +542,7 @@ module.exports = function ltbl(settings) {
         }
         return list;
     };
-
-    var extractNounAndAdjAlways = function(text) {
-        var name = extractNounAndAdj(text);
-        if( !name ) {
-            var words = text.split(" ");
-            if( words.length > 1) {
-                if( isArticle(words[0]) ) {
-                    text = text.substring(words[0].length+1).trim();
-                }
-            }
-            name = camelCase(text);
-        }
-        return name;
-    };
+    
 
     // data
     var locationDefine = function(data) {
@@ -598,9 +587,9 @@ module.exports = function ltbl(settings) {
         }
         if( game.pov.location ) {
             if( game.getLocation(game.pov.location).type == "void" ) {
-                connectedVoid = gatherVoid();
+                connectedVoid = voids.gather(game);
                 if( connectedVoid.count  > 1 ) {
-                    autoConnectVoids(game.map,connectedVoid.collectedVoid);
+                    voids.autoConnect(game,connectedVoid.collectedVoid);
                 }
             }
         }
@@ -776,14 +765,14 @@ module.exports = function ltbl(settings) {
                 game.getLocation(design.lastNonVoid)[design.lastNonVoidDirection].direction = design.lastNonVoidDelta;
                 game.getLocation(game.getLocation(design.lastNonVoid)[design.lastNonVoidDirection].location)[reverseDirection(design.lastNonVoidDirection)].direction = -design.lastNonVoidDelta;
             }
-            clearVoid();
+            voids.clear(game);
             describeLocation();
         }  else {
             roomName = calcRoomName(prefix,null);
             game.pov.location = roomName;
             game.setLocation(game.pov.location,{ name: parts.name, description: data.room });
             if( connectedVoid.count > 0 ) {
-                clearVoid();
+                voids.clear(game);
             }
             if (design.lastLocation) {
                 if (game.getLocation(design.lastLocation).type) {
@@ -1573,148 +1562,7 @@ module.exports = function ltbl(settings) {
     var dontSeeNpc = function (npc,locationId,command) {
         outputText("You dont see " + npc);
     };
-    var clearVoid = function() {
-        var voidCounter = 1;
-        while( game.locations["void"+voidCounter] ) {
-            delete game.locations["void"+voidCounter];
-            voidCounter = voidCounter + 1;
-        }
-        game.map = null; // force regen without the voids....
-    };
-    var gatherVoid = function() {
-        var  collectedVoid = {};
-        var voidCounter = 1;
-        while( game.locations["void"+voidCounter] ) {
-            collectedVoid["void"+voidCounter] = game.locations["void"+voidCounter];
-            voidCounter = voidCounter + 1;
-        }
-        return { voids : collectedVoid , count : voidCounter };
-    };
-    var autoConnectVoids = function(_map,collectedVoid) {
-        // Connect all voids to other adjecent voids - defines a big room.
-        var rows = _map.levels[_map.location.level];
-        var visitedVoid = {};
-        var minRow = _map.location.row;
-        var minCol = _map.location.col;
-        var maxRow = _map.location.row;
-        var maxCol = _map.location.col;
-        var connectAllVoid = function (r,c) {
-            var room = rows[r][c] , otherRoom;
-            if( visitedVoid[room] ) {
-                return room;
-            } else {
-                if( room ) {
-                    var roomPtr = game.getLocation(room);
-                    if( roomPtr ) {
-                        if( roomPtr.type == "void" ) {
-                            // look for other connection
-                            roomPtr.row = r;
-                            roomPtr.col = c;
-                            if( r < minRow ) {
-                                minRow = r;
-                            }
-                            if( maxRow < r ) {
-                                maxRow = r;
-                            }
-                            if( c < minCol ) {
-                                minCol = c;
-                            }
-                            if( maxCol < c ) {
-                                maxCol = c;
-                            }
-                            visitedVoid[room] = roomPtr;
-                            if( c > 0 ) {
-                                if( roomPtr.w ) {
-                                    if( game.getLocation( roomPtr.w.location ).type == "void" ) {
-                                        roomPtr.w.wall = "none";
-                                        otherRoom = connectAllVoid(r,c-1);
-                                    }                                    
-                                } else {
-                                    otherRoom = connectAllVoid(r,c-1);
-                                    if( otherRoom ) {
-                                        roomPtr.w = { location : otherRoom , wall : "none" };
-                                        game.getLocation(otherRoom).e = { location : room , wall : "none"};
-                                    }
-                                }
-                            }
-                            if( (c + 1) < rows[r].length ) {
-                                if( roomPtr.e ) {
-                                    if( game.getLocation( roomPtr.e.location ).type == "void" ) {
-                                        roomPtr.e.wall = "none";
-                                        otherRoom = connectAllVoid(r,c+1);
-                                    }                                    
-                                } else {
-                                    otherRoom = connectAllVoid(r,c+1);
-                                    if( otherRoom ) {
-                                        roomPtr.e = { location : otherRoom , wall : "none"};
-                                        game.getLocation(otherRoom).w = { location : room , wall : "none"};
-                                    }
-                                }
-                            }
-                            if( r > 0 ) {
-                                if( roomPtr.n ) {
-                                    if( game.getLocation( roomPtr.n.location ).type == "void" ) {
-                                        roomPtr.n.wall = "none";
-                                        otherRoom = connectAllVoid(r-1,c);
-                                    }
-                                } else {
-                                    otherRoom = connectAllVoid(r-1,c);
-                                    if( otherRoom ) {
-                                        roomPtr.n = { location : otherRoom , wall : "none"};
-                                        game.getLocation(otherRoom).s = { location : room , wall : "none"};
-                                    }
-                                }
-                            }
-                            if( (r + 1) < rows.length  ) {
-                                if( roomPtr.s ) {
-                                    if( game.getLocation( roomPtr.s.location ).type == "void" ) {
-                                        roomPtr.s.wall = "none";
-                                        otherRoom = connectAllVoid(r+1,c);
-                                    }
-                                } else {
-                                    otherRoom = connectAllVoid(r+1,c);
-                                    if( otherRoom ) {
-                                        roomPtr.s = { location : otherRoom , wall : "none"};
-                                        game.getLocation(otherRoom).n = { location : room , wall : "none"};
-                                    }
-                                }
-                            }
-                            return room;
-                        }
-                    }
-                }
-            }
-            return null;
-        };
-        connectAllVoid(_map.location.row,_map.location.col);
-        // Optional 'edge' modifier
-        for( var room in visitedVoid ) {
-            var roomPtr = visitedVoid[room];
-            if( minRow < maxRow ) {
-                if( roomPtr.row == minRow ) {
-                    roomPtr.edge = "n";
-                } else if( roomPtr.row == maxRow ) {
-                    roomPtr.edge = "s";
-                }
-            }
-            if( minCol < maxCol ) {
-                if( roomPtr.col == minCol ) {
-                    if( roomPtr.edge ) {
-                        roomPtr.edge = roomPtr.edge+"w";
-                    } else {
-                        roomPtr.edge = "w";
-                    }
-                } else if( roomPtr.col == maxCol ) {
-                    if( roomPtr.edge ) {
-                        roomPtr.edge = roomPtr.edge+"e";
-                    } else {
-                        roomPtr.edge = "e";
-                    }
-                }
-            }
-        }
-    };
-
+    var voids = require("./void-location.js")();
     var getConvoObjectPtr = function(command) {
         if( game.verbCommand.action ) {        
             var _npc = findNPC(game.verbCommand.npc);
@@ -2997,18 +2845,6 @@ module.exports = function ltbl(settings) {
     };
 
     var nullPatternHandler = { eval : function() {} };
-    var extractScalar = function(obj,origCommand) {
-        var words = obj.split(" ");
-        var scalar = 0;
-        if( words.length > 1 ) {
-            if( '0' <= words[0][0] && words[0][0] <= '9' ) {
-               scalar = Number.parseInt(words[0]);
-               words[0] = "";
-               obj = words.join(" ").trim();
-            }
-        }
-        return { obj :obj , scalar : scalar };
-    };
     var lookupCommandHandle = function(commands,cmd,findPatternArgs) {
         var findPattern = null;
         var firstWord = cmd.firstWord;
@@ -3545,7 +3381,7 @@ module.exports = function ltbl(settings) {
                                     if (posCell) {
                                         if( game.getLocation(game.pov.location).type == "void" && game.getLocation(posCell).type != "void" ) {
                                             // clean up all the voids
-                                            clearVoid();
+                                            voids.clear(game);
                                         }
                                         design.lastLocation = game.pov.location
                                         design.lastDirection = lCase;
@@ -3592,7 +3428,7 @@ module.exports = function ltbl(settings) {
                                 if( game.pov.location ) {
                                     if( game.getLocation(game.pov.location).type == "void" && game.getLocation(nextLoc.location).type != "void" ) {
                                         // clean up all the voids
-                                        clearVoid();
+                                        voids.clear(game);
                                     } else if( nextLoc.teleport ) {
                                         game.map = null;
                                     }
@@ -3987,7 +3823,7 @@ module.exports = function ltbl(settings) {
                         var design = game.design;
                         if( design.lastNonVoid && game.pov.location ) {
                             if( game.getLocation(game.pov.location).type == "void" ) {
-                                clearVoid();
+                                voids.clear(game);
                                 game.pov.location = design.lastNonVoid;
                                 describeLocation();
                             }

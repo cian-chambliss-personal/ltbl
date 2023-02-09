@@ -212,9 +212,36 @@ module.exports = function ltbl(settings) {
         }
         return wrd+"s"; 
     };
+    var extractNounAndAdjAlways = function(text) {
+        var name = extractNounAndAdj(text);
+        if( !name ) {
+            var words = text.split(" ");
+            if( words.length > 1) {
+                if( isArticle(words[0]) ) {
+                    text = text.substring(words[0].length+1).trim();
+                }
+            }
+            name = camelCase(text);
+        }
+        return name;
+    };
+    var extractScalar = function(obj,origCommand) {
+        var words = obj.split(" ");
+        var scalar = 0;
+        if( words.length > 1 ) {
+            if( '0' <= words[0][0] && words[0][0] <= '9' ) {
+               scalar = Number.parseInt(words[0]);
+               words[0] = "";
+               obj = words.join(" ").trim();
+            }
+        }
+        return { obj :obj , scalar : scalar };
+    };
     return {
         camelCase : camelCase,
         extractNounAndAdj : extractNounAndAdj,
+        extractNounAndAdjAlways: extractNounAndAdjAlways,
+        extractScalar: extractScalar,
         getPartsOfSpeech: getPartsOfSpeech,
         isVerb : isVerb,
         isArticle : isArticle,
