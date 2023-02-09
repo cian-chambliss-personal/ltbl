@@ -933,7 +933,7 @@ module.exports = function ltbl(settings) {
                 } else if (game.pov.location && game.map.location.room != game.pov.location) {
                     game.recalcLocation(game.map, game.pov.location);
                 }
-                game.renderMap =  game.game.renderMapLevelText(game.map);
+                game.renderMap =  game.renderMapLevelText(game.map);
             }            
         }
         if( game.pov.isGod ) {
@@ -3600,6 +3600,7 @@ module.exports = function ltbl(settings) {
                                 if( lCase == "o" || lCase == "i" ) {
                                     game.map = null;
                                 }
+                                var design = game.design;
                                 design.lastLocation = game.pov.location;
                                 design.lastDirection = lCase;
                                 game.pov.location = nextLoc.location;
@@ -3953,7 +3954,7 @@ module.exports = function ltbl(settings) {
                                 } else if (game.pov.location && game.map.location.room != game.pov.location) {
                                     game.recalcLocation(game.map, game.pov.location);
                                 }
-                                game.renderMap =  game.game.renderMapLevelText(game.map);
+                                game.renderMap =  game.renderMapLevelText(game.map);
                                 describeLocation(false);
                             }
                         }
@@ -3961,13 +3962,13 @@ module.exports = function ltbl(settings) {
                         {
                             if( game.mapScale != "small" ) {
                                 game.mapScale = "small" ;
-                                game.renderMap =  game.game.renderMapLevelText(game.map);
+                                game.renderMap =  game.renderMapLevelText(game.map);
                                 describeLocation(false);
                             }
                         } else if( command == "normal" ) {
                             if( game.mapScale == "small" ) {
                                 game.mapScale = null;
-                                game.renderMap =  game.game.renderMapLevelText(game.map);
+                                game.renderMap =  game.renderMapLevelText(game.map);
                                 describeLocation(false);
                             }
                         }
@@ -4076,7 +4077,7 @@ module.exports = function ltbl(settings) {
                 game.pov = game.god;
                 game.setLocation(game.god.location,{ "type" : "void" , "name" : "void" , "description" : "void" });
                 game.map = game.createMap();
-                game.renderMap =  game.game.renderMapLevelText();
+                game.renderMap =  game.renderMapLevelText();
             } else {
                 if( settings.action == "play" || settings.action == "tads" || settings.action == "inform" ) {
                     game.pov = game.actor;
@@ -4090,7 +4091,7 @@ module.exports = function ltbl(settings) {
                            console.log("\n");   
                     }
                 } else if( game.allowGodMode ) {
-                    game.renderMap =  game.game.renderMapLevelText();
+                    game.renderMap =  game.renderMapLevelText();
                     describeLocation(false);
                     godGame = game;
                 }                
