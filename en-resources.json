@@ -1,0 +1,187 @@
+{
+    "verbsWithTopics" : { "ask" : true, "tell" : true, "show" : true, "give" : true },
+    "wordMap" : {
+        "firstWord": {
+            "hello" : "!hi",
+                "hi" : "!hi",
+                    "bye" : "!bye",
+                        "goodbye" : "!bye",
+                            "farewell" : "!bye",
+                                "l" : "!look",
+                                    "look" : "!look",
+                                        "x" : "!examine",
+                                            "examine" : "!examine",
+                                                "search" : "!search",
+                                                    "touch" : "!touch",
+                                                        "feel" : "!touch",
+                                                            "smell" : "!smell",
+                                                                "sniff" : "!smell",
+                                                                    "listen" : "!listen",
+                                                                        "i": "!inventory",
+                                                                            "inventory" : "!inventory",
+                                                                                "take" : "!take",
+                                                                                    "drop" : "!drop",
+                                                                                        "put" : "!put",
+                                                                                            "hide" : "!hide",
+                                                                                                "read" : "!read",
+                                                                                                    "eat" : "!eat",
+                                                                                                        "wear" : "!wear",
+                                                                                                            "doff" : "!doff",
+                                                                                                                "light": "!light",
+                                                                                                                    "affix" : "!affix",
+                                                                                                                        "sit" : "!sit",
+                                                                                                                            "stand" : "!stand",
+                                                                                                                                "pov" : "pov",
+                                                                                                                                    "ask" : "!ask",
+                                                                                                                                        "tell" : "!tell",
+                                                                                                                                            "show" : "!show",
+                                                                                                                                                "give" : "!give",
+                                                                                                                                                    "open" : "!open",
+                                                                                                                                                        "close" : "!close",
+                                                                                                                                                            "unlock" : "!unlock",
+                                                                                                                                                                "lock" : "!lock",
+                                                                                                                                                                    "buy" : "!buy",
+                                                                                                                                                                        "sell" : "!sell",
+                                                                                                                                                                            "understand": "!understand",
+                                                                                                                                                                                "quit" : "!quit"
+        },
+        "firstTwoWord": {
+            "talk to"  : "!talkto",
+                "sit down" : "!sit",
+                    "lie down" : "!lie",
+                        "stand up" : "!stand",
+                            "go in" : "!goin",
+                                "go inside" : "!goin",
+                                    "save play" : "!saveplay",
+                                        "look at": "!examine"
+        },
+        "postures": {
+            "stand" : {
+                "participle" : "standing",
+                    "past" : "stood"
+            },
+            "sit" : {
+                "participle" : "sitting",
+                    "past" : "sat"
+            },
+            "lie" : {
+                "participle" : "lying",
+                    "past" : "lay"
+            },
+        },
+        "posturePrep": {
+            "on" : "on",
+                "in" : "in"
+        },
+        resources__nestedrooms: {
+            "chair" : {
+                "postures" : ["sit", "stand"],
+                    "posture" : "sit"
+            },
+            "platform" : {
+                "postures" : ["stand", "sit", "lie"],
+                    "posture" : "stand"
+            },
+            "bed" : {
+                "postures" : ["stand", "sit", "lie"],
+                    "posture" : "lie"
+            }
+        }
+    },
+    "godWordMap" : {
+        firstWord: {
+            "leave" : "!leave",
+                "notice" : "!notice",
+                    "dump" : "!dump"
+        },
+        firstTwoWord: {
+            "make door" : "!makedoor",
+                "make path" : "!makepath",
+                    "make passage" : "!makepassage",
+                        "make stairs" : "!makestairs"
+        }
+    },
+    "topLocationTypes" : {
+        outdoors: {
+            membership: "part of"
+        },
+        indoors: {
+            membership: "inside"
+        },
+        underground: {
+            membership: "inside"
+        }
+    },
+    "topLocationMenu= [
+    {
+        text: "Outdoors",
+            value : "outdoors"
+    },
+    {
+        text: "Indoors",
+            value : "indoors"
+    },
+    {
+        text: "Underground",
+            value : "underground"
+    },
+    {
+        text: "One Room",
+            value : "oneroom"
+    }
+],
+    "dirTypesMenu" : [
+        {
+            text: "Stairs",
+            value: "stairs"
+        },
+        {
+            text: "Passage",
+            value: "passage"
+        },
+        {
+            text: "Path",
+            value: "path"
+        },
+        {
+            text: "None",
+            value: null
+        }
+    ],
+        "roomTypesMenu" : [
+            {
+                text: "Outside",
+                value: "outside"
+            },
+            {
+                text: "Ship",
+                value: "ship"
+            },
+            {
+                text: "Dark",
+                value: "dark"
+            },
+            {
+                text: "Bottomless",
+                value: "bottomless"
+            },
+            {
+                text: "Inside",
+                value: null
+            }
+        ],
+            "postureTypeList" : [
+                {
+                    text: "Sit",
+                    value: "sit"
+                },
+                {
+                    text: "Lie",
+                    value: "lie"
+                },
+                {
+                    text: "Stand",
+                    value: "stand"
+                }
+            ]
+}
