@@ -17,206 +17,23 @@ module.exports = function ltbl(settings) {
          }
       }
      */
-    var outputText = function(txt) {
-        console.log(txt);
+    var singleton = { 
+        outputText : function(txt) {
+            console.log(txt);
+        },
+        godGame : null
     };
     var _SM = require("./state-machine")({output : function(txt) {
-        outputText(txt);
+        singleton.outputText(txt);
     }});
     var stateMachineFillin = _SM.fillin;
     var stateMachineFillinStart = _SM.fillinStart;
     var stateMachineFillinCreate = _SM.fillinCreate;
     var fs = require("fs");
     var helpText = require("./en-help.json");
-    var verbsWithTopics = { "ask" : true , "tell" : true , "show" : true , "give" : true };
-    var wordMap = {
-        firstWord : {
-        "hello" : "!hi",
-        "hi" : "!hi",
-        "bye" : "!bye" ,
-        "goodbye" : "!bye",
-        "farewell" : "!bye",
-        "l" : "!look",
-        "look" : "!look",
-        "x" : "!examine",
-        "examine" : "!examine",
-        "search" : "!search",
-        "touch" : "!touch",
-        "feel" : "!touch",
-        "smell" : "!smell",
-        "sniff" : "!smell",
-        "listen" : "!listen",
-        "i": "!inventory",
-        "inventory" : "!inventory",
-        "take" : "!take",
-        "drop" : "!drop",
-        "put" : "!put",
-        "hide" : "!hide",
-        "read" : "!read",
-        "eat" : "!eat",
-        "wear" : "!wear",
-        "doff" : "!doff",
-        "light": "!light",
-        "affix" : "!affix",
-        "sit" : "!sit",
-        "stand" : "!stand",
-        "pov" :  "pov",
-        "ask" : "!ask" , 
-        "tell" : "!tell" , 
-        "show" : "!show" , 
-        "give" : "!give" ,
-        "open" : "!open" ,
-        "close" : "!close" ,
-        "unlock" : "!unlock" ,
-        "lock" : "!lock",
-        "buy" : "!buy",
-        "sell" : "!sell",
-        "understand": "!understand",
-        "quit" : "!quit" 
-        },
-        firstTwoWord : {
-            "talk to"  : "!talkto",
-            "sit down" : "!sit",
-            "lie down" : "!lie",
-            "stand up" : "!stand",
-            "go in" : "!goin",
-            "go inside" : "!goin",
-            "save play" : "!saveplay",
-            "look at": "!examine"
-        },
-        postures : {
-            "stand" : {
-                "participle" : "standing",
-                "past" : "stood"
-            },
-            "sit" : {
-                "participle" : "sitting",
-                "past" : "sat"
-            },
-            "lie" : {
-                "participle" : "lying",
-                "past" : "lay"
-            },
-        },
-        posturePrep : {
-            "on" : "on" , 
-            "in" : "in"
-        },
-        nestedrooms : {
-            "chair" : {
-                "postures" : ["sit","stand"],
-                "posture" : "sit"
-            },
-            "platform" : {
-                "postures" : ["stand","sit","lie"],
-                "posture" : "stand"
-            },
-            "bed" : {
-                "postures" : ["stand","sit","lie"],
-                "posture" : "lie"
-            }
-        }
-    };
-    var godWordMap = {
-        firstWord : {
-            "leave" : "!leave",
-            "notice" : "!notice",
-            "dump" : "!dump"
-        },
-        firstTwoWord : {
-            "make door" : "!makedoor",
-            "make path" : "!makepath",
-            "make passage" : "!makepassage",
-            "make stairs" : "!makestairs"
-        }
-    };
-    var topLocationTypes = {
-        outdoors : {
-            membership : "part of"
-        },
-        indoors : {
-            membership : "inside"
-        },
-        underground : {
-            membership : "inside"
-        }
-    };
-    var topLocationMenu= [
-        {
-            text : "Outdoors" ,
-            value : "outdoors"
-        },
-        {
-            text : "Indoors" ,
-            value : "indoors"
-        },
-        {
-            text : "Underground" ,
-            value : "underground"
-        },
-        {
-            text : "One Room" ,
-            value : "oneroom"
-        }
-    ];
-    var dirTypesMenu = [
-        {
-            text : "Stairs" ,
-            value : "stairs"
-        },
-        {
-            text : "Passage" ,
-            value : "passage"
-        },
-        {
-            text : "Path" ,
-            value : "path"
-        },
-        {
-            text : "None" ,
-            value : null
-        }
-    ];
-    var roomTypesMenu = [
-        {
-            text : "Outside" ,
-            value : "outside"
-        },
-        {
-            text : "Ship" ,
-            value : "ship"
-        },
-        {
-            text : "Dark" ,
-            value : "dark"
-        },
-        {
-            text : "Bottomless" ,
-            value : "bottomless"
-        },
-        {
-            text : "Inside" ,
-            value : null
-        }
-    ];
-    var postureTypeList = [
-        {
-            text : "Sit" ,
-            value : "sit"
-        },
-        {
-            text : "Lie" ,
-            value : "lie"
-        },
-        {
-            text : "Stand" ,
-            value : "stand"
-        }
-    ];
-    
+    var resources = require("./en-resources.json") 
     var Game = require('./Game');
     var game = new Game(settings);
-    var godGame = null;
     var helper = require("./helper.js")({spellCorrect:settings.spellCorrect});
     var camelCase = helper.camelCase;
     var extractNounAndAdj = helper.extractNounAndAdj;
@@ -346,65 +163,65 @@ module.exports = function ltbl(settings) {
         }
         var describeNav = function (dir, name, rawDir) {
             if (dir.type == "stairs") {
-                outputText("There are stairs leading " + name + "."+annotate({"type":"dir","dir":rawDir}));
+                singleton.outputText("There are stairs leading " + name + "."+annotate({"type":"dir","dir":rawDir}));
             } else if (dir.type == "passage") {
-                outputText("There is a passage leading " + name + "."+annotate({"type":"dir","dir":rawDir}));
+                singleton.outputText("There is a passage leading " + name + "."+annotate({"type":"dir","dir":rawDir}));
             } else if (dir.type == "path") {
-                outputText("There is a path leading " + name + "."+annotate({"type":"dir","dir":rawDir}));
+                singleton.outputText("There is a path leading " + name + "."+annotate({"type":"dir","dir":rawDir}));
             } else if (dir.door) {
                 if (dir.open) {
-                    outputText("To the " + name + " is open " + game.getDoor(dir.door).name+annotate({"type":"dir","dir":rawDir}));
+                    singleton.outputText("To the " + name + " is open " + game.getDoor(dir.door).name+annotate({"type":"dir","dir":rawDir}));
                 } else {
-                    outputText("To the " + name + " is " + game.getDoor(dir.door).name+annotate({"type":"dir","dir":rawDir}));
+                    singleton.outputText("To the " + name + " is " + game.getDoor(dir.door).name+annotate({"type":"dir","dir":rawDir}));
                 }
             } else {
                 if( dir.direction ) {
                     if( dir.direction > 0 ) {
-                        outputText("To the " + name + " is passage leading up."+annotate({"type":"dir","dir":rawDir}));
+                        singleton.outputText("To the " + name + " is passage leading up."+annotate({"type":"dir","dir":rawDir}));
                     } else {
-                        outputText("To the " + name + " is passage leading down."+annotate({"type":"dir","dir":rawDir}));
+                        singleton.outputText("To the " + name + " is passage leading down."+annotate({"type":"dir","dir":rawDir}));
                     }
                 } else {                
-                    outputText("To the " + name + " is " + (game.getLocation(dir.location).name || game.getLocation(dir.location).description) + "."+annotate({"type":"dir","dir":rawDir}));
+                    singleton.outputText("To the " + name + " is " + (game.getLocation(dir.location).name || game.getLocation(dir.location).description) + "."+annotate({"type":"dir","dir":rawDir}));
                 }
             }
         };
         if( !loc ) {
-            outputText("Null for "+locationId);
+            singleton.outputText("Null for "+locationId);
         }
         if( loc.type == "void") {
             if (loc.name) {
-                outputText(chalk.bold(loc.name));
+                singleton.outputText(chalk.bold(loc.name));
             } else if (loc.description) {
-                outputText(loc.description);
+                singleton.outputText(loc.description);
             }
         } else {
             if(game.pov.isGod && !depth ) {
                 if( locationId.indexOf("/") > 0 ) {
                     var topLoc = locationId.split("/")[0];
-                    var topLocType = topLocationTypes[game.getLocation(topLoc).type];
+                    var topLocType = resources.topLocationTypes[game.getLocation(topLoc).type];
                     if( topLocType ) {
-                        outputText(topLocType.membership+" "+game.getLocation(topLoc).name+annotate({"type":"location.topLoc","location":topLoc }));
+                        singleton.outputText(topLocType.membership+" "+game.getLocation(topLoc).name+annotate({"type":"location.topLoc","location":topLoc }));
                     }
                 }
                 if(loc.type)
-                    outputText("Type: "+chalk.bold(loc.type)+annotate({"type":"location.type"}));
+                    singleton.outputText("Type: "+chalk.bold(loc.type)+annotate({"type":"location.type"}));
                 else
-                    outputText("Type: "+chalk.bold("inside")+annotate({"type":"location.type"}));
+                    singleton.outputText("Type: "+chalk.bold("inside")+annotate({"type":"location.type"}));
             }
             if (loc.name) { 
-                outputText(ifGod("Name: ")+chalk.bold(loc.name)+annotate({"type":"location.name"}));
+                singleton.outputText(ifGod("Name: ")+chalk.bold(loc.name)+annotate({"type":"location.name"}));
             } else if(game.pov.isGod && !depth ) {
-                outputText("Name: "+chalk.bold("No name")+annotate({"type":"location.name"}));
+                singleton.outputText("Name: "+chalk.bold("No name")+annotate({"type":"location.name"}));
             }
             if (loc.description) {
                 var roomDescription = loc.description;
                 if( game.pov.isGod && settings.spellCorrect ) {
                     roomDescription = spellCorrectText(roomDescription);
                 } 
-                outputText(ifGod("Description: ")+roomDescription+annotate({"type":"location.description"}));
+                singleton.outputText(ifGod("Description: ")+roomDescription+annotate({"type":"location.description"}));
             } else if(game.pov.isGod&& !depth ) {
-                outputText("Description: "+chalk.bold("No description")+annotate({"type":"location.description"}));
+                singleton.outputText("Description: "+chalk.bold("No description")+annotate({"type":"location.description"}));
             }
         }
         if (loc.contains) {
@@ -442,7 +259,7 @@ module.exports = function ltbl(settings) {
                 if (where) {
                     contains += " " + where + ".";
                 }
-                outputText(contains);
+                singleton.outputText(contains);
             }
         }
         if (loc.wall) {
@@ -485,7 +302,7 @@ module.exports = function ltbl(settings) {
             for( var _npc in game.npc) {
                 var  ni = game.getNpc(_npc);
                 if( ni.location == locationId ) {
-                    outputText(ni.name+" is here."+annotate({"type":"npc","npc":_npc}));
+                    singleton.outputText(ni.name+" is here."+annotate({"type":"npc","npc":_npc}));
                 }
             }
         }
@@ -836,9 +653,9 @@ module.exports = function ltbl(settings) {
                 }
             }
             if( discovered.length > 0 ) {
-                outputText("You discover "+contents(discovered)+" "+preposition+" "+itemPtr.name);
+                singleton.outputText("You discover "+contents(discovered)+" "+preposition+" "+itemPtr.name);
             } else {
-                outputText("You find nothing else "+preposition+" "+itemPtr.name);
+                singleton.outputText("You find nothing else "+preposition+" "+itemPtr.name);
             }
             return true;
         }
@@ -848,10 +665,10 @@ module.exports = function ltbl(settings) {
             }
         }
         if( discovered.length > 1 ) {
-            outputText("There are "+contents(discovered)+" "+preposition+" "+itemPtr.name);
+            singleton.outputText("There are "+contents(discovered)+" "+preposition+" "+itemPtr.name);
             return true;
         } else if( discovered.length == 1 ) {
-            outputText("There is "+contents(discovered)+" "+preposition+" "+itemPtr.name);
+            singleton.outputText("There is "+contents(discovered)+" "+preposition+" "+itemPtr.name);
             return true;
         }
         return false;
@@ -859,11 +676,11 @@ module.exports = function ltbl(settings) {
     var describeNPC = function(npc,preposition,search) {
         var npcPtr = game.getNpc(npc);
         if( npcPtr.description ) {
-            outputText(npcPtr.description);
+            singleton.outputText(npcPtr.description);
         } else if(game.pov.isGod) {
             game.stateMachine = stateMachineFillinCreate(npcPtr,[ {msg:"How would you describe " + npcPtr.name + "?",prop:"description"} ]);
         } else {
-            outputText(npcPtr.name);
+            singleton.outputText(npcPtr.name);
         }
     };
     var describeItem = function(item,preposition,search) {
@@ -871,32 +688,32 @@ module.exports = function ltbl(settings) {
         var itemState = game.getObjectState(item);
         var itemStateAccess = null;
         if (itemPtr.description) {
-            outputText(itemPtr.description);
+            singleton.outputText(itemPtr.description);
         } else if(game.pov.isGod) {
             game.stateMachine = stateMachineFillinCreate(itemPtr,[ {msg:"How would you describe the " + (itemPtr.name || item) + "?",prop:"description"} ]);
         } else {
-            outputText(itemPtr.name);
+            singleton.outputText(itemPtr.name);
         }
         if( itemState ) {
             if( itemState.access ) {
                 itemStateAccess = itemState.access;
             }
             if( itemState.broken ) {
-                outputText("The "+itemPtr.name+" is broken");
+                singleton.outputText("The "+itemPtr.name+" is broken");
             } else if( itemState.locked == "locked" ) {
-                outputText("The "+itemPtr.name+" is locked");
+                singleton.outputText("The "+itemPtr.name+" is locked");
             } else if( itemState.access == "open" ) {
-                outputText("The "+itemPtr.name+" is open");
+                singleton.outputText("The "+itemPtr.name+" is open");
             } else if( itemState.locked == "unlocked" ) {
-                outputText("The "+itemPtr.name+" is unlocked but closed.");
+                singleton.outputText("The "+itemPtr.name+" is unlocked but closed.");
             } else if( itemState.access == "closed" ) {
-                outputText("The "+itemPtr.name+" is closed");
+                singleton.outputText("The "+itemPtr.name+" is closed");
             }
             if( itemState.lit ) {
-                outputText("The "+itemPtr.name+" is lit.");
+                singleton.outputText("The "+itemPtr.name+" is lit.");
             }
             if( itemState.worn ) {
-                outputText("The "+itemPtr.name+" is being worn.");
+                singleton.outputText("The "+itemPtr.name+" is being worn.");
             }
         }
         if( itemPtr.supports ) {
@@ -980,7 +797,7 @@ module.exports = function ltbl(settings) {
                 if( game.statusLine != null ) {
                     screen.push(game.statusLine);
                 }
-                outputText(screen.join("\n"));
+                singleton.outputText(screen.join("\n"));
             }
         }
         if( noVoid ) {
@@ -1029,7 +846,7 @@ module.exports = function ltbl(settings) {
             } else {
                 // First in            
                 game.stateMachine = stateMachineFillinCreate({},[
-                    {msg:"What kind of level?",prop:"type",choices:topLocationMenu},
+                    {msg:"What kind of level?",prop:"type",choices:resources.topLocationMenu},
                     { test : 
                         function(sm) { 
                             if(sm.data.type == "oneroom") 
@@ -1211,9 +1028,9 @@ module.exports = function ltbl(settings) {
                 if (candidates.length == 1) {
                     itemName = candidates[0];
                 } else if (candidates.length > 1) {
-                    outputText("which " + command + "?");
+                    singleton.outputText("which " + command + "?");
                     for (var i = 0; i < candidates.length; ++i) {
-                        outputText(game.getItem(candidates[i]).name);
+                        singleton.outputText(game.getItem(candidates[i]).name);
                     }
                     itemName = "?"; // ambiguouse
                 } else if( game.pov.isGod && command.substring(0,1) == "@" ) {                    
@@ -1291,7 +1108,7 @@ module.exports = function ltbl(settings) {
                 states : defineNPCStates 
             } );
         }
-        if( verbsWithTopics[game.verbCommand.action] && !game.verbCommand.topic ) {
+        if( resources.verbsWithTopics[game.verbCommand.action] && !game.verbCommand.topic ) {
             states.push({ msg : "whats the topic of the '"+game.verbCommand.action+"'?" , prop : "topic"});
         }
         if( game.verbCommand.topic ) {
@@ -1310,7 +1127,7 @@ module.exports = function ltbl(settings) {
             execute : stateMachineFillin,
             start: stateMachineFillinStart,
             askAbort: function() {
-                outputText("Do you want to quit? (y to quit)");
+                singleton.outputText("Do you want to quit? (y to quit)");
             },
             done: function(sm) {
                 var vc = sm.data;
@@ -1327,7 +1144,7 @@ module.exports = function ltbl(settings) {
                         game.setNpc(camelCase(newNPC),_npc);
                     }
                     if( _npc ) {
-                        if( verbsWithTopics[vc.action] ) {
+                        if( resources.verbsWithTopics[vc.action] ) {
                             if( !_npc.conversation ) {
                                 _npc.conversation = {};
                             }                            
@@ -1339,21 +1156,21 @@ module.exports = function ltbl(settings) {
                             } else {
                                 _npc.conversation[vc.action][vc.topic] = { response : vc.response };
                             }
-                            console.log('"'+vc.response+'"');
+                            outputTextg('"'+vc.response+'"');
                         } else if( vc.action == "talkto" || vc.action == "hi" || vc.action == "bye" || vc.action == "leave" || vc.action == "notice" ) {
                             if( !_npc.conversation ) {
                                 _npc.conversation = {};
                             }
                             _npc.conversation[vc.action] = { response : vc.response };
-                            console.log('"'+vc.response+'"');    
+                            singleton.outputText('"'+vc.response+'"');    
                         } else {
-                            console.log("**Bad action");
+                            singleton.outputText("**Bad action");
                         }
                     } else {
-                        console.log("**No NPC")
+                        singleton.outputText("**No NPC")
                     }
                 } else {
-                    console.log("npc parameter not defined");
+                    singleton.outputText("npc parameter not defined");
                 }
             }
         };
@@ -1365,7 +1182,7 @@ module.exports = function ltbl(settings) {
         var emitResponse = function(response,vc,stateId) {
             if( typeof(response) == "string" ) {
                 game.annotations = [];
-                outputText( response + annotate({ type:"conv" , npc : vc.npc , action : vc.action , preposition  : vc.preposition , topic : vc.topic }) );
+                singleton.outputText( response + annotate({ type:"conv" , npc : vc.npc , action : vc.action , preposition  : vc.preposition , topic : vc.topic }) );
                 return true;
             } else if( response.then ) {
                 var responseIndex = game.state[stateId+".then"];
@@ -1433,7 +1250,7 @@ module.exports = function ltbl(settings) {
                 }
                 if( response.say ) {
                     game.annotations = [];
-                    outputText( response.say + annotate({ type:"conv" , npc : vc.npc , action : vc.action , preposition  : vc.preposition , topic : vc.topic }));
+                    singleton.outputText( response.say + annotate({ type:"conv" , npc : vc.npc , action : vc.action , preposition  : vc.preposition , topic : vc.topic }));
                 }
                 if( response.score ) {
                     if( !game.state[stateId+".score"] ) {
@@ -1442,7 +1259,7 @@ module.exports = function ltbl(settings) {
                             game.state.Score = 0;
                         }
                         game.state.Score = game.state.Score + response.score;
-                        outputText("Score went up by "+response.score+" Points");
+                        singleton.outputText("Score went up by "+response.score+" Points");
                     }
                 }
                 //if( response.die ) {
@@ -1454,10 +1271,10 @@ module.exports = function ltbl(settings) {
             return false;
         } else if( !findNPC(game.verbCommand.npc) ) {
             return false;
-        } else if( verbsWithTopics[game.verbCommand.action] && !game.verbCommand.topic ) {
+        } else if( resources.verbsWithTopics[game.verbCommand.action] && !game.verbCommand.topic ) {
             return false;
         } else {
-            if( verbsWithTopics[game.verbCommand.action] ) {
+            if( resources.verbsWithTopics[game.verbCommand.action] ) {
                 if( !game.verbCommand.preposition  ) {
                     if( game.verbCommand.topic.substring(0,6) == "about " ) {
                         game.verbCommand.preposition  = "about";
@@ -1531,18 +1348,18 @@ module.exports = function ltbl(settings) {
                     roomPtr.type = ltype;
                 }
             } else if( !roomPtr.type && ltype == "inside" ) {
-                outputText("Yes it is.");
+                singleton.outputText("Yes it is.");
             } else if( roomPtr.type == ltype ) {
-                outputText("Yes it is.");
+                singleton.outputText("Yes it is.");
             } else {
-                outputText("No, it isn't.");
+                singleton.outputText("No, it isn't.");
             }
         } else {
-            outputText("You are nowhere.");
+            singleton.outputText("You are nowhere.");
         }
     };
     var noUnderstand = function() {
-        outputText("What was that?");
+        singleton.outputText("What was that?");
     };
     var dontSee = function (what,locationId,command) {
         var dontCare = noCareAbout(locationId,what);
@@ -1551,16 +1368,16 @@ module.exports = function ltbl(settings) {
                 if( command.indexOf(what) >= 0 ) {
                     command = command.split(what).join("the "+dontCare[0]);
                 }
-                outputText("You cannot " + command);
+                singleton.outputText("You cannot " + command);
             } else {
-                outputText("I don't know what you want me to do with the " + dontCare[0]);
+                singleton.outputText("I don't know what you want me to do with the " + dontCare[0]);
             }
         } else {
-            outputText("You see no " + what);
+            singleton.outputText("You see no " + what);
         }
     };
     var dontSeeNpc = function (npc,locationId,command) {
-        outputText("You dont see " + npc);
+        singleton.outputText("You dont see " + npc);
     };
     var voids = require("./void-location.js")();
     var getConvoObjectPtr = function(command) {
@@ -1679,31 +1496,31 @@ module.exports = function ltbl(settings) {
             if( ip ) {
                 var noPostures = true;                
                 if( ip.name ) {
-                    outputText(chalk.bold("Name\n"+ip.name)+" "+annotate({"type":"item.name","item":anno.item}))
+                    singleton.outputText(chalk.bold("Name\n"+ip.name)+" "+annotate({"type":"item.name","item":anno.item}))
                 } else {
-                    outputText(chalk.bold("Name\nnone")+" "+annotate({"type":"item.name","item":anno.item}))
+                    singleton.outputText(chalk.bold("Name\nnone")+" "+annotate({"type":"item.name","item":anno.item}))
                 }
-                outputText(chalk.bold("Description"));
+                singleton.outputText(chalk.bold("Description"));
                 if( ip.description ) {
-                    outputText(ip.description+annotate({"type":"item.description","item":anno.item}))
+                    singleton.outputText(ip.description+annotate({"type":"item.description","item":anno.item}))
                 } else {
-                    outputText("No description"+annotate({"type":"item.description","item":anno.item}))
+                    singleton.outputText("No description"+annotate({"type":"item.description","item":anno.item}))
                 }
-                outputText(chalk.bold("Content"));
+                singleton.outputText(chalk.bold("Content"));
                 if( ip.content ) {
-                    outputText(ip.content+annotate({"type":"item.content","item":anno.content}))
+                    singleton.outputText(ip.content+annotate({"type":"item.content","item":anno.content}))
                 } else {
-                    outputText("No readable content"+annotate({"type":"item.content","item":anno.item}))
+                    singleton.outputText("No readable content"+annotate({"type":"item.content","item":anno.item}))
                 }
                 if( ip.postures ) {
                     if( ip.postures.length ) {
-                        outputText(chalk.bold("Nested Room Supported Postures"))
-                        outputText(ip.postures.join(",")+annotate({"type":"item.postures","item":anno.item}))
+                        singleton.outputText(chalk.bold("Nested Room Supported Postures"))
+                        singleton.outputText(ip.postures.join(",")+annotate({"type":"item.postures","item":anno.item}))
                         noPostures = false;
                     }
                 }
                 if( noPostures ) {
-                    outputText("Not a Nested room"+annotate({"type":"item.postures","item":anno.item}))
+                    singleton.outputText("Not a Nested room"+annotate({"type":"item.postures","item":anno.item}))
                 }
                 /*
                 if( ip.contains ) {
@@ -1735,7 +1552,7 @@ module.exports = function ltbl(settings) {
         } else if( anno.type == "item.postures" ) {
             var ip = game.getItem(anno.item);
             if( ip ) {
-                game.stateMachine = stateMachineFillinCreate(ip,[{msg:"Supported postures:",prop:"postures",choices:postureTypeList,multiple:true}]);
+                game.stateMachine = stateMachineFillinCreate(ip,[{msg:"Supported postures:",prop:"postures",choices:resources.postureTypeList,multiple:true}]);
             }            
         } else if( anno.type == "dir" ) {
             var loc = game.getLocation(game.pov.location);
@@ -1743,28 +1560,28 @@ module.exports = function ltbl(settings) {
                 var dp = loc[anno.dir];
                 if( dp ) {
                     game.annotations = [];
-                    outputText(chalk.bold("Location"));
-                    outputText(dp.location+" "+annotate({"type":"dir.location","dir":anno.dir}))
-                    outputText(chalk.bold("Type"));
+                    singleton.outputText(chalk.bold("Location"));
+                    singleton.outputText(dp.location+" "+annotate({"type":"dir.location","dir":anno.dir}))
+                    singleton.outputText(chalk.bold("Type"));
                     if( dp.type ) {
-                        outputText(dp.type+" "+annotate({"type":"dir.type","dir":anno.dir}))
+                        singleton.outputText(dp.type+" "+annotate({"type":"dir.type","dir":anno.dir}))
                     } else {
-                        outputText("Default "+annotate({"type":"dir.type","dir":anno.dir}))
+                        singleton.outputText("Default "+annotate({"type":"dir.type","dir":anno.dir}))
                     }
                     if( dp.wall ) {
-                        outputText("Wall: "+dp.wall+annotate({"type":"dir.wall","dir":anno.dir}));
+                        singleton.outputText("Wall: "+dp.wall+annotate({"type":"dir.wall","dir":anno.dir}));
                     } else {
                         if( loc.type == "outside" && game.getLocation(dp.location).type == "outside" ) {
-                            outputText("Wall Default - none outside"+annotate({"type":"dir.wall","dir":anno.dir}));
+                            singleton.outputText("Wall Default - none outside"+annotate({"type":"dir.wall","dir":anno.dir}));
                         } else {
-                            outputText("Wall Default - inside wall"+annotate({"type":"dir.wall","dir":anno.dir}));
+                            singleton.outputText("Wall Default - inside wall"+annotate({"type":"dir.wall","dir":anno.dir}));
                         }
                     }
                     if( dp.door ) {
-                        outputText(chalk.bold("Door Name"));
-                        outputText(game.getDoor(dp.door).name+" "+annotate({"type":"door.name","door":dp.door}))
-                        outputText(chalk.bold("Door Description"));
-                        outputText(game.getDoor(dp.door).description+" "+annotate({"type":"door.description","door":dp.door}))
+                        singleton.outputText(chalk.bold("Door Name"));
+                        singleton.outputText(game.getDoor(dp.door).name+" "+annotate({"type":"door.name","door":dp.door}))
+                        singleton.outputText(chalk.bold("Door Description"));
+                        singleton.outputText(game.getDoor(dp.door).description+" "+annotate({"type":"door.description","door":dp.door}))
                     }
                 }
             }
@@ -1781,16 +1598,16 @@ module.exports = function ltbl(settings) {
         } else if( anno.type == "location.type" ) {
             var loc = game.getLocation(game.pov.location);
             if( loc ) {
-                game.stateMachine = stateMachineFillinCreate(loc,[{msg:"Change location type:",prop:"type",choices:roomTypesMenu}],invalidateMap);
+                game.stateMachine = stateMachineFillinCreate(loc,[{msg:"Change location type:",prop:"type",choices:resources.roomTypesMenu}],invalidateMap);
             }
         } else if( anno.type == "location.topLoc" ) {
             game.annotations = [];
             var loc =  game.getLocation(anno.location);
             if( loc ) {
-                outputText(chalk.bold("Level Type"));
-                outputText(loc.type+" "+annotate({"type":"topLoc.type","location":anno.location}))
-                outputText(chalk.bold("Level Name"));
-                outputText(loc.name+" "+annotate({"type":"topLoc.name","location":anno.location}))
+                singleton.outputText(chalk.bold("Level Type"));
+                singleton.outputText(loc.type+" "+annotate({"type":"topLoc.type","location":anno.location}))
+                singleton.outputText(chalk.bold("Level Name"));
+                singleton.outputText(loc.name+" "+annotate({"type":"topLoc.name","location":anno.location}))
             }
         } else if( anno.type == "dir.location" ) {
             var loc = game.getLocation(game.pov.location);
@@ -1807,7 +1624,7 @@ module.exports = function ltbl(settings) {
             if( loc ) {
                 var dp = loc[anno.dir];
                 if( dp ) {
-                    game.stateMachine = stateMachineFillinCreate(dp,[{msg:"Change location type:",prop:"type",choices:dirTypesMenu}]);
+                    game.stateMachine = stateMachineFillinCreate(dp,[{msg:"Change location type:",prop:"type",choices:resources.dirTypesMenu}]);
                 }
             }
         } else if( anno.type == "dir.wall" ) {
@@ -1833,17 +1650,17 @@ module.exports = function ltbl(settings) {
             var ni = game.getNpc(anno.npc);
             if( ni ) {
                 game.annotations = [];
-                outputText(chalk.bold("Name"));
+                singleton.outputText(chalk.bold("Name"));
                 if( ni.name ) {
-                    outputText(ni.name+" "+annotate({"type":"npc.name","npc":anno.npc}));
+                    singleton.outputText(ni.name+" "+annotate({"type":"npc.name","npc":anno.npc}));
                 } else {
-                    outputText("No Name "+annotate({"type":"npc.name","npc":anno.npc}));
+                    singleton.outputText("No Name "+annotate({"type":"npc.name","npc":anno.npc}));
                 }
-                outputText(chalk.bold("Description"));
+                singleton.outputText(chalk.bold("Description"));
                 if( ni.description ) {
-                    outputText(ni.description+" "+annotate({"type":"npc.name","npc":anno.npc}));
+                    singleton.outputText(ni.description+" "+annotate({"type":"npc.name","npc":anno.npc}));
                 } else {
-                    outputText("No Description "+annotate({"type":"npc.name","npc":anno.npc}));    
+                    singleton.outputText("No Description "+annotate({"type":"npc.name","npc":anno.npc}));    
                 }
             }
         } else if( anno.type == "npc.name" ) {
@@ -1887,7 +1704,7 @@ module.exports = function ltbl(settings) {
                         pLoc.contains.push({item:args.iObj})
                     }
                 } else if( !ip ) {
-                    outputText(args.iObj+" was not found!");
+                    singleton.outputText(args.iObj+" was not found!");
                 }
                 var listName = null;
                 if( args.preposition == "on") {
@@ -1907,7 +1724,7 @@ module.exports = function ltbl(settings) {
                 } else {
                     ip[listName].push({ item : args.dObj });
                 }
-                outputText("Ok");
+                singleton.outputText("Ok");
             },
         },
         {
@@ -1928,7 +1745,7 @@ module.exports = function ltbl(settings) {
                     }
                     pLoc.contains.push(ip);
                     var ip = game.getItem(args.dObj);
-                    outputText(ip.name+" has been placed in "+pLoc.name);
+                    singleton.outputText(ip.name+" has been placed in "+pLoc.name);
                 }
             }
         },
@@ -2025,10 +1842,10 @@ module.exports = function ltbl(settings) {
                             }
                         });
                     } else {
-                        outputText("There is no opening to the "+args.direction);
+                        singleton.outputText("There is no opening to the "+args.direction);
                     }
                 } else {
-                    outputText("There is no starting location.");
+                    singleton.outputText("There is no starting location.");
                 }
             }
         },
@@ -2059,14 +1876,14 @@ module.exports = function ltbl(settings) {
                                 lastLocDir.door = name;
                                 curLocDir.door = name;
                             } else {
-                                outputText("Locations are not paired from "+design.lastDirection);
+                                singleton.outputText("Locations are not paired from "+design.lastDirection);
                             }
                             game.map = null;
                             describeLocation();
                         }
                     });
                 } else {
-                    outputText("There is no ending location. lastLocation="+design.lastLocation+" lastDirection="+design.lastDirection+ " game.pov.location="+game.pov.location);
+                    singleton.outputText("There is no ending location. lastLocation="+design.lastLocation+" lastDirection="+design.lastDirection+ " game.pov.location="+game.pov.location);
                 }
             }
         },
@@ -2086,7 +1903,7 @@ module.exports = function ltbl(settings) {
                         game.getLocation(game.pov.location)[reverseDirection(design.lastDirection)] = {location : design.lastLocation , type : dirCType};
                     }
                 } else {
-                    outputText("There is no starting location.");
+                    singleton.outputText("There is no starting location.");
                 }
             }
         },
@@ -2116,10 +1933,10 @@ module.exports = function ltbl(settings) {
                         }
                     }
                     if( alreadySet ) {
-                        console.log(ip.name+" already known as "+args.iObj);
+                        singleton.outputText(ip.name+" already known as "+args.iObj);
                     } else {
                         ip.alias.push(args.dObj);
-                        console.log("Ok, "+ip.name+" can be called "+args.dObj);
+                        singleton.outputText("Ok, "+ip.name+" can be called "+args.dObj);
                     }
                 }
             }
@@ -2169,18 +1986,18 @@ module.exports = function ltbl(settings) {
                     }
                     game.pov.inventory.push(listPtr[i]);
                     ip[prop].splice(i, 1);                            
-                    outputText("Taken.");
+                    singleton.outputText("Taken.");
                     break;
                 }
             }
         } else if(args.preposition == "on") {
-            outputText("There is no "+args.dObj+" on "+ip.name);                    
+            singleton.outputText("There is no "+args.dObj+" on "+ip.name);                    
         } else if(args.preposition == "behind") {
-            outputText("There is no "+args.dObj+" behind "+ip.name);                    
+            singleton.outputText("There is no "+args.dObj+" behind "+ip.name);                    
         } else if(args.preposition == "under") {
-            outputText("There is no "+args.dObj+" under "+ip.name);                    
+            singleton.outputText("There is no "+args.dObj+" under "+ip.name);                    
         } else {
-            outputText("There is no "+args.dObj+" in "+ip.name);
+            singleton.outputText("There is no "+args.dObj+" in "+ip.name);
         }
     };
 
@@ -2200,12 +2017,12 @@ module.exports = function ltbl(settings) {
             }, 
             eval : function(args) {
                 if (game.pov.inventory.length == 0) {
-                    outputText("You are carrying nothing.");
+                    singleton.outputText("You are carrying nothing.");
                 } else {
                     game.annotations = [];
-                    outputText("You are carrying:");
+                    singleton.outputText("You are carrying:");
                     for (var i = 0; i < game.pov.inventory.length; ++i) {
-                        outputText(game.getItem(game.pov.inventory[i].item).name+annotate({"type":"item","item":game.pov.inventory[i].item}));
+                        singleton.outputText(game.getItem(game.pov.inventory[i].item).name+annotate({"type":"item","item":game.pov.inventory[i].item}));
                     }
                 }
             }
@@ -2292,7 +2109,7 @@ module.exports = function ltbl(settings) {
                         if (where.contains.length == 0) {
                             delete where.contains;
                         }
-                        outputText("Taken.");
+                        singleton.outputText("Taken.");
                         taken = true;
                         break;
                     }
@@ -2339,7 +2156,7 @@ module.exports = function ltbl(settings) {
                     if (where[holder]) {
                         var found = false;
                         var dropped = game.dropObject(dObj);
-                        outputText(dropped.response);
+                        singleton.outputText(dropped.response);
                         if( dropped.found ) {                            
                             if (args.verb == "!hide") {
                                 objRef.hidden = true;
@@ -2349,10 +2166,10 @@ module.exports = function ltbl(settings) {
                             where[holder].push(objRef);
                         }        
                     } else {
-                        outputText("You cannot place "+what.name+" "+args.preposition+" "+where.name);
+                        singleton.outputText("You cannot place "+what.name+" "+args.preposition+" "+where.name);
                     }
                 } else {
-                    outputText("You don't see "+ args.iObj+"!");   
+                    singleton.outputText("You don't see "+ args.iObj+"!");   
                 }
             }
         },
@@ -2390,14 +2207,14 @@ module.exports = function ltbl(settings) {
                     itemStateLock = objState.lock;
                 }
                 if( itemStateAccess == "open" ) {
-                    outputText("The " + ip.name + " is already open");
+                    singleton.outputText("The " + ip.name + " is already open");
                 } else if( itemStateLock == "locked" ) {
-                    outputText("The " + ip.name + " is locked");
+                    singleton.outputText("The " + ip.name + " is locked");
                 } else if( itemStateAccess == "closed" ) {
                     game.setObjectState(args.dObj,"access","open");
-                    outputText("Ok, you opened the " + ip.name);
+                    singleton.outputText("Ok, you opened the " + ip.name);
                 } else {
-                    outputText(ip.name + " cannot be opened.");
+                    singleton.outputText(ip.name + " cannot be opened.");
                 }
            }
         },
@@ -2417,13 +2234,13 @@ module.exports = function ltbl(settings) {
                 }
                 if( itemStateAccess == "open" ) {
                     game.setObjectState(args.dObj,"access","closed");
-                    outputText("Ok, you closed the " + ip.name);
+                    singleton.outputText("Ok, you closed the " + ip.name);
                 } else if( itemStateAccess == "closed" ) {
-                    outputText("The " + ip.name + " is already closed");
+                    singleton.outputText("The " + ip.name + " is already closed");
                 } else if( itemStateLock == "locked" ) {
-                    outputText("The " + ip.name + " is not open");
+                    singleton.outputText("The " + ip.name + " is not open");
                 } else {
-                    outputText(ip.name + " cannot be closed.");
+                    singleton.outputText(ip.name + " cannot be closed.");
                 }
             }
         },
@@ -2446,19 +2263,19 @@ module.exports = function ltbl(settings) {
                 }
                 if( ip.key != args.iObj ) {
                     if( ip.key ) {
-                        outputText("The " + kp.name + " doesn't fit "+ip.dObj);
+                        singleton.outputText("The " + kp.name + " doesn't fit "+ip.dObj);
                     } else {
-                        outputText("The " + kp.name + " cannot be locked");
+                        singleton.outputText("The " + kp.name + " cannot be locked");
                     }
                 } else if( itemStateLock == "locked" ) {
-                    outputText("The " + ip.name + " is already locked");
+                    singleton.outputText("The " + ip.name + " is already locked");
                 } else if( itemStateAccess == "open" ) {
                     game.setObjectState(args.dObj,"access","closed");
                     game.setObjectState(args.dObj,"lock","locked");
-                    outputText("First closing, " + ip.name + " is now locked");
+                    singleton.outputText("First closing, " + ip.name + " is now locked");
                 } else {
                     game.setObjectState(args.dObj,"lock","locked");
-                    outputText("Ok, " + ip.name + " is now locked");
+                    singleton.outputText("Ok, " + ip.name + " is now locked");
                 }
             },
             godEval: function(args) {
@@ -2466,7 +2283,7 @@ module.exports = function ltbl(settings) {
                 var kp = game.getItem(args.iObj);
                 ip.key = args.iObj;
                 ip.state = "locked";
-                outputText("Ok, " + ip.name + " is now keyed to "+kp.name);
+                singleton.outputText("Ok, " + ip.name + " is now keyed to "+kp.name);
             }
         },
         {
@@ -2486,15 +2303,15 @@ module.exports = function ltbl(settings) {
                 }                
                 if( ip.key != args.iObj ) {
                     if( ip.key ) {
-                        outputText("The " + kp.name + " doesn't fit "+ip.dObj);
+                        singleton.outputText("The " + kp.name + " doesn't fit "+ip.dObj);
                     } else {
-                        outputText("The " + kp.name + " cannot be unlocked");
+                        singleton.outputText("The " + kp.name + " cannot be unlocked");
                     }
                 } else if( itemStateLock != "locked" ) {
-                    outputText("The " + ip.name + " is not locked");
+                    singleton.outputText("The " + ip.name + " is not locked");
                 } else {
                     game.setObjectState(args.dObj,"lock","unlocked");
-                    outputText("Ok, " + ip.name + " is now unlocked");
+                    singleton.outputText("Ok, " + ip.name + " is now unlocked");
                 }
             }
         },
@@ -2506,15 +2323,15 @@ module.exports = function ltbl(settings) {
             eval : function(args) {
                 var ip = game.getItem(args.dObj);
                 if (ip.content) {
-                    outputText(ip.content);
+                    singleton.outputText(ip.content);
                 } else {
-                    outputText("There is nothing written on the "+ip.name);
+                    singleton.outputText("There is nothing written on the "+ip.name);
                 }
             },
             godEval: function(args) {
                 var ip = game.getItem(args.dObj);
                 if (ip.content) {
-                    outputText(ip.content);
+                    singleton.outputText(ip.content);
                 } else {
                     game.stateMachine = stateMachineFillinCreate(ip,[ {msg:"What do you see written on " + ip.name + "?",prop:"content"} ]);
                 }
@@ -2528,15 +2345,15 @@ module.exports = function ltbl(settings) {
             eval : function(args) {
                 var ip = game.getItem(args.dObj);
                 if (ip.smell && ip.smell.description ) {
-                    outputText(ip.smell.description);
+                    singleton.outputText(ip.smell.description);
                 } else {
-                    outputText("You notice no smell in particular.");
+                    singleton.outputText("You notice no smell in particular.");
                 }
             },
             godEval: function(args) {
                 var ip = game.getItem(args.dObj);
                 if (ip.smell && ip.smell.description ) {
-                    outputText(ip.smell.description);
+                    singleton.outputText(ip.smell.description);
                 } else {
                     if( !ip.smell ) {
                         ip.smell = {};
@@ -2553,15 +2370,15 @@ module.exports = function ltbl(settings) {
             eval : function(args) {
                 var ip = game.getItem(args.dObj);
                 if (ip.touch && ip.touch.description ) {
-                    outputText(ip.touch.description);
+                    singleton.outputText(ip.touch.description);
                 } else {
-                    outputText("You don't notice anything out of the ordinary.");
+                    singleton.outputText("You don't notice anything out of the ordinary.");
                 }
             },
             godEval: function(args) {
                 var ip = game.getItem(args.dObj);
                 if (ip.touch && ip.touch.description ) {
-                    outputText(ip.touch.description);
+                    singleton.outputText(ip.touch.description);
                 } else {
                     if( !ip.touch ) {
                         ip.touch = {};
@@ -2578,15 +2395,15 @@ module.exports = function ltbl(settings) {
             eval : function(args) {
                 var ip = game.getItem(args.dObj);
                 if (ip.sound && ip.sound.description ) {
-                    outputText(ip.sound.description);
+                    singleton.outputText(ip.sound.description);
                 } else {
-                    outputText("You don't notice any sound.");
+                    singleton.outputText("You don't notice any sound.");
                 }
             },
             godEval: function(args) {
                 var ip = game.getItem(args.dObj);
                 if (ip.sound && ip.sound.description ) {
-                    outputText(ip.sound.description);
+                    singleton.outputText(ip.sound.description);
                 } else {
                     if( !ip.sound ) {
                         ip.sound = {};
@@ -2603,9 +2420,9 @@ module.exports = function ltbl(settings) {
             eval : function(args) {
                 var ip = game.getItem(args.dObj);
                 if (ip && ip.type ==  "food" ) {
-                    outputText(game.dropObject(args.dObj).response);
+                    singleton.outputText(game.dropObject(args.dObj).response);
                 } else {
-                    outputText("You cannot eat "+ip.name+".");
+                    singleton.outputText("You cannot eat "+ip.name+".");
                 }
             }
         },
@@ -2619,13 +2436,13 @@ module.exports = function ltbl(settings) {
                 if (ip && ip.type ==  "wearable" ) {
                     var is = game.getObjectState(args.dObj);
                     if( is.worn ) {
-                        outputText("You area already wearing "+ip.name+".");
+                        singleton.outputText("You area already wearing "+ip.name+".");
                     } else {
                         is.worn = true;
-                        outputText("Ok");
+                        singleton.outputText("Ok");
                     }
                 } else {
-                    outputText("You cannot wear "+ip.name+".");
+                    singleton.outputText("You cannot wear "+ip.name+".");
                 }
             }
         },
@@ -2638,9 +2455,9 @@ module.exports = function ltbl(settings) {
                 var ip = game.getItem(args.dObj);
                 if (ip && ip.worn ) {
                     delete ip.worn;
-                    outputText("Ok.");
+                    singleton.outputText("Ok.");
                 } else {
-                    outputText("You are not wearing "+ip.name+".");
+                    singleton.outputText("You are not wearing "+ip.name+".");
                 }
             }
         },
@@ -2654,16 +2471,16 @@ module.exports = function ltbl(settings) {
                 if (ip && ip.type ==  "light" ) {
                     var is = game.getObjectState(args.dObj);
                     if( is.lit && is.lit > 0 ) {
-                        outputText(ip.name+" is already lit.");
+                        singleton.outputText(ip.name+" is already lit.");
                     } else if( it.level && ip.level > 0 ) {
                         is.lit = ip.level;
-                        outputText("Ok.");
+                        singleton.outputText("Ok.");
                     } else {
                         is.lit = 10;
-                        outputText("Ok.");
+                        singleton.outputText("Ok.");
                     }
                 } else {
-                    outputText("You cannot light "+ip.name+".");
+                    singleton.outputText("You cannot light "+ip.name+".");
                 }
             }
         },
@@ -2742,7 +2559,7 @@ module.exports = function ltbl(settings) {
             },
             eval : function(args) {
                 game.saveCommands();
-                outputText("Saved");
+                singleton.outputText("Saved");
             }
         }
     ];
@@ -3062,7 +2879,7 @@ module.exports = function ltbl(settings) {
                         findPattern = _pattern;
                         break;    
                     } else if( object1 != "" ) {
-                        outputText("Expected a direction");
+                        singleton.outputText("Expected a direction");
                         findPattern = nullPatternHandler;
                         break;
                     }
@@ -3099,11 +2916,11 @@ module.exports = function ltbl(settings) {
                game.logCommand(command);
             if( game.pov ) {
                 if( game.pov.isGod ) {
-                    if( godWordMap.firstWord[firstWord] ) {
-                        firstWord = godWordMap.firstWord[firstWord];
+                    if( resources.godWordMap.firstWord[firstWord] ) {
+                        firstWord = resources.godWordMap.firstWord[firstWord];
                     }
                     if( lCaseWords.length > 0 ) {
-                        firstPhrase =  godWordMap.firstTwoWord[lCaseWords[0]+" "+lCaseWords[1]];
+                        firstPhrase =  resources.godWordMap.firstTwoWord[lCaseWords[0]+" "+lCaseWords[1]];
                         if( firstPhrase ) {
                             command = firstPhrase+" "+subSentence(command,2);
                             firstWord = firstPhrase;
@@ -3114,12 +2931,12 @@ module.exports = function ltbl(settings) {
                     }    
                 }
             }
-            if( wordMap.firstWord[firstWord] ) {
-                firstWord = wordMap.firstWord[firstWord];
+            if( resources.wordMap.firstWord[firstWord] ) {
+                firstWord = resources.wordMap.firstWord[firstWord];
             }
             // Override pattern
             if( lCaseWords.length > 0 ) {
-                firstPhrase =  wordMap.firstTwoWord[lCaseWords[0]+" "+lCaseWords[1]];
+                firstPhrase =  resources.wordMap.firstTwoWord[lCaseWords[0]+" "+lCaseWords[1]];
                 if( firstPhrase ) {
                     command = firstPhrase+" "+subSentence(command,2);
                     firstWord = firstPhrase;
@@ -3131,7 +2948,7 @@ module.exports = function ltbl(settings) {
             if( firstWord == "!quit") {
                 return false;
             } else if (lCase.trim() == "") {
-                outputText("Pardon?");
+                singleton.outputText("Pardon?");
                 describeLocation();
             /*} else if (mode == 'door?') {
                 // TBD make separate commands for door/passage etc Make
@@ -3220,7 +3037,7 @@ module.exports = function ltbl(settings) {
                                 }
                             }
                             if( missingObjects ) {
-                                outputText("Objects were missing, aborted...")
+                                singleton.outputText("Objects were missing, aborted...")
                             } else {
                                 for(var i = 0 ; i < createObjects.length ; ++i ) {
                                     var friendlyName = sm.data[createObjects[i]];                                    
@@ -3286,15 +3103,15 @@ module.exports = function ltbl(settings) {
                             var ip = game.getItem(existingItem);
                             if (game.pov.isGod && !ip.type) {
                                 ip.type = thingType;
-                                outputText(command + " is " + thingType + ".");
+                                singleton.outputText(command + " is " + thingType + ".");
                             } else if (ip.type != thingType) {
-                                outputText("You cannot " + firstWord + " " + command);
+                                singleton.outputText("You cannot " + firstWord + " " + command);
                             } else {
                                 if( !game.pov.isGod ) {
                                     // TBD - add bookkeeping
-                                    outputText("You " + firstWord + " " + command);
+                                    singleton.outputText("You " + firstWord + " " + command);
                                 } else {
-                                    outputText(command + " is " + thingType + ".");
+                                    singleton.outputText(command + " is " + thingType + ".");
                                 }
                             }
                         } else if (existingItem != "?") {
@@ -3410,7 +3227,7 @@ module.exports = function ltbl(settings) {
                                     }
                                 }
                             } else {
-                                outputText("You cannot go that way.");
+                                singleton.outputText("You cannot go that way.");
                             }
                         } else {
                             var isBlocked = false;
@@ -3423,7 +3240,7 @@ module.exports = function ltbl(settings) {
                                 }
                             }
                             if( isBlocked && !game.pov.isGod ) {
-                                outputText("The door is closed!");
+                                singleton.outputText("The door is closed!");
                             } else {
                                 if( game.pov.location ) {
                                     if( game.getLocation(game.pov.location).type == "void" && game.getLocation(nextLoc.location).type != "void" ) {
@@ -3542,12 +3359,12 @@ module.exports = function ltbl(settings) {
                 } else if (lCase == "location") {
                     if (game.pov.location) {
                         if (game.getLocation(game.pov.location).type) {
-                            outputText("Location is " + game.getLocation(game.pov.location).type + ".");
+                            singleton.outputText("Location is " + game.getLocation(game.pov.location).type + ".");
                         } else {
-                            outputText("Location is inside.");
+                            singleton.outputText("Location is inside.");
                         }
                     } else {
-                        outputText("You are nowhere.");
+                        singleton.outputText("You are nowhere.");
                     }
 
                 } else if( firstWord == "then") {
@@ -3593,10 +3410,10 @@ module.exports = function ltbl(settings) {
                                 }
                             }
                         } else {
-                            outputText("then requires a prior action");    
+                            singleton.outputText("then requires a prior action");    
                         }
                     } else {
-                        outputText("then what?");
+                        singleton.outputText("then what?");
                     }
                 } else if( firstWord == "or" ) {
                     // alt script
@@ -3640,19 +3457,19 @@ module.exports = function ltbl(settings) {
                                             } 
                                         }
                                     } else {
-                                        console.log("No action defined");
+                                        singleton.outputText("No action defined");
                                     }
                                 } else {
-                                    console.log("Need a NPC");
+                                    singleton.outputText("Need a NPC");
                                 }
                             } else {
-                                console.log("Expected prose to follow 'or'.")
+                                singleton.outputText("Expected prose to follow 'or'.")
                             }
                         } else {
-                            console.log("Need an action");
+                            singleton.outputText("Need an action");
                         }
                     } else {
-                        outputText("or not.");
+                        singleton.outputText("or not.");
                     }
                 } else if( firstWord == "score") {
                     // linear script
@@ -3665,17 +3482,17 @@ module.exports = function ltbl(settings) {
                                 if( ptr ) {
                                     ptr.score = value; 
                                 } else {
-                                    outputText("Must have run a conversation to set an associated score");
+                                    singleton.outputText("Must have run a conversation to set an associated score");
                                 }
                             }
                         } else {
-                            outputText("Must be in game.god mode to set score");
+                            singleton.outputText("Must be in game.god mode to set score");
                         }
                     } else {
                         if( game.state.Score ) {
-                            outputText("Score: "+game.state.Score);
+                            singleton.outputText("Score: "+game.state.Score);
                         } else {
-                            outputText("Score: 0");
+                            singleton.outputText("Score: 0");
                         }
                     }
                 } else if ( firstWord == "acquire" && game.pov.isGod ) {
@@ -3687,12 +3504,12 @@ module.exports = function ltbl(settings) {
                         if( ptr ) {
                             ptr.give = existingItem; 
                         } else {
-                            outputText("Must have run a conversation to acquire an item");
+                            singleton.outputText("Must have run a conversation to acquire an item");
                         }                
                     } else if( existingItem != "?" ) {
-                        outputText(command+" does not exist");
+                        singleton.outputText(command+" does not exist");
                     } else {
-                        outputText("????");
+                        singleton.outputText("????");
                     }                
                 } else if ( 
                     firstWord == "!sit" 
@@ -3702,7 +3519,7 @@ module.exports = function ltbl(settings) {
                 ) {
                     firstWord = firstWord.substring(1);
                     command = subSentence( command , 1);
-                    game.verbCommand.preposition  = wordMap.posturePrep[command.split(" ")[0]];
+                    game.verbCommand.preposition  = resources.wordMap.resources.posturePrep[command.split(" ")[0]];
                     if( game.verbCommand.preposition  ) {
                         command = subSentence( command , 1);
                     }
@@ -3731,15 +3548,15 @@ module.exports = function ltbl(settings) {
                                     }
                                 }
                             } else if( allowPosture(ip,firstWord) ) {
-                                outputText("You "+firstWord + " on " + ip.name + ".");
+                                singleton.outputText("You "+firstWord + " on " + ip.name + ".");
                             } else if( game.pov.isGod ) {
                                 if( !ip.postures ) {
                                     ip.postures = [];
                                 }
                                 ip.postures.push(firstWord);
-                                outputText("You can now "+firstWord + " on " + ip.name + ".");
+                                singleton.outputText("You can now "+firstWord + " on " + ip.name + ".");
                             } else {
-                                outputText("You cannot "+firstWord + " on " + ip.name + ".");
+                                singleton.outputText("You cannot "+firstWord + " on " + ip.name + ".");
                             }
                         } else if (existingItem != "?") {
                             dontSee(command,game.pov.location,origCommand);
@@ -3752,17 +3569,17 @@ module.exports = function ltbl(settings) {
                         {
                             var list = game.findLocations(command);
                             for( var i = 0 ; i < list.length ; ++i ) {
-                                outputText(chalk.bold(list[i]));
+                                singleton.outputText(chalk.bold(list[i]));
                                 console.dir(game.getLocation(list[i]),{ depth : 6 , colors : true});                                
                             }
                             list = findItems(command);
                             for( var i = 0 ; i < list.length ; ++i ) {
-                                outputText(chalk.bold(list[i]));
+                                singleton.outputText(chalk.bold(list[i]));
                                 console.dir(game.getItem(list[i]), { depth : 6 , colors : true});
                             }
                             list = findNPCs(command);
                             for( var i = 0 ; i < list.length ; ++i ) {
-                                outputText(chalk.bold(list[i]));
+                                singleton.outputText(chalk.bold(list[i]));
                                 console.dir(game.getNpc(list[i]), { depth : 6 , colors : true});
                             }
                         }
@@ -3777,7 +3594,7 @@ module.exports = function ltbl(settings) {
                 } else if ( game.pov.isGod && firstWord == "nocare") {
                     // test 'I don't care for a room
                     if( game.pov.location ) {
-                        outputText(noCareAbout(game.pov.location));
+                        singleton.outputText(noCareAbout(game.pov.location));
                     }
                 } else if (firstWord == "map") {
                     if( game.pov.isGod ) {
@@ -3816,7 +3633,7 @@ module.exports = function ltbl(settings) {
                             }
                         }
                     } else {
-                        outputText("You don't have a map");
+                        singleton.outputText("You don't have a map");
                     }
                 } else if ( firstWord == "b" ) {
                     if( game.pov.isGod ) {
@@ -3834,19 +3651,19 @@ module.exports = function ltbl(settings) {
                     if( command && command.length ) {
                         if( command == game.god.name ) {
                             if( game.allowGodMode ) {
-                                if( godGame ) {
-                                    game = godGame;
+                                if( singleton.godGame ) {
+                                    game = singleton.godGame;
                                 }
                                 game.pov = game.god;
                             } else {
-                                outputText("God mode not available.")
+                                singleton.outputText("God mode not available.")
                             }
                         } else if( command == game.actor.name ) {
                             if( game.pov.isGod ) {
-                                if( godGame ) {
+                                if( singleton.godGame ) {
                                     // Work from a copy
                                     game = new Game(settings);
-                                    game.cloneFrom(godGame);
+                                    game.cloneFrom(singleton.godGame);
                                 } else {
                                     game.state = {};
                                 }
@@ -3854,14 +3671,14 @@ module.exports = function ltbl(settings) {
                             game.pov = game.actor;
                         }
                     } else {
-                        outputText("You are "+game.pov.name);
+                        singleton.outputText("You are "+game.pov.name);
                     }
                 } else if (lCase == "save") {
                     game.saveFile();
                 } else if (  '0' < firstWord[0] && firstWord[0] <= '9' && game.pov.isGod ) {
                     var index = Number.parseInt(firstWord);
                     if( index > game.annotations.length || index < 1 ) {
-                        outputText("No footnote "+index+" defined");
+                        singleton.outputText("No footnote "+index+" defined");
                     } else {
                         doAnnotation(game.annotations[index-1]);
                     }
@@ -3869,12 +3686,12 @@ module.exports = function ltbl(settings) {
                     if (lCase.split(" ").length > 1) {
                         lCase = lCase.split(" ")[1];
                         if( helpText.subtopic[lCase]) {
-                            outputText(helpText.subtopic[lCase].help.join("\n"));                            
+                            singleton.outputText(helpText.subtopic[lCase].help.join("\n"));                            
                         } else {
-                            outputText("Unrecognized help category '"+lCase+"'\n"+helpText.help.join("\n"));
+                            singleton.outputText("Unrecognized help category '"+lCase+"'\n"+helpText.help.join("\n"));
                         }
                     } else {
-                        outputText(helpText.help.join("\n"));
+                        singleton.outputText(helpText.help.join("\n"));
                     }
                 } else {
                     var verb = lCase.split(" ")[0];
@@ -3897,7 +3714,7 @@ module.exports = function ltbl(settings) {
                         }*/
                         noUnderstand();
                     } else {
-                        outputText("Command not handled ");
+                        singleton.outputText("Command not handled ");
                     }
                 }
             }
@@ -3920,16 +3737,16 @@ module.exports = function ltbl(settings) {
                     game.allowGodMode = false;
                     if( settings.action == "play" ) {
                         if( game.metadata.title)
-                           console.log(chalk.bold(game.metadata.title))+"\n";
+                           singleton.outputText(chalk.bold(game.metadata.title))+"\n";
                         if( game.metadata.description )   
-                           console.log(game.metadata.description)+"\n";
+                           singleton.outputText(game.metadata.description)+"\n";
                         if( game.metadata.title || game.metadata.description )
-                           console.log("\n");   
+                           singleton.outputText("\n");   
                     }
                 } else if( game.allowGodMode ) {
                     game.renderMap =  game.renderMapLevelText();
                     describeLocation(false);
-                    godGame = game;
+                    singleton.godGame = game;
                 }                
             }
             onComplete(err,loaded);
@@ -3970,7 +3787,7 @@ module.exports = function ltbl(settings) {
                 ],
                 execute : stateMachineFillin,
                 start: stateMachineFillinStart,
-                done: function(sm) { game.saveConfig(function() { console.log("Saved config."); }); }
+                done: function(sm) { game.saveConfig(function() { singleton.outputText("Saved config."); }); }
             };
             game.stateMachine.start(game.stateMachine);
             onComplete(null,true);
