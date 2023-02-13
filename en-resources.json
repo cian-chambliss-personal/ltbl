@@ -128,6 +128,20 @@
             "membership": "inside"
         }
     },
+    "friendlyDir": {
+        "s": "south",
+        "n": "north",
+        "e": "east",
+        "w": "west",
+        "u": "up",
+        "d": "down",
+        "sw": "southwest",
+        "se": "southeast",
+        "ne": "northeast",
+        "nw": "northwest",
+        "o": "out",
+        "i": "in"
+    },
     "topLocationMenu": [
         {
             "text": "Outdoors",

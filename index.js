@@ -67,37 +67,13 @@ module.exports = function ltbl(settings) {
     
     //---------------------------------------------------------------------------
     // Build a map....
-    var reverseDirection = function (dir) {
-        if (dir == "s") return "n";
-        if (dir == "n") return "s";
-        if (dir == "e") return "w";
-        if (dir == "w") return "e";
-        if (dir == "u") return "d";
-        if (dir == "d") return "u";
-        if (dir == "sw") return "ne";
-        if (dir == "se") return "nw";
-        if (dir == "ne") return "sw";
-        if (dir == "nw") return "se";
-        if (dir == "o") return "i";
-        if (dir == "i") return "o";
-        return dir;
-    };
     var friendlyDir = function (dir) {
-        if (dir == "s") return "south";
-        if (dir == "n") return "north";
-        if (dir == "e") return "east";
-        if (dir == "w") return "west";
-        if (dir == "u") return "up";
-        if (dir == "d") return "down";
-        if (dir == "sw") return "southwest";
-        if (dir == "se") return "southeast";
-        if (dir == "ne") return "northeast";
-        if (dir == "nw") return "northwest";
-        if (dir == "o") return "out";
-        if (dir == "i") return "in";
+        var name = resources.friendlyDir[dir];
+        if( name ) {
+            return name;
+        }
         return dir;
     }
-
     var noCareAbout = function (locationId,filterOn) {
         var dontCare = [];
         var loc = game.getLocation(locationId);
@@ -580,7 +556,7 @@ module.exports = function ltbl(settings) {
             // Drop or raise voids
             if( design.lastNonVoid && design.lastNonVoidDelta != 0 ) {
                 game.getLocation(design.lastNonVoid)[design.lastNonVoidDirection].direction = design.lastNonVoidDelta;
-                game.getLocation(game.getLocation(design.lastNonVoid)[design.lastNonVoidDirection].location)[reverseDirection(design.lastNonVoidDirection)].direction = -design.lastNonVoidDelta;
+                game.getLocation(game.getLocation(design.lastNonVoid)[design.lastNonVoidDirection].location)[game.util.reverseDirection(design.lastNonVoidDirection)].direction = -design.lastNonVoidDelta;
             }
             voids.clear(game);
             describeLocation();
@@ -598,10 +574,10 @@ module.exports = function ltbl(settings) {
             }
             if (design.lastLocation && design.lastDirection) {
                 game.getLocation(design.lastLocation)[design.lastDirection] = { location: game.pov.location };
-                game.getLocation(game.pov.location)[reverseDirection(design.lastDirection)] = { location: design.lastLocation };
+                game.getLocation(game.pov.location)[game.util.reverseDirection(design.lastDirection)] = { location: design.lastLocation };
                 if( design.lastNonVoidDelta != 0 ) {
                     game.getLocation(design.lastLocation)[design.lastDirection].direction = design.lastNonVoidDelta;
-                    game.getLocation(game.pov.location)[reverseDirection(design.lastDirection)].direction = -design.lastNonVoidDelta;
+                    game.getLocation(game.pov.location)[game.util.reverseDirection(design.lastDirection)].direction = -design.lastNonVoidDelta;
                 }
             }
             if( design.pendingGoInsideItem ) {
@@ -1835,7 +1811,7 @@ module.exports = function ltbl(settings) {
                                 name = game.getUniqueItemName(name,"door",game.util.calcCommonPrefix(game.pov.location,design.lastLocation));
                                 game.setDoor(name,{ name: sm.data.name , type : "door" });
                                 game.getLocation(design.lastLocation)[design.lastDirection].door = name;
-                                game.getLocation(game.pov.location)[reverseDirection(design.lastDirection)].door = name;
+                                game.getLocation(game.pov.location)[game.util.reverseDirection(design.lastDirection)].door = name;
                                 game.pov.location = design.lastLocation;
                                 game.map = null;
                                 describeLocation();
@@ -1866,12 +1842,12 @@ module.exports = function ltbl(settings) {
                             name = game.getUniqueItemName(name,"door",game.util.calcCommonPrefix(game.pov.location,design.lastLocation));
                             game.setDoor(name,{ name: sm.data.name , type : "door"});
                             lastLocDir = game.getLocation(design.lastLocation)[design.lastDirection];
-                            curLocDir = game.getLocation(game.pov.location)[reverseDirection(design.lastDirection)]
+                            curLocDir = game.getLocation(game.pov.location)[game.util.reverseDirection(design.lastDirection)]
                             if( !lastLocDir
                             && !curLocDir 
                                 ) {
                                 game.getLocation(design.lastLocation)[design.lastDirection] = { location : game.pov.location , door : name };
-                                game.getLocation(game.pov.location)[reverseDirection(design.lastDirection)] = { location : design.lastLocation , door : name};
+                                game.getLocation(game.pov.location)[game.util.reverseDirection(design.lastDirection)] = { location : design.lastLocation , door : name};
                             } else if( lastLocDir && curLocDir ) {
                                 lastLocDir.door = name;
                                 curLocDir.door = name;
@@ -1897,10 +1873,10 @@ module.exports = function ltbl(settings) {
                     var dirCType = args.verb.substring(5);
                     if( game.getLocation(design.lastLocation)[design.lastDirection] ) {
                         game.getLocation(design.lastLocation)[design.lastDirection].type = dirCType;
-                        game.getLocation(game.pov.location)[reverseDirection(design.lastDirection)].type = dirCType;
-                    } else if( !game.getLocation(game.pov.location)[reverseDirection(design.lastDirection)] ) {
+                        game.getLocation(game.pov.location)[game.util.reverseDirection(design.lastDirection)].type = dirCType;
+                    } else if( !game.getLocation(game.pov.location)[game.util.reverseDirection(design.lastDirection)] ) {
                         game.getLocation(design.lastLocation)[design.lastDirection] = { location : game.pov.location , type : dirCType};
-                        game.getLocation(game.pov.location)[reverseDirection(design.lastDirection)] = {location : design.lastLocation , type : dirCType};
+                        game.getLocation(game.pov.location)[game.util.reverseDirection(design.lastDirection)] = {location : design.lastLocation , type : dirCType};
                     }
                 } else {
                     singleton.outputText("There is no starting location.");
@@ -3150,7 +3126,7 @@ module.exports = function ltbl(settings) {
                                         } else {
                                             design.lastNonVoidDelta = design.lastNonVoidDelta - 1;
                                         }
-                                        game.getLocation(design.lastNonVoidPendingVoid)[reverseDirection(design.lastNonVoidDirection)].direction = -design.lastNonVoidDelta;
+                                        game.getLocation(design.lastNonVoidPendingVoid)[game.util.reverseDirection(design.lastNonVoidDirection)].direction = -design.lastNonVoidDelta;
                                         game.map = null;
                                         describeLocation();
                                     }
@@ -3214,9 +3190,9 @@ module.exports = function ltbl(settings) {
                                         // Single link void back to cell
                                         game.setLocation(game.pov.location,{ name : "void" , type : "void" , description : "void" });
                                         if( design.lastLocation && game.getLocation(design.lastLocation).type == "void" ) {
-                                            game.getLocation(game.pov.location)[reverseDirection(lCase)] = { location: design.lastLocation , "wall" : "none" };
+                                            game.getLocation(game.pov.location)[game.util.reverseDirection(lCase)] = { location: design.lastLocation , "wall" : "none" };
                                         } else {
-                                            game.getLocation(game.pov.location)[reverseDirection(lCase)] = { location: design.lastLocation };
+                                            game.getLocation(game.pov.location)[game.util.reverseDirection(lCase)] = { location: design.lastLocation };
                                         }
                                         design.lastDirection = lCase;
                                         if( !design.lastNonVoidPendingVoid ) {

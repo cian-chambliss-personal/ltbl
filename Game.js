@@ -529,7 +529,6 @@ module.exports = class Game {
         }
         return { found : found , response : response , objRef : objRef };
     }
-
     //---------------------------------------------------------------------------
     // Create a spacial map of from the logical description
     createMap() {
