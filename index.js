@@ -33,6 +33,7 @@ module.exports = function ltbl(settings) {
         defineLocation: function() {},
         describeLocation:function() {},
         describeItem:function() {},
+        setLocationType:function() {},
         resources: require("./en-resources.json") ,
         annotate : function(expr) {
             if( game.pov.isGod ) {
@@ -57,8 +58,10 @@ module.exports = function ltbl(settings) {
     }});
     singleton.render = require("./render-location.js")(singleton).render;
     singleton.defineLocation = require("./define-location.js")(singleton).locationDefine;
-    singleton.describeLocation = require("./describe-location.js")(singleton).describeLocation;
-    singleton.describeItem = require("./describe-item.js")(singleton).describeItem;
+    var describeLocationIface = require("./describe-location.js")(singleton);
+    singleton.describeLocation = describeLocationIface.describeLocation;
+    singleton.setLocationType = describeLocationIface.setLocationType;
+    singleton.describeItem = require("./describe-item.js").describeItem;
     var stateMachineFillin = singleton.stateMachine.fillin;
     var stateMachineFillinStart = singleton.stateMachine.fillinStart;
     var stateMachineFillinCreate = singleton.stateMachine.fillinCreate;
@@ -67,7 +70,6 @@ module.exports = function ltbl(settings) {
     
     var camelCase = singleton.helper.camelCase;
     var extractNounAndAdj = singleton.helper.extractNounAndAdj;
-    var extractNounAndAdjAlways = singleton.helper.extractNounAndAdjAlways;
     var extractScalar = singleton.helper.extractScalar;
     var getPartsOfSpeech = singleton.helper.getPartsOfSpeech;
     var isVerb = singleton.helper.isVerb;
@@ -667,26 +669,6 @@ module.exports = function ltbl(settings) {
             }
         }
         return false;
-    };
-    var setLocationType = function(ltype) {
-        if (game.pov.location) {
-            var roomPtr = game.getLocation(game.pov.location);
-            if( game.pov.isGod ) {
-                if( ltype == "inside"  ) {
-                    delete roomPtr.type;
-                } else {
-                    roomPtr.type = ltype;
-                }
-            } else if( !roomPtr.type && ltype == "inside" ) {
-                singleton.outputText("Yes it is.");
-            } else if( roomPtr.type == ltype ) {
-                singleton.outputText("Yes it is.");
-            } else {
-                singleton.outputText("No, it isn't.");
-            }
-        } else {
-            singleton.outputText("You are nowhere.");
-        }
     };
     var noUnderstand = function() {
         singleton.outputText("What was that?");
@@ -2673,18 +2655,18 @@ module.exports = function ltbl(settings) {
                         outputText("There is no starting location.");
                     }*/
                 } else if (lCase == "location outside" || lCase == "is outside") {                    
-                    setLocationType("outside");
+                    singleton.setLocationType("outside");
                 } else if (lCase == "location ship" || lCase == "is ship") {
-                    setLocationType("ship");
+                    singleton.setLocationType("ship");
                 } else if (lCase == "location dark" || lCase == "is dark") {
-                    setLocationType("dark");
+                    singleton.setLocationType("dark");
                 } else if (lCase == "location bottomless" || lCase == "is bottomless" ) {
-                    setLocationType("bottomless");
+                    singleton.setLocationType("bottomless");
                 } else if (lCase == "location inside" || lCase == "is inside" ) {
                     if( game.pov.isGod && game.pov.location ) {
                         delete game.getLocation(game.pov.location).type;
                     } else {
-                        setLocationType("inside");
+                        singleton.setLocationType("inside");
                     }
                 } else if (lCase == "location") {
                     if (game.pov.location) {

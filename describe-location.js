@@ -146,5 +146,26 @@ module.exports = function(singleton) {
             }
         }
     };
-    return {describeLocation : describeLocation};
+    var setLocationType = function(ltype) {
+        var game = singleton.game;
+        if (game.pov.location) {
+            var roomPtr = game.getLocation(game.pov.location);
+            if( game.pov.isGod ) {
+                if( ltype == "inside"  ) {
+                    delete roomPtr.type;
+                } else {
+                    roomPtr.type = ltype;
+                }
+            } else if( !roomPtr.type && ltype == "inside" ) {
+                singleton.outputText("Yes it is.");
+            } else if( roomPtr.type == ltype ) {
+                singleton.outputText("Yes it is.");
+            } else {
+                singleton.outputText("No, it isn't.");
+            }
+        } else {
+            singleton.outputText("You are nowhere.");
+        }
+    };
+    return {describeLocation : describeLocation, setLocationType : setLocationType};
 }
