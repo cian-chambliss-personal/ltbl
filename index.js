@@ -26,11 +26,13 @@ module.exports = function ltbl(settings) {
             console.log(txt);
         },
         game: game,
+        stateMachine : null,
         godGame: null,
         helper: require("./helper.js")({spellCorrect:settings.spellCorrect}),
         render: function() {} ,
         defineLocation: function() {},
         describeLocation:function() {},
+        describeItem:function() {},
         resources: require("./en-resources.json") ,
         annotate : function(expr) {
             if( game.pov.isGod ) {
@@ -49,16 +51,17 @@ module.exports = function ltbl(settings) {
             return description;
         }
     };
-    //  Wire it up
+    //  Wire it up 
+    singleton.stateMachine = require("./state-machine")({output : function(txt) {
+        singleton.outputText(txt);
+    }});
     singleton.render = require("./render-location.js")(singleton).render;
     singleton.defineLocation = require("./define-location.js")(singleton).locationDefine;
     singleton.describeLocation = require("./describe-location.js")(singleton).describeLocation;
-    var _SM = require("./state-machine")({output : function(txt) {
-        singleton.outputText(txt);
-    }});
-    var stateMachineFillin = _SM.fillin;
-    var stateMachineFillinStart = _SM.fillinStart;
-    var stateMachineFillinCreate = _SM.fillinCreate;
+    singleton.describeItem = require("./describe-item.js")(singleton).describeItem;
+    var stateMachineFillin = singleton.stateMachine.fillin;
+    var stateMachineFillinStart = singleton.stateMachine.fillinStart;
+    var stateMachineFillinCreate = singleton.stateMachine.fillinCreate;
     var fs = require("fs");
     var helpText = require("./en-help.json");
     
@@ -188,60 +191,7 @@ module.exports = function ltbl(settings) {
 
     // data
     
-    var disclosedContents= function(item,itemPtr,list,prop,preposition,search) {
-        var discovered = [];
-        var disclosedList = game.state[game.pov.location+"_disclosed"];
-        if( !disclosedList ) {
-            game.state[game.pov.location+"_disclosed"] = {};
-            disclosedList = game.state[game.pov.location+"_disclosed"];
-        }
-        var contents = function(list) {
-            var text = "";
-            for( var i = 0 ; i < list.length ; ++i ) {
-                if( text != "" ) {
-                    text = text + " , ";
-                }
-                var ip = game.getItem(list[i].item);
-                if( list[i].scalar && list[i].scalar > 1 ) {
-                    text = text + "" + list[i].scalar + " " + ip.plural;
-                } else {
-                    text = text + ip.name;
-                }
-                if( !disclosedList[list[i].item] ) {
-                    // Disclose content for further object interaction
-                    disclosedList[list[i].item] = prop+" "+item;
-                }
-            }
-            return text;
-        };
-        if( search ) {
-            for(var i = 0 ; i < list.length ; ++i ) {
-                if( list[i].hidden ) {
-                    list[i].hidden = false;
-                    discovered.push(list[i]);
-                }
-            }
-            if( discovered.length > 0 ) {
-                singleton.outputText("You discover "+contents(discovered)+" "+preposition+" "+itemPtr.name);
-            } else {
-                singleton.outputText("You find nothing else "+preposition+" "+itemPtr.name);
-            }
-            return true;
-        }
-        for(var i = 0 ; i < list.length ; ++i ) {
-            if( !list[i].hidden ) {
-                discovered.push(list[i]);
-            }
-        }
-        if( discovered.length > 1 ) {
-            singleton.outputText("There are "+contents(discovered)+" "+preposition+" "+itemPtr.name);
-            return true;
-        } else if( discovered.length == 1 ) {
-            singleton.outputText("There is "+contents(discovered)+" "+preposition+" "+itemPtr.name);
-            return true;
-        }
-        return false;
-    };
+    
     var describeNPC = function(npc,preposition,search) {
         var npcPtr = game.getNpc(npc);
         if( npcPtr.description ) {
@@ -252,53 +202,7 @@ module.exports = function ltbl(settings) {
             singleton.outputText(npcPtr.name);
         }
     };
-    var describeItem = function(item,preposition,search) {
-        var itemPtr = game.getItem(item);
-        var itemState = game.getObjectState(item);
-        var itemStateAccess = null;
-        if (itemPtr.description) {
-            singleton.outputText(itemPtr.description);
-        } else if(game.pov.isGod) {
-            game.stateMachine = stateMachineFillinCreate(itemPtr,[ {msg:"How would you describe the " + (itemPtr.name || item) + "?",prop:"description"} ]);
-        } else {
-            singleton.outputText(itemPtr.name);
-        }
-        if( itemState ) {
-            if( itemState.access ) {
-                itemStateAccess = itemState.access;
-            }
-            if( itemState.broken ) {
-                singleton.outputText("The "+itemPtr.name+" is broken");
-            } else if( itemState.locked == "locked" ) {
-                singleton.outputText("The "+itemPtr.name+" is locked");
-            } else if( itemState.access == "open" ) {
-                singleton.outputText("The "+itemPtr.name+" is open");
-            } else if( itemState.locked == "unlocked" ) {
-                singleton.outputText("The "+itemPtr.name+" is unlocked but closed.");
-            } else if( itemState.access == "closed" ) {
-                singleton.outputText("The "+itemPtr.name+" is closed");
-            }
-            if( itemState.lit ) {
-                singleton.outputText("The "+itemPtr.name+" is lit.");
-            }
-            if( itemState.worn ) {
-                singleton.outputText("The "+itemPtr.name+" is being worn.");
-            }
-        }
-        if( itemPtr.supports ) {
-            disclosedContents(item,itemPtr,itemPtr.supports,"supports","on",search);
-        }
-        if( itemPtr.contains && itemStateAccess != "closed" ) {
-            disclosedContents(item,itemPtr,itemPtr.contains,"contains","inside",search);
-        }
-        if( itemPtr.under && preposition == "under" ) {
-            disclosedContents(item,itemPtr,itemPtr.under,"under","under",search);
-        }
-        if( itemPtr.behind && preposition == "behind" ) {
-            disclosedContents(item,itemPtr,itemPtr.behind,"behind","behind",search);
-        }
-    };
-
+    
     var lookupItemLow = function (parts,arr,command,candidates) {
         var itemName = null;
         if( command[0] == '@' ) {
@@ -1463,7 +1367,7 @@ module.exports = function ltbl(settings) {
                 if( args.dObjType == "npc" ) {
                     describeNPC(args.dObj,args.preposition);
                 } else {
-                    describeItem(args.dObj,args.preposition);
+                    singleton.describeItem(args.dObj,args.preposition);
                 }
             }
         } ,
@@ -1476,7 +1380,7 @@ module.exports = function ltbl(settings) {
                 if( args.dObjType == "npc" ) {
                     describeNPC(args.dObj);
                 } else {
-                    describeItem(args.dObj);
+                    singleton.describeItem(args.dObj);
                 }                
             }
         } ,
@@ -1496,7 +1400,7 @@ module.exports = function ltbl(settings) {
                 preposition : ["on","under","behind","in","inside"]
             }, 
             eval : function(args) {
-                describeItem(args.dObj,args.preposition,true);
+                singleton.describeItem(args.dObj,args.preposition,true);
             }
         } ,
         {
@@ -1505,7 +1409,7 @@ module.exports = function ltbl(settings) {
                 dObj : "*"
             }, 
             eval : function(args) {
-                describeItem(args.dObj,null,true);
+                singleton.describeItem(args.dObj,null,true);
             }
         } ,
         {

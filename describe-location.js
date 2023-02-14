@@ -1,10 +1,7 @@
 module.exports = function(singleton) {
-    var _SM = require("./state-machine")({output : function(txt) {
-        singleton.outputText(txt);
-    }});
-    var stateMachineFillin = _SM.fillin;
-    var stateMachineFillinStart = _SM.fillinStart;
-    var stateMachineFillinCreate = _SM.fillinCreate;    
+    var stateMachineFillin = singleton.stateMachine.fillin;
+    var stateMachineFillinStart = singleton.stateMachine.fillinStart;
+    var stateMachineFillinCreate = singleton.stateMachine.fillinCreate;    
     var describeLocation = function (noVoid) {
         var game = singleton.game;
         var design = game.design;
