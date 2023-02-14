@@ -17,12 +17,42 @@ module.exports = function ltbl(settings) {
          }
       }
      */
+    var Game = require('./Game');
+    var game = new Game(settings); 
     var singleton = { 
-        outputText : function(txt) {
+        chalk: chalk,
+        settings : settings,
+        outputText: function(txt) {
             console.log(txt);
         },
-        godGame : null
+        game: game,
+        godGame: null,
+        helper: require("./helper.js")({spellCorrect:settings.spellCorrect}),
+        render: function() {} ,
+        defineLocation: function() {},
+        describeLocation:function() {},
+        resources: require("./en-resources.json") ,
+        annotate : function(expr) {
+            if( game.pov.isGod ) {
+                game.annotations.push(expr);
+                return singleton.helper.superScript(""+game.annotations.length);
+            }
+            return "";
+        },
+        spellCorrectText : function(description) {
+            var parts = singleton.helper.getPartsOfSpeech(description,false,true);
+            if( parts.mispelled.length > 0 ) {
+                for(var i = 0; i < parts.mispelled.length ; ++i ) {
+                    description = (" "+description+" ").split(" "+parts.mispelled[i].word+" ").join(chalk.red(" "+parts.mispelled[i].word+" ")).trim();
+                }
+            }
+            return description;
+        }
     };
+    //  Wire it up
+    singleton.render = require("./render-location.js")(singleton).render;
+    singleton.defineLocation = require("./define-location.js")(singleton).locationDefine;
+    singleton.describeLocation = require("./describe-location.js")(singleton).describeLocation;
     var _SM = require("./state-machine")({output : function(txt) {
         singleton.outputText(txt);
     }});
@@ -31,29 +61,19 @@ module.exports = function ltbl(settings) {
     var stateMachineFillinCreate = _SM.fillinCreate;
     var fs = require("fs");
     var helpText = require("./en-help.json");
-    var resources = require("./en-resources.json") 
-    var Game = require('./Game');
-    var game = new Game(settings);
-    var helper = require("./helper.js")({spellCorrect:settings.spellCorrect});
-    var camelCase = helper.camelCase;
-    var extractNounAndAdj = helper.extractNounAndAdj;
-    var extractNounAndAdjAlways = helper.extractNounAndAdjAlways;
-    var extractScalar = helper.extractScalar;
-    var getPartsOfSpeech = helper.getPartsOfSpeech;
-    var isVerb = helper.isVerb;
-    var isArticle = helper.isArticle;
-    var singularFromPlural = helper.singularFromPlural;
-    var pluralFromSingular = helper.pluralFromSingular;
+    
+    var camelCase = singleton.helper.camelCase;
+    var extractNounAndAdj = singleton.helper.extractNounAndAdj;
+    var extractNounAndAdjAlways = singleton.helper.extractNounAndAdjAlways;
+    var extractScalar = singleton.helper.extractScalar;
+    var getPartsOfSpeech = singleton.helper.getPartsOfSpeech;
+    var isVerb = singleton.helper.isVerb;
+    var isArticle = singleton.helper.isArticle;
+    var singularFromPlural = singleton.helper.singularFromPlural;
+    var pluralFromSingular = singleton.helper.pluralFromSingular;
     var invalidateMap = function() {
         game.map = null;
-        render(game.getLocation(game.pov.location),game.pov.location, 0);
-    };
-    var annotate = function(expr) {
-        if( game.pov.isGod ) {
-            game.annotations.push(expr);
-            return helper.superScript(""+game.annotations.length);
-        }
-        return "";
+        singleton.render(game.getLocation(game.pov.location),game.pov.location, 0);
     };
     var splitOnOneOf = function(text,words) {
         var newText;
@@ -67,13 +87,6 @@ module.exports = function ltbl(settings) {
     
     //---------------------------------------------------------------------------
     // Build a map....
-    var friendlyDir = function (dir) {
-        var name = resources.friendlyDir[dir];
-        if( name ) {
-            return name;
-        }
-        return dir;
-    }
     var noCareAbout = function (locationId,filterOn) {
         var dontCare = [];
         var loc = game.getLocation(locationId);
@@ -118,170 +131,6 @@ module.exports = function ltbl(settings) {
             }
         }
         return dontCare;
-    };
-    var spellCorrectText = function(description) {
-        var parts = getPartsOfSpeech(description,false,true);
-        if( parts.mispelled.length > 0 ) {
-            for(var i = 0; i < parts.mispelled.length ; ++i ) {
-                description = (" "+description+" ").split(" "+parts.mispelled[i].word+" ").join(chalk.red(" "+parts.mispelled[i].word+" ")).trim();
-            }
-        }
-        return description;
-    };
-    var ifGod = function(txt) {
-        if( game.pov.isGod ) 
-           return txt;
-        return "";
-    };
-    var render = function (loc,locationId, depth, where) {
-        if( !depth ) {
-            game.annotations = [];
-        }
-        var describeNav = function (dir, name, rawDir) {
-            if (dir.type == "stairs") {
-                singleton.outputText("There are stairs leading " + name + "."+annotate({"type":"dir","dir":rawDir}));
-            } else if (dir.type == "passage") {
-                singleton.outputText("There is a passage leading " + name + "."+annotate({"type":"dir","dir":rawDir}));
-            } else if (dir.type == "path") {
-                singleton.outputText("There is a path leading " + name + "."+annotate({"type":"dir","dir":rawDir}));
-            } else if (dir.door) {
-                if (dir.open) {
-                    singleton.outputText("To the " + name + " is open " + game.getDoor(dir.door).name+annotate({"type":"dir","dir":rawDir}));
-                } else {
-                    singleton.outputText("To the " + name + " is " + game.getDoor(dir.door).name+annotate({"type":"dir","dir":rawDir}));
-                }
-            } else {
-                if( dir.direction ) {
-                    if( dir.direction > 0 ) {
-                        singleton.outputText("To the " + name + " is passage leading up."+annotate({"type":"dir","dir":rawDir}));
-                    } else {
-                        singleton.outputText("To the " + name + " is passage leading down."+annotate({"type":"dir","dir":rawDir}));
-                    }
-                } else {                
-                    singleton.outputText("To the " + name + " is " + (game.getLocation(dir.location).name || game.getLocation(dir.location).description) + "."+annotate({"type":"dir","dir":rawDir}));
-                }
-            }
-        };
-        if( !loc ) {
-            singleton.outputText("Null for "+locationId);
-        }
-        if( loc.type == "void") {
-            if (loc.name) {
-                singleton.outputText(chalk.bold(loc.name));
-            } else if (loc.description) {
-                singleton.outputText(loc.description);
-            }
-        } else {
-            if(game.pov.isGod && !depth ) {
-                if( locationId.indexOf("/") > 0 ) {
-                    var topLoc = locationId.split("/")[0];
-                    var topLocType = resources.topLocationTypes[game.getLocation(topLoc).type];
-                    if( topLocType ) {
-                        singleton.outputText(topLocType.membership+" "+game.getLocation(topLoc).name+annotate({"type":"location.topLoc","location":topLoc }));
-                    }
-                }
-                if(loc.type)
-                    singleton.outputText("Type: "+chalk.bold(loc.type)+annotate({"type":"location.type"}));
-                else
-                    singleton.outputText("Type: "+chalk.bold("inside")+annotate({"type":"location.type"}));
-            }
-            if (loc.name) { 
-                singleton.outputText(ifGod("Name: ")+chalk.bold(loc.name)+annotate({"type":"location.name"}));
-            } else if(game.pov.isGod && !depth ) {
-                singleton.outputText("Name: "+chalk.bold("No name")+annotate({"type":"location.name"}));
-            }
-            if (loc.description) {
-                var roomDescription = loc.description;
-                if( game.pov.isGod && settings.spellCorrect ) {
-                    roomDescription = spellCorrectText(roomDescription);
-                } 
-                singleton.outputText(ifGod("Description: ")+roomDescription+annotate({"type":"location.description"}));
-            } else if(game.pov.isGod&& !depth ) {
-                singleton.outputText("Description: "+chalk.bold("No description")+annotate({"type":"location.description"}));
-            }
-        }
-        if (loc.contains) {
-            var _contains = [];
-            for (var i = 0; i < loc.contains.length; ++i) {
-                if( !loc.contains[i].described ) {
-                    _contains.push(loc.contains[i]);
-                }
-            }
-            if( _contains.length > 0 ) {
-                var contains = "there is ";
-                if (_contains.length > 1) {
-                    contains = "there are ";
-                }
-                for (var i = 0; i < _contains.length; ++i) {
-                    if (i) {
-                        contains += " , ";
-                        if ((i + 1) == _contains.length) {
-                            contains += "and";
-                        }
-                    }
-                    var ip = game.getItem(_contains[i].item);
-                    if( ip ) {
-                        var iname = ip.name;
-                        if( _contains[i].scalar && _contains[i].scalar > 1 ) {
-                            iname = " " + _contains[i].scalar + " " + ip.plural;
-                        }
-                        else if ("AEIOUYW".indexOf(iname[0]))
-                            contains += " a ";
-                        else
-                            contains += " an ";
-                        contains += iname+annotate({"type":"item","item":_contains[i].item});
-                    }
-                }
-                if (where) {
-                    contains += " " + where + ".";
-                }
-                singleton.outputText(contains);
-            }
-        }
-        if (loc.wall) {
-            for (var dir in loc.wall) {
-                var wall = loc.wall[dir];
-                render(wall,null, 1, "along " + friendlyDir(dir) + " wall ");
-            }
-        }
-        if (loc.e) {
-            describeNav(loc.e, "east","e");
-        }
-        if (loc.w) {
-            describeNav(loc.w, "west","w");
-        }
-        if (loc.n) {
-            describeNav(loc.n, "north","n");
-        }
-        if (loc.s) {
-            describeNav(loc.s, "south","s");
-        }
-        if (loc.u) {
-            describeNav(loc.u, "up","u");
-        }
-        if (loc.d) {
-            describeNav(loc.d, "down","d");
-        }
-        if (loc.se) {
-            describeNav(loc.se, "southeast","se");
-        }
-        if (loc.ne) {
-            describeNav(loc.ne, "northeast","ne");
-        }
-        if (loc.sw) {
-            describeNav(loc.sw, "southwest","sw");
-        }
-        if (loc.nw) {
-            describeNav(loc.nw, "northwest","nw");
-        }
-        if( locationId ) {
-            for( var _npc in game.npc) {
-                var  ni = game.getNpc(_npc);
-                if( ni.location == locationId ) {
-                    singleton.outputText(ni.name+" is here."+annotate({"type":"npc","npc":_npc}));
-                }
-            }
-        }
     };
     var findNPC =function(name) {
         name = name.toLowerCase().trim();
@@ -338,263 +187,7 @@ module.exports = function ltbl(settings) {
     
 
     // data
-    var locationDefine = function(data) {
-        var prefix = "";
-        var connectedVoid = { count : 0 };
-        var design = game.design;
-        if( design.lastNonVoid ) {
-            if( design.lastNonVoid.indexOf("/") > 0 ) {
-                prefix = design.lastNonVoid.substring(0,design.lastNonVoid.indexOf("/"));
-                var parentLoc = game.getLocation(prefix);
-                if( parentLoc ) {
-                    prefix = prefix + "/";
-                } else {
-                    prefix = "";
-                }
-                if( !data.roomType ) {
-                    if( game.getLocation(design.lastNonVoid).type ) {
-                        data.roomType = game.getLocation(design.lastNonVoid).type;
-                    }
-                }            
-            }
-        }
-        if( prefix == "" ) {
-            if( data.type && data.name ) {
-                prefix = extractNounAndAdjAlways(data.name);
-                if( prefix && prefix != "" ) {
-                    if( game.getLocation(prefix) ) {
-                        prefix = prefix + "/";
-                    } else{
-                        game.setLocation(prefix,{ name : prefix , decription : data.name , type : data.type })
-                        prefix = prefix + "/";
-                        if( !data.roomType ) {
-                            if( data.type == "outdoors" ) {
-                                data.roomType = "outside";
-                            }
-                        }
-                    }
-                } else {
-                    prefix = "";
-                }
-            }
-        }
-        if( game.pov.location ) {
-            if( game.getLocation(game.pov.location).type == "void" ) {
-                connectedVoid = voids.gather(game);
-                if( connectedVoid.count  > 1 ) {
-                    voids.autoConnect(game,connectedVoid.collectedVoid);
-                }
-            }
-        }
-        var calcRoomName = function(prefix,suffix) {
-            var roomName = prefix+extractNounAndAdjAlways(data.room);
-            if (roomName) {
-                if( suffix ) {
-                    var parentRoom = game.getLocation(roomName);
-                    if( !parentRoom ) {
-                        game.setLocation(roomName,{name:data.room});
-                    }
-                    roomName = roomName + "/" + suffix;
-                }
-                // add # to the orginal room (libary,library1,library2...)
-                if (game.getLocation(roomName)) {
-                    var extactCount = 1;
-                    while( game.getLocation(roomName+extactCount) ) {
-                        extactCount = extactCount + 1;
-                    }
-                    roomName = roomName+extactCount;
-                }
-            } else {
-                roomName = prefix+"room" + design.roomNum;
-                design.roomNum = design.roomNum + 1;
-            }
-            return roomName;
-        };
-        var roomName;
-        var name = data.room;
-        var parts = getPartsOfSpeech(data.room);
-        game.map = null; // need to recalc the map 
-
-        if( connectedVoid.count > 1 ) {
-            var newRoomMap = {};
-            // Create rooms for all the voids....
-            var minRow = 1000 , minCol = 1000, maxRow = 0, maxCol = 0;
-            for( var voidRoom in connectedVoid.voids ) {
-                var srcRoom = connectedVoid.voids[voidRoom];
-
-                if( Number.isFinite(srcRoom.row) && Number.isFinite(srcRoom.col) ) {
-                    if( maxRow < srcRoom.row ) {
-                        maxRow = srcRoom.row;
-                    } 
-                    if( maxCol < srcRoom.col ) {
-                        maxCol = srcRoom.col;
-                    }
-                    if( minRow > srcRoom.row ) {
-                        minRow = srcRoom.row;
-                    } 
-                    if( minCol > srcRoom.col ) {
-                        minCol = srcRoom.col;
-                    }
-                }
-            }
-            for( var voidRoom in connectedVoid.voids ) {
-                var _name = parts.name;
-                var roomDesc = data.room;
-                var srcRoom = connectedVoid.voids[voidRoom];
-                var suffix = srcRoom.edge;
-                if( !suffix && Number.isFinite(srcRoom.row) && Number.isFinite(srcRoom.col) ) {
-                    if( maxCol > minCol && maxRow > minRow ) {
-                       suffix = "r"+srcRoom.row+"c"+srcRoom.col;
-                    } else if( maxRow > minRow ) {
-                        suffix = "r"+srcRoom.row;
-                    } else if( maxCol > minCol ) {
-                        suffix = "c"+srcRoom.col;
-                    }
-                } else if( !suffix ) {
-                    suffix = "part";
-                }
-                var roomName = calcRoomName(prefix,suffix);
-                newRoomMap[voidRoom] = roomName;
-                if( srcRoom.edge ) {
-                    var edgeName = friendlyDir(srcRoom.edge);
-                    _name = edgeName+" "+_name;
-                    roomDesc = edgeName+" "+roomDesc;
-                }
-                game.setLocation(roomName,{ name: _name, description: roomDesc });
-                if( data.roomType ) {
-                    game.getLocation(roomName).type = data.roomType;
-                }
-            }
-            // Now connect voids (and rooms)
-            for( var voidRoom in connectedVoid.voids ) {
-                var roomName = newRoomMap[voidRoom];
-                var srcRoom = connectedVoid.voids[voidRoom];
-                var dstRoom = game.getLocation(roomName);
-                var otherLocation;
-                if( srcRoom.n && !dstRoom.n ) {
-                    if( newRoomMap[srcRoom.n.location] ) {
-                        dstRoom.n = { location : newRoomMap[srcRoom.n.location] };
-                    } else {
-                        dstRoom.n = { location : srcRoom.n.location };
-                    }
-                    otherLocation = { location : roomName };
-                    if( srcRoom.n.wall ) {
-                        dstRoom.n.wall = srcRoom.n.wall;
-                        otherLocation.wall = srcRoom.n.wall;
-                    }
-                    game.getLocation(dstRoom.n.location).s = otherLocation;
-                }
-                if( srcRoom.s && !dstRoom.s ) {
-                    if( newRoomMap[srcRoom.s.location] ) {
-                        dstRoom.s = { location : newRoomMap[srcRoom.s.location] };
-                    } else {
-                        dstRoom.s = { location : srcRoom.s.location };
-                    }
-                    otherLocation = { location : roomName };
-                    if( srcRoom.s.wall  ) {
-                        dstRoom.s.wall = srcRoom.s.wall;
-                        otherLocation.wall = srcRoom.s.wall;
-                    }
-                    game.getLocation(dstRoom.s.location).n = otherLocation;
-                }
-                if( srcRoom.e && !dstRoom.e ) {
-                    if( newRoomMap[srcRoom.e.location] ) {
-                        dstRoom.e = { location : newRoomMap[srcRoom.e.location] };
-                    } else {
-                        dstRoom.e = { location : srcRoom.e.location };
-                    }
-                    otherLocation = { location : roomName };
-                    if( srcRoom.e.wall ) {
-                        dstRoom.e.wall = srcRoom.e.wall;
-                        otherLocation.wall = srcRoom.e.wall;
-                    }
-                    game.getLocation(dstRoom.e.location).w = otherLocation;
-                }
-                if( srcRoom.w && !dstRoom.w ) {
-                    if( newRoomMap[srcRoom.w.location] ) {
-                        dstRoom.w = { location : newRoomMap[srcRoom.w.location] };
-                    } else {
-                        dstRoom.w = { location : srcRoom.w.location };
-                    }
-                    otherLocation = { location : roomName };
-                    if( srcRoom.w.wall ) {
-                        dstRoom.w.wall = srcRoom.w.wall;
-                        otherLocation.wall = srcRoom.w.wall;
-                    }
-                    game.getLocation(dstRoom.w.location).e = otherLocation;
-                }
-                if( srcRoom.u && !dstRoom.u ) {
-                    if( newRoomMap[srcRoom.u.location] ) {
-                        dstRoom.u = { location : newRoomMap[srcRoom.u.location] };
-                    } else {
-                        dstRoom.u = { location : srcRoom.u.location };
-                    }
-                    otherLocation = { location : roomName };
-                    if( srcRoom.u.wall ) {
-                        dstRoom.u.wall = srcRoom.u.wall;
-                        otherLocation.wall = srcRoom.u.wall;
-                    }
-                    game.getLocation(dstRoom.u.location).d = otherLocation;
-                }
-                if( srcRoom.d && !dstRoom.d ) {
-                    if( newRoomMap[srcRoom.d.location] ) {
-                        dstRoom.d = { location : newRoomMap[srcRoom.d.location] };
-                    } else {
-                        dstRoom.d = { location : srcRoom.d.location };
-                    }
-                    otherLocation = { location : roomName };
-                    if( srcRoom.d.wall ) {
-                        dstRoom.d.wall = srcRoom.d.wall;
-                        otherLocation.wall = srcRoom.d.wall;
-                    }
-                    game.getLocation(dstRoom.d.location).u = otherLocation;
-                }
-            }
-            game.pov.location = newRoomMap[game.pov.location];
-            design.lastLocation = null;
-            design.lastDirection = null;
-            // Drop or raise voids
-            if( design.lastNonVoid && design.lastNonVoidDelta != 0 ) {
-                game.getLocation(design.lastNonVoid)[design.lastNonVoidDirection].direction = design.lastNonVoidDelta;
-                game.getLocation(game.getLocation(design.lastNonVoid)[design.lastNonVoidDirection].location)[game.util.reverseDirection(design.lastNonVoidDirection)].direction = -design.lastNonVoidDelta;
-            }
-            voids.clear(game);
-            describeLocation();
-        }  else {
-            roomName = calcRoomName(prefix,null);
-            game.pov.location = roomName;
-            game.setLocation(game.pov.location,{ name: parts.name, description: data.room });
-            if( connectedVoid.count > 0 ) {
-                voids.clear(game);
-            }
-            if (design.lastLocation) {
-                if (game.getLocation(design.lastLocation).type) {
-                    game.getLocation(game.pov.location).type = game.getLocation(design.lastLocation).type;
-                }
-            }
-            if (design.lastLocation && design.lastDirection) {
-                game.getLocation(design.lastLocation)[design.lastDirection] = { location: game.pov.location };
-                game.getLocation(game.pov.location)[game.util.reverseDirection(design.lastDirection)] = { location: design.lastLocation };
-                if( design.lastNonVoidDelta != 0 ) {
-                    game.getLocation(design.lastLocation)[design.lastDirection].direction = design.lastNonVoidDelta;
-                    game.getLocation(game.pov.location)[game.util.reverseDirection(design.lastDirection)].direction = -design.lastNonVoidDelta;
-                }
-            }
-            if( design.pendingGoInsideItem ) {
-                var inItem = game.getItem(design.pendingGoInsideItem);
-                if( inItem ) {
-                    inItem.location = game.pov.location;
-                }
-                design.pendingGoInsideItem = null;
-            }
-            if( design.pendingItemOut ) {
-                game.getLocation(game.pov.location).o = { location : design.pendingItemOut };
-                design.pendingItemOut = null;
-            }
-            describeLocation();
-        }    
-    };
-
+    
     var disclosedContents= function(item,itemPtr,list,prop,preposition,search) {
         var discovered = [];
         var disclosedList = game.state[game.pov.location+"_disclosed"];
@@ -706,149 +299,6 @@ module.exports = function ltbl(settings) {
         }
     };
 
-    var describeLocation = function (noVoid) {
-        var design = game.design;
-        if( game.renderMap ) {
-            if( !game.map || game.map.location.room != game.pov.location ) {
-                if (!game.map) {
-                    game.map = game.createMap();
-                } else if (game.pov.location && game.map.location.room != game.pov.location) {
-                    game.recalcLocation(game.map, game.pov.location);
-                }
-                game.renderMap =  game.renderMapLevelText(game.map);
-            }            
-        }
-        if( game.pov.isGod ) {
-            console.clear();
-            if( game.renderMap ) {
-                var mapWidth = 40;
-                var infoWidth = 79 - mapWidth - 3;
-                var screen = [];
-                var maxLines = game.renderMap.lines.length;
-                var infoLines = [];
-                
-                if( !infoWidth || infoWidth < 1 ) {
-                    infoWidth = 20;
-                }
-                if( game.renderMap.legend ) {
-                    infoLines =game.renderMap.legend;
-                }
-                var headingWidth = 0;
-                var headingText = "";
-                if( design.pendingGoInsideItem ) {
-                    var pi = game.getItem(design.pendingGoInsideItem);
-                    if( pi && pi.name ) {
-                        headingText = pi.name;
-                        headingWidth = headingText.length;
-                        if( headingWidth & 1 ) {
-                            headingText = headingText+" ";
-                            ++headingWidth;
-                        }
-                    }
-                }
-                if( headingWidth > 0 )   {
-                    screen.push("┌"+("─".repeat(infoWidth))+"┬"+("─".repeat((mapWidth-headingWidth)/2))+headingText+("─".repeat((mapWidth-headingWidth)/2))+"┐");
-                } else {
-                    screen.push("┌"+("─".repeat(infoWidth))+"┬"+("─".repeat(mapWidth))+"┐");
-                }
-                for( var i = 0 ; i < maxLines ; ++i ) {
-                    var mapLine = null;
-                    var infoLine = null;
-                    if( i < game.renderMap.lines.length )
-                        mapLine = game.renderMap.lines[i];
-                    else
-                        mapLine = (" ".repeat(mapWidth));
-                    if( i < infoLines.length ) {
-                        infoLine = infoLines[i];
-                        if( infoLine.length > infoWidth ) {
-                            infoLine = infoLine.substring(0,infoWidth);
-                        } else if( infoLine.length < infoWidth ) {
-                            infoLine = infoLine + " ".repeat(infoWidth-infoLine.length)
-                        }                        
-                    } else 
-                        infoLine = (" ".repeat(infoWidth));
-                    screen.push("│"+infoLine+"│"+mapLine+"│");
-                }
-                screen.push("└"+("─".repeat(infoWidth))+"┴"+("─".repeat(mapWidth))+"┘");
-                if( game.statusLine != null ) {
-                    screen.push(game.statusLine);
-                }
-                singleton.outputText(screen.join("\n"));
-            }
-        }
-        if( noVoid ) {
-            if(game.pov.location) {
-                if( game.getLocation(game.pov.location).type != "void" ) {
-                    noVoid = false;
-                }
-            }
-        }        
-        if (!game.metadata.title && !game.stateMachine ) {            
-            game.stateMachine = {
-                state : 0 ,
-                data : game.metadata ,
-                states : [
-                    { msg : "What is the title of your interactive fiction?" , prop : "title" },
-                    { msg : "How would you describe this interactive fiction work?" , prop : "description" },
-                    { msg : "What is you name (byline)?" , prop : "author" , default :  game.defaults.author },
-                    { msg : "What is you email?" , prop : "authorEmail" , default :  game.defaults.authorEmail },
-                ],
-                execute : stateMachineFillin,
-                start: stateMachineFillinStart,
-                done: function(sm) { game.saveFile(); }
-            };
-            game.stateMachine.start(game.stateMachine);
-         } else if (game.pov.location && !noVoid ) {
-            render(game.getLocation(game.pov.location),game.pov.location, 0);
-        } else {            
-            if( design.lastNonVoid ) {
-                game.stateMachine = stateMachineFillinCreate({},[
-                    {msg:"Enter name for this location?",prop:"room"}
-                ],function(sm) {
-                    if( sm.data.room  && sm.data.room.length > 1  ) {
-                        locationDefine(sm.data);
-                    }
-                },function(sm) {
-                    if( !game.pov.location ) {
-                        if( design.pendingItemOut ) {
-                            game.pov.location = design.pendingItemOut;
-                            design.pendingItemOut = null;
-                            design.pendingGoInsideItem = null;
-                            game.map = null;
-                            describeLocation();
-                        }                        
-                    }
-                });
-            } else {
-                // First in            
-                game.stateMachine = stateMachineFillinCreate({},[
-                    {msg:"What kind of level?",prop:"type",choices:resources.topLocationMenu},
-                    { test : 
-                        function(sm) { 
-                            if(sm.data.type == "oneroom") 
-                                   return "expand.oneroom"; 
-                            return "expand"; 
-                        } , states : [ 
-                            {msg:"Levels are like 'the castle', 'the asylum' , 'the town' , 'the desert', 'the island' etc - that which contains all the rooms for part of the story.\nEnter a name for this level:",prop:"name"},
-                            {msg:"The first location within the level - This is a 'room' like 'study', 'dinning room' , 'forest clearing' , 'backyard' etc. Enter name for this location:",prop:"room"}
-                        ] , oneroom : [
-                            {msg:"Enter name for this location:",prop:"room"}
-                        ]
-                    }
-                ],function(sm) {
-                    if( sm.data.room 
-                     && sm.data.room.length > 1 
-                      ) {
-                        locationDefine(sm.data);
-                        if( !game.actor.location ) 
-                        {
-                            game.actor.location = game.pov.location;
-                        }
-                    }
-                });
-            }
-        }
-    };
     var lookupItemLow = function (parts,arr,command,candidates) {
         var itemName = null;
         if( command[0] == '@' ) {
@@ -1084,7 +534,7 @@ module.exports = function ltbl(settings) {
                 states : defineNPCStates 
             } );
         }
-        if( resources.verbsWithTopics[game.verbCommand.action] && !game.verbCommand.topic ) {
+        if( singleton.resources.verbsWithTopics[game.verbCommand.action] && !game.verbCommand.topic ) {
             states.push({ msg : "whats the topic of the '"+game.verbCommand.action+"'?" , prop : "topic"});
         }
         if( game.verbCommand.topic ) {
@@ -1120,7 +570,7 @@ module.exports = function ltbl(settings) {
                         game.setNpc(camelCase(newNPC),_npc);
                     }
                     if( _npc ) {
-                        if( resources.verbsWithTopics[vc.action] ) {
+                        if( singleton.resources.verbsWithTopics[vc.action] ) {
                             if( !_npc.conversation ) {
                                 _npc.conversation = {};
                             }                            
@@ -1158,7 +608,7 @@ module.exports = function ltbl(settings) {
         var emitResponse = function(response,vc,stateId) {
             if( typeof(response) == "string" ) {
                 game.annotations = [];
-                singleton.outputText( response + annotate({ type:"conv" , npc : vc.npc , action : vc.action , preposition  : vc.preposition , topic : vc.topic }) );
+                singleton.outputText( response + singleton.annotate({ type:"conv" , npc : vc.npc , action : vc.action , preposition  : vc.preposition , topic : vc.topic }) );
                 return true;
             } else if( response.then ) {
                 var responseIndex = game.state[stateId+".then"];
@@ -1226,7 +676,7 @@ module.exports = function ltbl(settings) {
                 }
                 if( response.say ) {
                     game.annotations = [];
-                    singleton.outputText( response.say + annotate({ type:"conv" , npc : vc.npc , action : vc.action , preposition  : vc.preposition , topic : vc.topic }));
+                    singleton.outputText( response.say + singleton.annotate({ type:"conv" , npc : vc.npc , action : vc.action , preposition  : vc.preposition , topic : vc.topic }));
                 }
                 if( response.score ) {
                     if( !game.state[stateId+".score"] ) {
@@ -1247,10 +697,10 @@ module.exports = function ltbl(settings) {
             return false;
         } else if( !findNPC(game.verbCommand.npc) ) {
             return false;
-        } else if( resources.verbsWithTopics[game.verbCommand.action] && !game.verbCommand.topic ) {
+        } else if( singleton.resources.verbsWithTopics[game.verbCommand.action] && !game.verbCommand.topic ) {
             return false;
         } else {
-            if( resources.verbsWithTopics[game.verbCommand.action] ) {
+            if( singleton.resources.verbsWithTopics[game.verbCommand.action] ) {
                 if( !game.verbCommand.preposition  ) {
                     if( game.verbCommand.topic.substring(0,6) == "about " ) {
                         game.verbCommand.preposition  = "about";
@@ -1458,7 +908,7 @@ module.exports = function ltbl(settings) {
                     obj[prop] = desc.split(sm.data.word).join(sm.data.fix);
                 }
                 game.map = null;
-                render(game.getLocation(game.pov.location),game.pov.location, 0);
+                singleton.render(game.getLocation(game.pov.location),game.pov.location, 0);
             });
         } else {
             game.stateMachine = stateMachineFillinCreate(obj,[ {msg:prompt,prop:prop} ],invalidateMap);
@@ -1472,31 +922,31 @@ module.exports = function ltbl(settings) {
             if( ip ) {
                 var noPostures = true;                
                 if( ip.name ) {
-                    singleton.outputText(chalk.bold("Name\n"+ip.name)+" "+annotate({"type":"item.name","item":anno.item}))
+                    singleton.outputText(chalk.bold("Name\n"+ip.name)+" "+singleton.annotate({"type":"item.name","item":anno.item}))
                 } else {
-                    singleton.outputText(chalk.bold("Name\nnone")+" "+annotate({"type":"item.name","item":anno.item}))
+                    singleton.outputText(chalk.bold("Name\nnone")+" "+singleton.annotate({"type":"item.name","item":anno.item}))
                 }
                 singleton.outputText(chalk.bold("Description"));
                 if( ip.description ) {
-                    singleton.outputText(ip.description+annotate({"type":"item.description","item":anno.item}))
+                    singleton.outputText(ip.description+singleton.annotate({"type":"item.description","item":anno.item}))
                 } else {
-                    singleton.outputText("No description"+annotate({"type":"item.description","item":anno.item}))
+                    singleton.outputText("No description"+singleton.annotate({"type":"item.description","item":anno.item}))
                 }
                 singleton.outputText(chalk.bold("Content"));
                 if( ip.content ) {
-                    singleton.outputText(ip.content+annotate({"type":"item.content","item":anno.content}))
+                    singleton.outputText(ip.content+singleton.annotate({"type":"item.content","item":anno.content}))
                 } else {
-                    singleton.outputText("No readable content"+annotate({"type":"item.content","item":anno.item}))
+                    singleton.outputText("No readable content"+singleton.annotate({"type":"item.content","item":anno.item}))
                 }
                 if( ip.postures ) {
                     if( ip.postures.length ) {
                         singleton.outputText(chalk.bold("Nested Room Supported Postures"))
-                        singleton.outputText(ip.postures.join(",")+annotate({"type":"item.postures","item":anno.item}))
+                        singleton.outputText(ip.postures.join(",")+singleton.annotate({"type":"item.postures","item":anno.item}))
                         noPostures = false;
                     }
                 }
                 if( noPostures ) {
-                    singleton.outputText("Not a Nested room"+annotate({"type":"item.postures","item":anno.item}))
+                    singleton.outputText("Not a Nested room"+singleton.annotate({"type":"item.postures","item":anno.item}))
                 }
                 /*
                 if( ip.contains ) {
@@ -1528,7 +978,7 @@ module.exports = function ltbl(settings) {
         } else if( anno.type == "item.postures" ) {
             var ip = game.getItem(anno.item);
             if( ip ) {
-                game.stateMachine = stateMachineFillinCreate(ip,[{msg:"Supported postures:",prop:"postures",choices:resources.postureTypeList,multiple:true}]);
+                game.stateMachine = stateMachineFillinCreate(ip,[{msg:"Supported postures:",prop:"postures",choices:singleton.resources.postureTypeList,multiple:true}]);
             }            
         } else if( anno.type == "dir" ) {
             var loc = game.getLocation(game.pov.location);
@@ -1537,27 +987,27 @@ module.exports = function ltbl(settings) {
                 if( dp ) {
                     game.annotations = [];
                     singleton.outputText(chalk.bold("Location"));
-                    singleton.outputText(dp.location+" "+annotate({"type":"dir.location","dir":anno.dir}))
+                    singleton.outputText(dp.location+" "+singleton.annotate({"type":"dir.location","dir":anno.dir}))
                     singleton.outputText(chalk.bold("Type"));
                     if( dp.type ) {
-                        singleton.outputText(dp.type+" "+annotate({"type":"dir.type","dir":anno.dir}))
+                        singleton.outputText(dp.type+" "+singleton.annotate({"type":"dir.type","dir":anno.dir}))
                     } else {
-                        singleton.outputText("Default "+annotate({"type":"dir.type","dir":anno.dir}))
+                        singleton.outputText("Default "+singleton.annotate({"type":"dir.type","dir":anno.dir}))
                     }
                     if( dp.wall ) {
-                        singleton.outputText("Wall: "+dp.wall+annotate({"type":"dir.wall","dir":anno.dir}));
+                        singleton.outputText("Wall: "+dp.wall+singleton.annotate({"type":"dir.wall","dir":anno.dir}));
                     } else {
                         if( loc.type == "outside" && game.getLocation(dp.location).type == "outside" ) {
-                            singleton.outputText("Wall Default - none outside"+annotate({"type":"dir.wall","dir":anno.dir}));
+                            singleton.outputText("Wall Default - none outside"+singleton.annotate({"type":"dir.wall","dir":anno.dir}));
                         } else {
-                            singleton.outputText("Wall Default - inside wall"+annotate({"type":"dir.wall","dir":anno.dir}));
+                            singleton.outputText("Wall Default - inside wall"+singleton.annotate({"type":"dir.wall","dir":anno.dir}));
                         }
                     }
                     if( dp.door ) {
                         singleton.outputText(chalk.bold("Door Name"));
-                        singleton.outputText(game.getDoor(dp.door).name+" "+annotate({"type":"door.name","door":dp.door}))
+                        singleton.outputText(game.getDoor(dp.door).name+" "+singleton.annotate({"type":"door.name","door":dp.door}))
                         singleton.outputText(chalk.bold("Door Description"));
-                        singleton.outputText(game.getDoor(dp.door).description+" "+annotate({"type":"door.description","door":dp.door}))
+                        singleton.outputText(game.getDoor(dp.door).description+" "+singleton.annotate({"type":"door.description","door":dp.door}))
                     }
                 }
             }
@@ -1574,16 +1024,16 @@ module.exports = function ltbl(settings) {
         } else if( anno.type == "location.type" ) {
             var loc = game.getLocation(game.pov.location);
             if( loc ) {
-                game.stateMachine = stateMachineFillinCreate(loc,[{msg:"Change location type:",prop:"type",choices:resources.roomTypesMenu}],invalidateMap);
+                game.stateMachine = stateMachineFillinCreate(loc,[{msg:"Change location type:",prop:"type",choices:singleton.resources.roomTypesMenu}],invalidateMap);
             }
         } else if( anno.type == "location.topLoc" ) {
             game.annotations = [];
             var loc =  game.getLocation(anno.location);
             if( loc ) {
                 singleton.outputText(chalk.bold("Level Type"));
-                singleton.outputText(loc.type+" "+annotate({"type":"topLoc.type","location":anno.location}))
+                singleton.outputText(loc.type+" "+singleton.annotate({"type":"topLoc.type","location":anno.location}))
                 singleton.outputText(chalk.bold("Level Name"));
-                singleton.outputText(loc.name+" "+annotate({"type":"topLoc.name","location":anno.location}))
+                singleton.outputText(loc.name+" "+singleton.annotate({"type":"topLoc.name","location":anno.location}))
             }
         } else if( anno.type == "dir.location" ) {
             var loc = game.getLocation(game.pov.location);
@@ -1600,7 +1050,7 @@ module.exports = function ltbl(settings) {
             if( loc ) {
                 var dp = loc[anno.dir];
                 if( dp ) {
-                    game.stateMachine = stateMachineFillinCreate(dp,[{msg:"Change location type:",prop:"type",choices:resources.dirTypesMenu}]);
+                    game.stateMachine = stateMachineFillinCreate(dp,[{msg:"Change location type:",prop:"type",choices:singleton.resources.dirTypesMenu}]);
                 }
             }
         } else if( anno.type == "dir.wall" ) {
@@ -1628,15 +1078,15 @@ module.exports = function ltbl(settings) {
                 game.annotations = [];
                 singleton.outputText(chalk.bold("Name"));
                 if( ni.name ) {
-                    singleton.outputText(ni.name+" "+annotate({"type":"npc.name","npc":anno.npc}));
+                    singleton.outputText(ni.name+" "+singleton.annotate({"type":"npc.name","npc":anno.npc}));
                 } else {
-                    singleton.outputText("No Name "+annotate({"type":"npc.name","npc":anno.npc}));
+                    singleton.outputText("No Name "+singleton.annotate({"type":"npc.name","npc":anno.npc}));
                 }
                 singleton.outputText(chalk.bold("Description"));
                 if( ni.description ) {
-                    singleton.outputText(ni.description+" "+annotate({"type":"npc.name","npc":anno.npc}));
+                    singleton.outputText(ni.description+" "+singleton.annotate({"type":"npc.name","npc":anno.npc}));
                 } else {
-                    singleton.outputText("No Description "+annotate({"type":"npc.name","npc":anno.npc}));    
+                    singleton.outputText("No Description "+singleton.annotate({"type":"npc.name","npc":anno.npc}));    
                 }
             }
         } else if( anno.type == "npc.name" ) {
@@ -1814,7 +1264,7 @@ module.exports = function ltbl(settings) {
                                 game.getLocation(game.pov.location)[game.util.reverseDirection(design.lastDirection)].door = name;
                                 game.pov.location = design.lastLocation;
                                 game.map = null;
-                                describeLocation();
+                                singleton.describeLocation();
                             }
                         });
                     } else {
@@ -1855,7 +1305,7 @@ module.exports = function ltbl(settings) {
                                 singleton.outputText("Locations are not paired from "+design.lastDirection);
                             }
                             game.map = null;
-                            describeLocation();
+                            singleton.describeLocation();
                         }
                     });
                 } else {
@@ -1984,7 +1434,7 @@ module.exports = function ltbl(settings) {
                 verb : "!look"
             }, 
             eval : function(args) {
-                describeLocation(true);
+                singleton.describeLocation(true);
             }
         },
         {
@@ -1998,7 +1448,7 @@ module.exports = function ltbl(settings) {
                     game.annotations = [];
                     singleton.outputText("You are carrying:");
                     for (var i = 0; i < game.pov.inventory.length; ++i) {
-                        singleton.outputText(game.getItem(game.pov.inventory[i].item).name+annotate({"type":"item","item":game.pov.inventory[i].item}));
+                        singleton.outputText(game.getItem(game.pov.inventory[i].item).name+singleton.annotate({"type":"item","item":game.pov.inventory[i].item}));
                     }
                 }
             }
@@ -2892,11 +2342,11 @@ module.exports = function ltbl(settings) {
                game.logCommand(command);
             if( game.pov ) {
                 if( game.pov.isGod ) {
-                    if( resources.godWordMap.firstWord[firstWord] ) {
-                        firstWord = resources.godWordMap.firstWord[firstWord];
+                    if( singleton.resources.godWordMap.firstWord[firstWord] ) {
+                        firstWord = singleton.resources.godWordMap.firstWord[firstWord];
                     }
                     if( lCaseWords.length > 0 ) {
-                        firstPhrase =  resources.godWordMap.firstTwoWord[lCaseWords[0]+" "+lCaseWords[1]];
+                        firstPhrase =  singleton.resources.godWordMap.firstTwoWord[lCaseWords[0]+" "+lCaseWords[1]];
                         if( firstPhrase ) {
                             command = firstPhrase+" "+subSentence(command,2);
                             firstWord = firstPhrase;
@@ -2907,12 +2357,12 @@ module.exports = function ltbl(settings) {
                     }    
                 }
             }
-            if( resources.wordMap.firstWord[firstWord] ) {
-                firstWord = resources.wordMap.firstWord[firstWord];
+            if( singleton.resources.wordMap.firstWord[firstWord] ) {
+                firstWord = singleton.resources.wordMap.firstWord[firstWord];
             }
             // Override pattern
             if( lCaseWords.length > 0 ) {
-                firstPhrase =  resources.wordMap.firstTwoWord[lCaseWords[0]+" "+lCaseWords[1]];
+                firstPhrase =  singleton.resources.wordMap.firstTwoWord[lCaseWords[0]+" "+lCaseWords[1]];
                 if( firstPhrase ) {
                     command = firstPhrase+" "+subSentence(command,2);
                     firstWord = firstPhrase;
@@ -2925,7 +2375,7 @@ module.exports = function ltbl(settings) {
                 return false;
             } else if (lCase.trim() == "") {
                 singleton.outputText("Pardon?");
-                describeLocation();
+                singleton.describeLocation();
             /*} else if (mode == 'door?') {
                 // TBD make separate commands for door/passage etc Make
                 lCase = lCase.trim();
@@ -3128,7 +2578,7 @@ module.exports = function ltbl(settings) {
                                         }
                                         game.getLocation(design.lastNonVoidPendingVoid)[game.util.reverseDirection(design.lastNonVoidDirection)].direction = -design.lastNonVoidDelta;
                                         game.map = null;
-                                        describeLocation();
+                                        singleton.describeLocation();
                                     }
                                 } else {
                                     if (lCase == "n") {
@@ -3179,7 +2629,7 @@ module.exports = function ltbl(settings) {
                                         design.lastLocation = game.pov.location
                                         design.lastDirection = lCase;
                                         game.pov.location = posCell;
-                                        describeLocation();
+                                        singleton.describeLocation();
                                     } else {
                                         design.lastLocation = game.pov.location;                                    
                                         var voidCounter = 1;
@@ -3199,7 +2649,7 @@ module.exports = function ltbl(settings) {
                                             design.lastNonVoidPendingVoid = game.pov.location;
                                         }
                                         game.map = null;
-                                        describeLocation();
+                                        singleton.describeLocation();
                                     }
                                 }
                             } else {
@@ -3233,11 +2683,11 @@ module.exports = function ltbl(settings) {
                                 design.lastLocation = game.pov.location;
                                 design.lastDirection = lCase;
                                 game.pov.location = nextLoc.location;
-                                describeLocation();
+                                singleton.describeLocation();
                             }
                         }
                     } else {
-                        describeLocation(false);
+                        singleton.describeLocation(false);
                     }
                 /*} else if (firstWord == "!makedoor" && game.pov.isGod ) {
                     command = subSentence( command , 1);
@@ -3495,7 +2945,7 @@ module.exports = function ltbl(settings) {
                 ) {
                     firstWord = firstWord.substring(1);
                     command = subSentence( command , 1);
-                    game.verbCommand.preposition  = resources.wordMap.resources.posturePrep[command.split(" ")[0]];
+                    game.verbCommand.preposition  = singleton.resources.wordMap.resources.posturePrep[command.split(" ")[0]];
                     if( game.verbCommand.preposition  ) {
                         command = subSentence( command , 1);
                     }
@@ -3510,7 +2960,7 @@ module.exports = function ltbl(settings) {
                                     if( game.getLocation(ip.location) ) {
                                         game.pov.location = ip.location;
                                         game.map = null;
-                                        describeLocation();
+                                        singleton.describeLocation();
                                     }
                                 } else if( game.pov.isGod ) {
                                     // Make a top level object... 
@@ -3520,7 +2970,7 @@ module.exports = function ltbl(settings) {
                                         design.pendingItemOut = game.pov.location; 
                                         game.pov.location = null;
                                         game.map = null;
-                                        describeLocation();
+                                        singleton.describeLocation();
                                     }
                                 }
                             } else if( allowPosture(ip,firstWord) ) {
@@ -3584,7 +3034,7 @@ module.exports = function ltbl(settings) {
                                     game.recalcLocation(game.map, game.pov.location);
                                 }
                                 game.renderMap =  game.renderMapLevelText(game.map);
-                                describeLocation(false);
+                                singleton.describeLocation(false);
                             }
                         }
                         else if( command == "small" )
@@ -3592,13 +3042,13 @@ module.exports = function ltbl(settings) {
                             if( game.mapScale != "small" ) {
                                 game.mapScale = "small" ;
                                 game.renderMap =  game.renderMapLevelText(game.map);
-                                describeLocation(false);
+                                singleton.describeLocation(false);
                             }
                         } else if( command == "normal" ) {
                             if( game.mapScale == "small" ) {
                                 game.mapScale = null;
                                 game.renderMap =  game.renderMapLevelText(game.map);
-                                describeLocation(false);
+                                singleton.describeLocation(false);
                             }
                         }
                         else if( command == "!hide" )
@@ -3618,7 +3068,7 @@ module.exports = function ltbl(settings) {
                             if( game.getLocation(game.pov.location).type == "void" ) {
                                 voids.clear(game);
                                 game.pov.location = design.lastNonVoid;
-                                describeLocation();
+                                singleton.describeLocation();
                             }
                         }
                     }
@@ -3629,6 +3079,7 @@ module.exports = function ltbl(settings) {
                             if( game.allowGodMode ) {
                                 if( singleton.godGame ) {
                                     game = singleton.godGame;
+                                    singleton.game = game;
                                 }
                                 game.pov = game.god;
                             } else {
@@ -3639,6 +3090,7 @@ module.exports = function ltbl(settings) {
                                 if( singleton.godGame ) {
                                     // Work from a copy
                                     game = new Game(settings);
+                                    singleton.game = game;
                                     game.cloneFrom(singleton.godGame);
                                 } else {
                                     game.state = {};
@@ -3721,7 +3173,7 @@ module.exports = function ltbl(settings) {
                     }
                 } else if( game.allowGodMode ) {
                     game.renderMap =  game.renderMapLevelText();
-                    describeLocation(false);
+                    singleton.describeLocation(false);
                     singleton.godGame = game;
                 }                
             }
@@ -3770,7 +3222,7 @@ module.exports = function ltbl(settings) {
         });
     };
     return {
-        describe: describeLocation,
+        describe: singleton.describeLocation,
         parseCommand: parseCommand,
         loadGame: loadGame,
         config: configDefaults,
