@@ -107,8 +107,8 @@ module.exports = function(singleton) {
             }
             if( !itemName && flags != "actor") {
                 var doors = [];
-                for( var i = 0 ; i < directionsNames.length ; ++i ) {
-                    var dir = where[directionsNames[i]];
+                for( var i = 0 ; i < singleton.directionsNames.length ; ++i ) {
+                    var dir = where[singleton.directionsNames[i]];
                     if( dir ) {
                         if( dir.door ) {
                             doors.push({ item : dir.door });

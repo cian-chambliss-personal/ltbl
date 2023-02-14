@@ -31,8 +31,13 @@ module.exports = function ltbl(settings) {
         helper: require("./helper.js")({spellCorrect:settings.spellCorrect}),
         render: function() {} ,
         defineLocation: function() {},
-        describeLocation:function() {},
-        describeItem:function() {},
+        describeLocation: function() {},
+        describeItem: function() {},
+        lookupItem :  function() {},
+        lookupItemArr : function() {},
+        lookupItemLow :  function() {},
+        findItems:  function() {},
+        removeItem:  function() {},
         setLocationType:function() {},
         dontSee : function() {} , 
         dontSeeNpc : function() {} , 
@@ -54,7 +59,8 @@ module.exports = function ltbl(settings) {
                 }
             }
             return description;
-        }
+        },
+        directionsNames :["s","n","e","w","u","d","sw","se","nw","ne"]
     };
     //  Wire it up 
     singleton.stateMachine = require("./state-machine")({output : function(txt) {
@@ -65,7 +71,13 @@ module.exports = function ltbl(settings) {
     var describeLocationIface = require("./describe-location.js")(singleton);
     singleton.describeLocation = describeLocationIface.describeLocation;
     singleton.setLocationType = describeLocationIface.setLocationType;
-    singleton.describeItem = require("./describe-item.js").describeItem;
+    singleton.describeItem = require("./describe-item.js")(singleton).describeItem;
+    var itemIface = require("./item.js")(singleton);
+    singleton.lookupItem = itemIface.lookupItem;
+    singleton.lookupItemArr = itemIface.lookupItemArr;
+    singleton.lookupItemLow = itemIface.lookupItemLow;
+    singleton.findItems = itemIface.findItems;
+    singleton.removeItem = itemIface.removeItem;
     var cantSeeIface = require("./cant-see.js")(singleton);
     singleton.dontSee = cantSeeIface.dontSee; 
     singleton.dontSeeNpc = cantSeeIface.dontSeeNpc;
@@ -82,7 +94,6 @@ module.exports = function ltbl(settings) {
     var extractScalar = singleton.helper.extractScalar;
     var getPartsOfSpeech = singleton.helper.getPartsOfSpeech;
     var isVerb = singleton.helper.isVerb;
-    var isArticle = singleton.helper.isArticle;
     var singularFromPlural = singleton.helper.singularFromPlural;
     var pluralFromSingular = singleton.helper.pluralFromSingular;
     var invalidateMap = function() {
@@ -169,175 +180,7 @@ module.exports = function ltbl(settings) {
         }
     };
     
-    var lookupItemLow = function (parts,arr,command,candidates) {
-        var itemName = null;
-        if( command[0] == '@' ) {
-            command = command.substring(1);
-            for (var i = 0; i < arr.length; ++i) {
-                 if( arr[i].item == command ) {
-                    itemName = command;
-                    break;
-                 }
-            }
-        } else if( command == '{*}' ) { 
-            for (var i = 0; i < arr.length; ++i) {
-                candidates.push( arr[i].item );
-            }
-        } else {
-            for (var i = 0; i < arr.length; ++i) {
-                var item = arr[i].item;
-                var ptr = game.getItem(item);
-                if (ptr) {
-                    var lname = ptr.name;
-                    if (command == lname.toLowerCase()) {
-                        itemName = item;
-                        break;
-                    } else {
-                        if( ptr.alias ) {
-                            for (var j = 0; j <  ptr.alias.length; ++j) {
-                                lname = ptr.alias[j];
-                                if (command == lname.toLowerCase()) {
-                                    itemName = item;
-                                    break;
-                                }
-                            }
-                            if( itemName ) {
-                                break;
-                            }
-                        }
-                        var iparts = getPartsOfSpeech(lname);
-                        var foundPart = false;
-                        for (var j = 0; j < parts.noun.length; ++j) {
-                            for (var k = 0; k < iparts.noun.length; ++k) {
-                                if (iparts.noun[k] == parts.noun[j]) {
-                                    foundPart = true;
-                                    break;
-                                }
-                            }
-                            if (foundPart) {
-                                break;
-                            }
-                        }
-                        if (foundPart) {
-                            candidates.push(item);
-                        }
-                    }
-                }
-            }
-        }
-        return itemName;
-    };
-    var lookupItemArr = function (command, arr) {
-        var itemName = null;
-        if (command != "" && arr ) {
-            var candidates = [];
-            var parts = getPartsOfSpeech(command);
-            itemName = lookupItemLow(parts,arr,command,candidates);
-            if( !itemName ) {
-                if( candidates.length > 0 ) {
-                    if( candidates.length == 1 ) {
-                        itemName = candidates[0];                       
-                    }
-                }
-            }
-        }
-        return itemName;
-    };
-    var findItems = function (command) {
-        var candidates = [];
-        var allItems = [];
-        for(var _item in game.items ) {
-            allItems.push({ item : _item});
-        }
-        var parts = getPartsOfSpeech(command);
-        var item = lookupItemLow(parts,allItems,command,candidates);
-
-        if( item && item != "?" ) {
-            if( candidates.length < 1 ) {
-                candidates = [item];
-            }
-        }
-        return candidates;
-    };
-    var lookupItem = function (locationId,command, flags) {
-        var itemName = null;
-        if (command != "") {
-            var where = game.getLocation(locationId);
-            var candidates = [];
-            var what = command;
-            command = command.toLowerCase();
-            var parts = getPartsOfSpeech(command);
-            if (flags != "noactor" && game.pov.inventory )
-                itemName = lookupItemLow(parts,game.pov.inventory,command,candidates);
-            if (where.contains && !itemName && flags != "actor") {
-                itemName = lookupItemLow(parts,where.contains,command,candidates);
-            }
-            if( !itemName && flags != "actor") {
-                var doors = [];
-                for( var i = 0 ; i < directionsNames.length ; ++i ) {
-                    var dir = where[directionsNames[i]];
-                    if( dir ) {
-                        if( dir.door ) {
-                            doors.push({ item : dir.door });
-                        }
-                    }
-                }
-                if( doors.length ) {
-                    itemName = lookupItemLow(parts,doors,command,candidates);
-                }
-            }
-            if (!itemName && flags != "actor" && where.wall) {
-                if (!itemName && where.wall.n) {
-                    if (where.wall.n.contains) {
-                        itemName = lookupItemLow(parts,where.wall.n.contains,command,candidates);
-                    }
-                }
-                if (!itemName && where.wall.s) {
-                    if (where.wall.s.contains) {
-                        itemName = lookupItemLow(parts,where.wall.s.contains,command,candidates);
-                    }
-                }
-                if (!itemName && where.wall.e) {
-                    if (where.wall.e.contains) {
-                        itemName = lookupItemLow(parts,where.wall.e.contains,command,candidates);
-                    }
-                }
-                if (!itemName && where.wall.w) {
-                    if (where.wall.w.contains) {
-                        itemName = lookupItemLow(parts,where.wall.w.contains,command,candidates);
-                    }
-                }
-            }
-            if (!itemName && flags != "actor") {
-                var disclosedList = game.state[locationId+"_disclosed"];
-                if( disclosedList ) {
-                    var disclosed = [];                        
-                    for(var item in disclosedList ) {
-                        disclosed.push({item:item});
-                    }
-                    itemName = lookupItemLow(parts,disclosed,command,candidates);
-                }
-            }
-            if( command == "{*}") {
-                itemName = candidates.join("\n");
-            } else if (!itemName) {                
-                if (candidates.length == 1) {
-                    itemName = candidates[0];
-                } else if (candidates.length > 1) {
-                    singleton.outputText("which " + command + "?");
-                    for (var i = 0; i < candidates.length; ++i) {
-                        singleton.outputText(game.getItem(candidates[i]).name);
-                    }
-                    itemName = "?"; // ambiguouse
-                } else if( game.pov.isGod && command.substring(0,1) == "@" ) {                    
-                    // God is all seeing
-                    itemName = game.getItemFromLCased(command.substring(1));
-                }
-            }
-        }
-        return itemName;
-    };
-    var directionsNames = ["s","n","e","w","u","d","sw","se","nw","ne"];
+    
     var directionsHash = {
         "s": { primary: "s" },
         "n": { primary: "n" },
@@ -375,18 +218,7 @@ module.exports = function ltbl(settings) {
     var isDirection = function (command) {
         return directionsHash[command];
     };
-    var removeItem = function(inventory,command) {
-        var item = lookupItemArr(command,inventory);
-        if (item) {
-            for (var i = 0; i < game.pov.inventory.length; ++i) {
-                if (inventory[i].item == item) {
-                    inventory.splice(i, 1);
-                    return item;
-                }
-            }
-        }
-        return null;
-    };    
+       
     var defineNPCStates = [{
         msg: "Describe character called {game.npc}:", prop : "newNPC"
     } ];
@@ -518,7 +350,7 @@ module.exports = function ltbl(settings) {
                     var npcPtr = game.getNpc(vc.npc);
                     if( !npcPtr )
                         return false;
-                    var item = removeItem(game.pov.inventory,"@"+response.take);
+                    var item = singleton.removeItem(game.pov.inventory,"@"+response.take);
                     if( !item ) 
                         return false;
                     if( npcPtr ) {
@@ -529,7 +361,7 @@ module.exports = function ltbl(settings) {
                     }
                 }
                 if( response.consume ) {
-                    var item = removeItem(game.pov.inventory,"@"+response.consume);
+                    var item = singleton.removeItem(game.pov.inventory,"@"+response.consume);
                     if( !item ) 
                         return false;
                 }
@@ -539,7 +371,7 @@ module.exports = function ltbl(settings) {
                         return false;
                     if( !npcPtr.inventory ) 
                         return false;
-                    var item = removeItem(npcPtr.inventory,"@"+response.give);
+                    var item = singleton.removeItem(npcPtr.inventory,"@"+response.give);
                     if( !item ) 
                         return false;                    
                     game.pov.inventory.push({ item : item });
@@ -1205,22 +1037,22 @@ module.exports = function ltbl(settings) {
         var from = null;
         var prop = null;
         if( ip.supports && (args.preposition == "on"||args.preposition == "from") ) {
-            from = lookupItemArr(args.dObj,ip.supports);
+            from = singleton.lookupItemArr(args.dObj,ip.supports);
             if( from )
                 prop = "supports";
         }
         if( ip.behind && (args.preposition == "behind"||args.preposition == "from") && !from ) {
-            from = lookupItemArr(args.dObj,ip.behind);
+            from = singleton.lookupItemArr(args.dObj,ip.behind);
             if( from )
                 prop = "behind";
         }
         if( ip.under && (args.preposition == "under"||args.preposition == "from") && !from ) {
-            from = lookupItemArr(args.dObj,ip.under);
+            from = singleton.lookupItemArr(args.dObj,ip.under);
             if( from )
                 prop = "under";
         }
         if( ip.contains && (args.preposition == "in"||args.preposition == "contains"||args.preposition == "from") && !from ) {
-            from = lookupItemArr(args.dObj,ip.contains);
+            from = singleton.lookupItemArr(args.dObj,ip.contains);
             if( from )
                 prop = "contains";
         }
@@ -1863,9 +1695,9 @@ module.exports = function ltbl(settings) {
                 }
             } else {
                 if( argType == "*" || argType == "create" ) {
-                    objName = lookupItem(game.pov.location,name);
+                    objName = singleton.lookupItem(game.pov.location,name);
                 } else {
-                    objName = lookupItem(game.pov.location,name,argType);
+                    objName = singleton.lookupItem(game.pov.location,name,argType);
                 }
                 if( objName && objName != "?") {
                     findPatternArgs[argName] = objName;
@@ -1886,7 +1718,7 @@ module.exports = function ltbl(settings) {
                         } else {
                             createChoices = [{ text : 'Create new object for "'+name+'"' , value : "<create>" }];
                             // If items 
-                            var findAll = lookupItem(game.pov.location,"{*}").split("\n");
+                            var findAll = singleton.lookupItem(game.pov.location,"{*}").split("\n");
                             if( findAll && findAll.length > 0 ) {
                                 if( findAll.length > 1 ) {
                                     var subChoices = [];
@@ -2354,7 +2186,7 @@ module.exports = function ltbl(settings) {
                         if (!where.contains) {
                             where.contains = [];
                         }
-                        var existingItem = lookupItem(game.pov.location,what);
+                        var existingItem = singleton.lookupItem(game.pov.location,what);
                         if (existingItem && existingItem != "?") {
                             var ip = game.getItem(existingItem);
                             if (game.pov.isGod && !ip.type) {
@@ -2754,7 +2586,7 @@ module.exports = function ltbl(settings) {
                 } else if ( firstWord == "acquire" && game.pov.isGod ) {
                     // Be given an item
                     command = subSentence( command , 1);
-                    var existingItem = lookupItem(game.pov.location,command);
+                    var existingItem = singleton.lookupItem(game.pov.location,command);
                     if (existingItem && existingItem != "?") {
                         var ptr = getConvoObjectPtr();
                         if( ptr ) {
@@ -2780,7 +2612,7 @@ module.exports = function ltbl(settings) {
                         command = subSentence( command , 1);
                     }
                     if( command.length ) {
-                        var existingItem = lookupItem(game.pov.location,command);
+                        var existingItem = singleton.lookupItem(game.pov.location,command);
                         if (existingItem && existingItem != "?") {
                             var ip =game.getItem(existingItem);
                             if( firstWord == "goin"  ) {
@@ -2828,7 +2660,7 @@ module.exports = function ltbl(settings) {
                                 singleton.outputText(chalk.bold(list[i]));
                                 console.dir(game.getLocation(list[i]),{ depth : 6 , colors : true});                                
                             }
-                            list = findItems(command);
+                            list = singleton.findItems(command);
                             for( var i = 0 ; i < list.length ; ++i ) {
                                 singleton.outputText(chalk.bold(list[i]));
                                 console.dir(game.getItem(list[i]), { depth : 6 , colors : true});

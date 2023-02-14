@@ -5,17 +5,17 @@ module.exports = function(singleton) {
         var loc = game.getLocation(locationId);
         if( loc.description ) {
             // Look for all the nouns in a room that cannot be resolved...
-            var parts = getPartsOfSpeech(loc.description,true);
+            var parts = singleton.helper.getPartsOfSpeech(loc.description,true);
             var nameParts = {};
             if( loc.name ) {
-                nameParts = getPartsOfSpeech(loc.name,true);
+                nameParts = singleton.helper.getPartsOfSpeech(loc.name,true);
             }
             var exclude = nameParts.objects;
             if( !exclude ) {
                 exclude = [];
             }
             for( var i = 0 ; i < parts.objects.length ; ++i ) {
-                if( !isArticle(parts.objects[i]) && !lookupItem(locationId,parts.objects[i]) ) {
+                if( !singleton.helper.isArticle(parts.objects[i]) && !singleton.lookupItem(locationId,parts.objects[i]) ) {
                     var excluded = false;
                     for( var j = 0 ; j < exclude.length ; ++j ) {
                         if( exclude[j] == parts.objects[i]) {
@@ -30,7 +30,7 @@ module.exports = function(singleton) {
             if( filterOn ) {
                 if( dontCare.length > 0 ) {
                     // Find the match...
-                    var parts = getPartsOfSpeech(filterOn,true);
+                    var parts = singleton.helper.getPartsOfSpeech(filterOn,true);
                     var test = dontCare;
                     dontCare = [];                    
                     for( var i = 0 ; i <  parts.objects.length ; ++i ) {
