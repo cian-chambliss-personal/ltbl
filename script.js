@@ -4,6 +4,7 @@ module.exports = function(singleton) {
     var defineNPCStates = [{
         msg: "Describe character called {game.npc}:", prop : "newNPC"
     } ];
+    //=================================================================
     var defineScript = function() {
         var game = singleton.game;
         var  states = [];
@@ -90,6 +91,7 @@ module.exports = function(singleton) {
             game.stateMachine = null;
         }
     };
+    //=================================================================  
     var processScript = function() {
         var game = singleton.game;
         var design = game.design;
@@ -241,6 +243,7 @@ module.exports = function(singleton) {
         }       
         return false;
     };
+    //=================================================================  
     var getConvoObjectPtr = function(command) {
         var game = singleton.game;
         if( game.verbCommand.action ) {        
@@ -286,6 +289,138 @@ module.exports = function(singleton) {
         }
         return null;
     };
-
-    return { defineScript : defineScript , processScript : processScript , getConvoObjectPtr : getConvoObjectPtr };
+    //=================================================================
+    var thenDo = function(command) {
+        var game = singleton.game;
+        if (game.pov.isGod ) {
+            if( game.verbCommand.action ) {
+                command = singleton.helper.subSentence( command , 1);
+                if( command.length > 0 ) {
+                    var _npc = singleton.findNPC(game.verbCommand.npc);
+                    // TBD - also look for game.items (for verbs like push/pull etc)...
+                    if( _npc && _npc.conversation ) {
+                        if( _npc.conversation[game.verbCommand.action] ) {
+                            if( _npc.conversation[game.verbCommand.action][game.verbCommand.topic] ) {
+                                var modResponse = _npc.conversation[game.verbCommand.action][game.verbCommand.topic].response;
+                                if( typeof(modResponse) == "string" ) {
+                                    modResponse = { "then" : [modResponse,command] };
+                                } else {
+                                    if( !modResponse.then || !modResponse.or ) {
+                                        modResponse = { "then" : [modResponse,command] };
+                                    } else if( !modResponse.then ) {
+                                        modResponse.then = [];
+                                    }
+                                    modResponse.then.push(command);
+                                }
+                                _npc.conversation[game.verbCommand.action][game.verbCommand.topic].response = modResponse;
+                            }
+                        } else if( game.verbCommand.action == "talkto") {
+                            if( _npc.conversation.talkto ) {
+                                var modResponse = _npc.conversation.talkto.response;
+                                if( typeof(modResponse) == "string" ) {
+                                    modResponse = { "then" : [modResponse,command] };
+                                } else {
+                                    if( !modResponse.or && !modResponse.then) {
+                                        modResponse = { "then" : [modResponse,command] };
+                                    } else if( !modResponse.then ) {
+                                        modResponse.then = [];
+                                    }
+                                    modResponse.then.push(command);
+                                }
+                                _npc.conversation.talkto.response = modResponse;
+                            }
+                        }
+                    }
+                }
+            } else {
+                singleton.outputText("then requires a prior action");    
+            }
+        } else {
+            singleton.outputText("then what?");
+        }       
+    };
+    //=================================================================
+    var orDo = function(command) {
+        var game = singleton.game;
+        if (game.pov.isGod ) {
+            if( game.verbCommand.action ) {
+                command = singleton.helper.subSentence( command , 1);
+                if( command.length > 0 ) {
+                    var _npc = singleton.findNPC(game.verbCommand.npc);
+                    // TBD - also look for game.items (for verbs like push/pull etc)...
+                    if( _npc ) {
+                        if( _npc.conversation[game.verbCommand.action] ) {
+                            if( game.verbCommand.topic ) {
+                                if( _npc.conversation[game.verbCommand.action][game.verbCommand.topic] ) {
+                                    var modResponse = _npc.conversation[game.verbCommand.action][game.verbCommand.topic].response;
+                                    if( typeof(modResponse) == "string" ) {
+                                        modResponse = { "or" : [modResponse,command] };
+                                    } else {
+                                        if( !modResponse.or && !modResponse.then) {
+                                            modResponse = { "or" : [modResponse,command] };
+                                        } else if( !modResponse.or ) {
+                                            modResponse.or = [];
+                                        }
+                                        modResponse.or.push(command);
+                                    }
+                                    _npc.conversation[game.verbCommand.action][game.verbCommand.topic].response = modResponse;
+                                } 
+                            } else {
+                                if( _npc.conversation[game.verbCommand.action] ) {
+                                    var modResponse = _npc.conversation[game.verbCommand.action].response;
+                                    if( typeof(modResponse) == "string" ) {
+                                        modResponse = { "or" : [modResponse,command] };
+                                    } else {
+                                        if( !modResponse.or && !modResponse.then) {
+                                            modResponse = { "or" : [modResponse,command] };
+                                        } else if( !modResponse.or ) {
+                                            modResponse.or = [];
+                                        }
+                                        modResponse.or.push(command);
+                                    }
+                                    _npc.conversation[game.verbCommand.action].response = modResponse;
+                                } 
+                            }
+                        } else {
+                            singleton.outputText("No action defined");
+                        }
+                    } else {
+                        singleton.outputText("Need a NPC");
+                    }
+                } else {
+                    singleton.outputText("Expected prose to follow 'or'.")
+                }
+            } else {
+                singleton.outputText("Need an action");
+            }
+        } else {
+            singleton.outputText("or not.");
+        }      
+    };
+    var scoreDo = function(command) {
+        var game = singleton.game;
+        command = singleton.helper.subSentence( command , 1);
+        if( command.length > 0 ) {
+            if (game.pov.isGod ) {
+                var value = Number.parseInt(command);
+                if( value > 0 ) {
+                    var ptr = singleton.getConvoObjectPtr();
+                    if( ptr ) {
+                        ptr.score = value; 
+                    } else {
+                        singleton.outputText("Must have run a conversation to set an associated score");
+                    }
+                }
+            } else {
+                singleton.outputText("Must be in game.god mode to set score");
+            }
+        } else {
+            if( game.state.Score ) {
+                singleton.outputText("Score: "+game.state.Score);
+            } else {
+                singleton.outputText("Score: 0");
+            }
+        }
+    };
+    return { defineScript : defineScript , processScript : processScript , getConvoObjectPtr : getConvoObjectPtr , thenDo : thenDo , orDo : orDo , scoreDo : scoreDo };
 }

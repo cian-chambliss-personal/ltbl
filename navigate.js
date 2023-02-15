@@ -1,4 +1,5 @@
 module.exports = function(singleton) {
+    var voids = require("./void-location.js")();
     var navigate = function(__direction) {
         var game = singleton.game;
         if (game.getLocation(game.pov.location)) {
