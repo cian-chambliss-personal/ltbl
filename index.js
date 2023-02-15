@@ -66,6 +66,8 @@ module.exports = function ltbl(settings) {
             }
             return description;
         },
+        spellcheckedText : function() {
+        },
         directionsNames :["s","n","e","w","u","d","sw","se","nw","ne"],
         directionsHash: {
             "s": { primary: "s" },
@@ -133,26 +135,20 @@ module.exports = function ltbl(settings) {
         game.map = null;
         singleton.render(game.getLocation(game.pov.location),game.pov.location, 0);
     };
-
-
+    singleton.spellcheckedText = require("./spellcheck-text")(singleton).spellcheckedText;
     var stateMachineFillin = singleton.stateMachine.fillin;
     var stateMachineFillinStart = singleton.stateMachine.fillinStart;
     var stateMachineFillinCreate = singleton.stateMachine.fillinCreate;
     var fs = require("fs");
     var helpText = require("./en-help.json");
-    
     var camelCase = singleton.helper.camelCase;
     var extractNounAndAdj = singleton.helper.extractNounAndAdj;
     var extractScalar = singleton.helper.extractScalar;
-    var getPartsOfSpeech = singleton.helper.getPartsOfSpeech;
     var isVerb = singleton.helper.isVerb;
     var singularFromPlural = singleton.helper.singularFromPlural;
     var pluralFromSingular = singleton.helper.pluralFromSingular;
-
     //---------------------------------------------------------------------------
 
-       
-    
     var allowPosture = function(itemptr,posture) {
         if( itemptr.postures ) {
             for( var i = 0 ; i < itemptr.postures.length ; ++i ) {
@@ -165,70 +161,6 @@ module.exports = function ltbl(settings) {
     };
     
     var voids = require("./void-location.js")();
-    var spellcheckedText = function(obj,prop,prompt) {
-        var choices = [];
-        var parts = { mispelled : []};
-        if( obj[prop] ) {
-            parts = getPartsOfSpeech(obj[prop],false,true);
-        }
-        if( parts.mispelled.length > 0 ) {
-            for(var i = 0; i < parts.mispelled.length ; ++i ) {
-                choices.push({ text : 'Fix "'+parts.mispelled[i].word+'"' , value : parts.mispelled[i].word });
-            }
-            choices.push({text:prompt,value:"*"});
-        }
-        if( choices.length > 1 ) {
-            game.stateMachine = stateMachineFillinCreate({word:'',fix:''},[
-                {msg:"Change description:",prop:"word",choices:choices},
-                { test : function(sm) { 
-                        if(sm.data.word == "*") 
-                               return "expand.entire";
-                        var findWrd = sm.data.word;
-                        var se = sm.states[1];
-                        se.states[0].msg = findWrd;
-                        for(var i = 0; i < parts.mispelled.length ; ++i ) {
-                            if( parts.mispelled[i].word == findWrd ) {
-                                var srcCorrect =parts.mispelled[i].corrections;
-                                var correct = [];
-                                for(var j = 0; j < srcCorrect.length ; ++j ) {
-                                    var coorection =  srcCorrect[j];
-                                    correct.push({ text : 'Replace "'+findWrd+'" with "'+coorection+'"', value : coorection } );
-                                }
-                                correct.push({ text : 'Make a custom fix', value : "?" } );
-                                se.states[0].choices = correct;
-                                break;
-                            }
-                        }
-                        return "expand"; 
-                    } , states : [ 
-                        {msg:"??",prop:"fix",choices:[]},
-                        {
-                            test : function(sm) {
-                                if( sm.data.fix == "?" ) { return "expand"; }
-                                return "skip";
-                            },
-                            states : [ { msg: "Custom fix" , prop : "fix" } ]
-                        }
-                    ] , entire : [
-                        {msg:prompt,prop:prop}
-                    ]
-                }
-            ],function(sm) {
-                if(sm.data.word == "*") {
-                    if( sm.data[prop] ) {
-                        obj[prop] = sm.data[prop];
-                    }
-                } else if(sm.data.fix) {
-                    var desc = obj[prop];
-                    obj[prop] = desc.split(sm.data.word).join(sm.data.fix);
-                }
-                game.map = null;
-                singleton.render(game.getLocation(game.pov.location),game.pov.location, 0);
-            });
-        } else {
-            game.stateMachine = stateMachineFillinCreate(obj,[ {msg:prompt,prop:prop} ],singleton.invalidateMap);
-        }
-    };
     var doAnnotation = function(anno) {
         if( anno.type == "item" ) {
             //{"type":"item","item":
@@ -283,12 +215,12 @@ module.exports = function ltbl(settings) {
         } else if( anno.type == "item.description" ) {
             var ip = game.getItem(anno.item);
             if( ip ) {
-                spellcheckedText(ip,"description","Change entire item description:");
+                singleton.spellcheckedText(ip,"description","Change entire item description:");
             }
         } else if( anno.type == "item.content" ) {
             var ip = game.getItem(anno.item);
             if( ip ) {
-                spellcheckedText(ip,"content","Change entire item readable content:");
+                singleton.spellcheckedText(ip,"content","Change entire item readable content:");
             }
         } else if( anno.type == "item.postures" ) {
             var ip = game.getItem(anno.item);
@@ -334,7 +266,7 @@ module.exports = function ltbl(settings) {
         } else if( anno.type == "location.description" ) {
             var loc = game.getLocation(game.pov.location);
             if( loc ) {
-                spellcheckedText(loc,"description","Change entire location description:");
+                singleton.spellcheckedText(loc,"description","Change entire location description:");
             }
         } else if( anno.type == "location.type" ) {
             var loc = game.getLocation(game.pov.location);
