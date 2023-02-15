@@ -38,7 +38,10 @@ module.exports = function ltbl(settings) {
         lookupItemLow :  function() {},
         findItems:  function() {},
         removeItem:  function() {},
-        setLocationType:function() {},
+        setLocationType: function() {},
+        findNPC : function() {},
+        findNPCs: function() {},
+        describeNPC : function() {},
         dontSee : function() {} , 
         dontSeeNpc : function() {} , 
         noUnderstand : function() {} , 
@@ -60,7 +63,38 @@ module.exports = function ltbl(settings) {
             }
             return description;
         },
-        directionsNames :["s","n","e","w","u","d","sw","se","nw","ne"]
+        directionsNames :["s","n","e","w","u","d","sw","se","nw","ne"],
+        directionsHash: {
+            "s": { primary: "s" },
+            "n": { primary: "n" },
+            "e": { primary: "e" },
+            "w": { primary: "w" },
+            "u": { primary: "u" },
+            "d": { primary: "d" },
+            "sw": { primary: "sw" },
+            "se": { primary: "sw" },
+            "nw": { primary: "nw" },
+            "ne": { primary: "ne" },
+            "south": { primary: "s" },
+            "north": { primary: "n" },
+            "east": { primary: "e" },
+            "west": { primary: "w" },
+            "up": { primary: "u" },
+            "down": { primary: "d" },
+            "southwest": { primary: "sw" },
+            "southeast": { primary: "sw" },
+            "northwest": { primary: "nw" },
+            "northeast": { primary: "ne" },
+            "south west": { primary: "sw" },
+            "south east": { primary: "sw" },
+            "north west": { primary: "nw" },
+            "north east": { primary: "ne" },
+            "in" : { primary: "i" },
+            "out" : { primary: "o" }
+        },
+        isDirection : function (command) {
+            return singleton.directionsHash[command];
+        }
     };
     //  Wire it up 
     singleton.stateMachine = require("./state-machine")({output : function(txt) {
@@ -78,6 +112,10 @@ module.exports = function ltbl(settings) {
     singleton.lookupItemLow = itemIface.lookupItemLow;
     singleton.findItems = itemIface.findItems;
     singleton.removeItem = itemIface.removeItem;
+    var npcIface = require("./npc.js")(singleton);
+    singleton.findNPC  = npcIface.findNPC;
+    singleton.findNPCs = npcIface.findNPCs;
+    singleton.describeNPC = npcIface.describeNPC;
     var cantSeeIface = require("./cant-see.js")(singleton);
     singleton.dontSee = cantSeeIface.dontSee; 
     singleton.dontSeeNpc = cantSeeIface.dontSeeNpc;
@@ -111,113 +149,15 @@ module.exports = function ltbl(settings) {
     };
     
     //---------------------------------------------------------------------------
-    // Build a map....
-    var findNPC =function(name) {
-        name = name.toLowerCase().trim();
-        var cc = camelCase(name);
-        var _npc = game.npc[cc];
-        if( _npc ) {
-            // well known short name...
-            return _npc;
-        }
-        for( var _ind in game.npc ) {
-            var _npc = game.npc[_ind];
-            if( _npc.name == name ) {
-                return _npc;
-            }
-            if( _npc.alias ) {
-                for( var i = 0 ; i < _npc.alias.length ; ++i ) {
-                    if( _npc.alias[i] == name ) {
-                        return _npc;
-                    }
-                }
-            }
-        }
-        return null;
-    };
+        
 
-    var findNPCs = function(name) {
-        var list = [];
-        name = name.toLowerCase().trim();
-        var cc = camelCase(name);
-        if( game.npc[cc] ) {
-            // well known short name...
-            return [cc];
-        }
-        for( var _ind in game.npc ) {
-            var _npc = game.npc[_ind];
-            if( _npc.name == name ) {
-                return [_ind];
-            }
-            if( _npc.description.indexOf(name) >= 0 ) {
-                list.push(_ind);
-            } else if( _npc.name.indexOf(name) >= 0 ) {
-                list.push(_ind);
-            } else if( _npc.alias ) {
-                for( var i = 0 ; i < _npc.alias.length ; ++i ) {
-                    if( _npc.alias[i] == name ) {
-                        list.push(_ind);
-                        break;
-                    }
-                }
-            }
-        }
-        return list;
-    };
-    
-
-    // data
-    
-    
-    var describeNPC = function(npc,preposition,search) {
-        var npcPtr = game.getNpc(npc);
-        if( npcPtr.description ) {
-            singleton.outputText(npcPtr.description);
-        } else if(game.pov.isGod) {
-            game.stateMachine = stateMachineFillinCreate(npcPtr,[ {msg:"How would you describe " + npcPtr.name + "?",prop:"description"} ]);
-        } else {
-            singleton.outputText(npcPtr.name);
-        }
-    };
-    
-    
-    var directionsHash = {
-        "s": { primary: "s" },
-        "n": { primary: "n" },
-        "e": { primary: "e" },
-        "w": { primary: "w" },
-        "u": { primary: "u" },
-        "d": { primary: "d" },
-        "sw": { primary: "sw" },
-        "se": { primary: "sw" },
-        "nw": { primary: "nw" },
-        "ne": { primary: "ne" },
-        "south": { primary: "s" },
-        "north": { primary: "n" },
-        "east": { primary: "e" },
-        "west": { primary: "w" },
-        "up": { primary: "u" },
-        "down": { primary: "d" },
-        "southwest": { primary: "sw" },
-        "southeast": { primary: "sw" },
-        "northwest": { primary: "nw" },
-        "northeast": { primary: "ne" },
-        "south west": { primary: "sw" },
-        "south east": { primary: "sw" },
-        "north west": { primary: "nw" },
-        "north east": { primary: "ne" },
-        "in" : { primary: "i" },
-        "out" : { primary: "o" }
-    };
     var subSentence = function(sentence,wrd) {
         sentence = sentence.split(" ");
         for( var i = 0 ; i < wrd ; ++i )
             sentence[i] = "";
         return sentence.join(" ").trim();
     };
-    var isDirection = function (command) {
-        return directionsHash[command];
-    };
+    
        
     var defineNPCStates = [{
         msg: "Describe character called {game.npc}:", prop : "newNPC"
@@ -225,14 +165,15 @@ module.exports = function ltbl(settings) {
     var defineScript = function() {
         var  states = [];
         var  testNpc = false;
+        var design = game.design;
         if( !game.verbCommand.npc ) {
             states.push({ msg : "who?" , prop : "npc"});
             testNpc = true;
-        } else if( !findNPC(game.verbCommand.npc) ) {
+        } else if( !singleton.findNPC(game.verbCommand.npc) ) {
             testNpc = true;
         }
         if( testNpc ) {
-            states.push({ test : function(state,command) { if( findNPC(state.data.npc) ) { return "skip"; } return "expand"; }  ,
+            states.push({ test : function(state,command) { if( singleton.findNPC(state.data.npc) ) { return "skip"; } return "expand"; }  ,
                 states : defineNPCStates 
             } );
         }
@@ -250,7 +191,7 @@ module.exports = function ltbl(settings) {
         }
         game.stateMachine = {
             state : 0 ,
-            data : design.verbCommand ,
+            data : game.verbCommand ,
             states : states,
             execute : stateMachineFillin,
             start: stateMachineFillinStart,
@@ -260,7 +201,7 @@ module.exports = function ltbl(settings) {
             done: function(sm) {
                 var vc = sm.data;
                 if( vc.npc ) {
-                    var _npc = findNPC(vc.npc);
+                    var _npc = singleton.findNPC(vc.npc);
                     if( !_npc && vc.newNPC ) {
                         var newNPC  = vc.npc;
                         newNPC = newNPC.toLowerCase().trim();
@@ -284,7 +225,7 @@ module.exports = function ltbl(settings) {
                             } else {
                                 _npc.conversation[vc.action][vc.topic] = { response : vc.response };
                             }
-                            outputTextg('"'+vc.response+'"');
+                            singleton.outputText('"'+vc.response+'"');
                         } else if( vc.action == "talkto" || vc.action == "hi" || vc.action == "bye" || vc.action == "leave" || vc.action == "notice" ) {
                             if( !_npc.conversation ) {
                                 _npc.conversation = {};
@@ -307,6 +248,7 @@ module.exports = function ltbl(settings) {
         }
     };
     var processScript = function() {
+        var design = game.design;
         var emitResponse = function(response,vc,stateId) {
             if( typeof(response) == "string" ) {
                 game.annotations = [];
@@ -397,7 +339,7 @@ module.exports = function ltbl(settings) {
         };
         if( !game.verbCommand.npc ) {
             return false;
-        } else if( !findNPC(game.verbCommand.npc) ) {
+        } else if( !singleton.findNPC(game.verbCommand.npc) ) {
             return false;
         } else if( singleton.resources.verbsWithTopics[game.verbCommand.action] && !game.verbCommand.topic ) {
             return false;
@@ -409,7 +351,7 @@ module.exports = function ltbl(settings) {
                         game.verbCommand.topic = game.verbCommand.topic.substring(6).trim();
                     }
                 }
-                var _npc = findNPC(game.verbCommand.npc);
+                var _npc = singleton.findNPC(game.verbCommand.npc);
                 if( _npc.conversation ) {
                     _npc = _npc.conversation[game.verbCommand.action];
                     if( _npc ) {
@@ -419,7 +361,7 @@ module.exports = function ltbl(settings) {
                    _npc = null;
                 }
                 if( _npc ) {
-                    emitResponse(_npc.response,design.verbCommand,game.verbCommand.npc+game.verbCommand.action+game.verbCommand.topic);
+                    emitResponse(_npc.response,game.verbCommand,game.verbCommand.npc+game.verbCommand.action+game.verbCommand.topic);
                     return true;
                 } else if(game.pov.isGod) {
                     return false;
@@ -428,7 +370,7 @@ module.exports = function ltbl(settings) {
                     return true;
                 }
             } else {
-                var _npc = findNPC(game.verbCommand.npc);
+                var _npc = singleton.findNPC(game.verbCommand.npc);
                 if( _npc ) {
                     if( _npc.conversation ) {
                         if( game.verbCommand.action == "talkto" ) {
@@ -443,7 +385,7 @@ module.exports = function ltbl(settings) {
                     }
                 }
                 if( _npc && _npc.response ) {
-                    emitResponse(_npc.response,design.verbCommand,game.verbCommand.npc+game.verbCommand.action+game.verbCommand.topic);
+                    emitResponse(_npc.response,game.verbCommand,game.verbCommand.npc+game.verbCommand.action+game.verbCommand.topic);
                     return true;
                 } else if(game.pov.isGod) {
                     return false;
@@ -470,7 +412,7 @@ module.exports = function ltbl(settings) {
     var voids = require("./void-location.js")();
     var getConvoObjectPtr = function(command) {
         if( game.verbCommand.action ) {        
-            var _npc = findNPC(game.verbCommand.npc);
+            var _npc = singleton.findNPC(game.verbCommand.npc);
             if( _npc ) {
                 var ptr = null;
                 var rContainer = null;
@@ -1123,7 +1065,7 @@ module.exports = function ltbl(settings) {
             }, 
             eval : function(args) {
                 if( args.dObjType == "npc" ) {
-                    describeNPC(args.dObj,args.preposition);
+                    singleton.describeNPC(args.dObj,args.preposition);
                 } else {
                     singleton.describeItem(args.dObj,args.preposition);
                 }
@@ -1136,7 +1078,7 @@ module.exports = function ltbl(settings) {
             }, 
             eval : function(args) {
                 if( args.dObjType == "npc" ) {
-                    describeNPC(args.dObj);
+                    singleton.describeNPC(args.dObj);
                 } else {
                     singleton.describeItem(args.dObj);
                 }                
@@ -1669,7 +1611,7 @@ module.exports = function ltbl(settings) {
                 }
                 return true;
             } else if( argType == "npc" || argType == "createnpc" ) {
-                objName = findNPCs(name);
+                objName = singleton.findNPCs(name);
                 if( objName.length == 1 ) {
                     objName = objName[0];
                     findPatternArgs[argName] = objName;
@@ -1962,8 +1904,8 @@ module.exports = function ltbl(settings) {
                     break;
                 } else if( _pattern.match.direction ) {
                     // Verb + direction
-                    if( isDirection(object1) ) {
-                        findPatternArgs.direction = isDirection(object1).primary;
+                    if( singleton.isDirection(object1) ) {
+                        findPatternArgs.direction = singleton.isDirection(object1).primary;
                         findPattern = _pattern;
                         break;    
                     } else if( object1 != "" ) {
@@ -2206,8 +2148,8 @@ module.exports = function ltbl(settings) {
                             singleton.dontSee(command,game.pov.location,origCommand);
                         }
                     }
-                } else if (isDirection(lCase)) {
-                    lCase = isDirection(lCase).primary;
+                } else if (singleton.isDirection(lCase)) {
+                    lCase = singleton.isDirection(lCase).primary;
                     if (game.getLocation(game.pov.location)) {
                         var nextLoc = game.getLocation(game.pov.location)[lCase];
                         if (!nextLoc) {
@@ -2461,7 +2403,7 @@ module.exports = function ltbl(settings) {
                         if( game.verbCommand.action ) {
                             command = subSentence( command , 1);
                             if( command.length > 0 ) {
-                                var _npc = findNPC(game.verbCommand.npc);
+                                var _npc = singleton.findNPC(game.verbCommand.npc);
                                 // TBD - also look for game.items (for verbs like push/pull etc)...
                                 if( _npc && _npc.conversation ) {
                                     if( _npc.conversation[game.verbCommand.action] ) {
@@ -2509,7 +2451,7 @@ module.exports = function ltbl(settings) {
                         if( game.verbCommand.action ) {
                             command = subSentence( command , 1);
                             if( command.length > 0 ) {
-                                var _npc = findNPC(game.verbCommand.npc);
+                                var _npc = singleton.findNPC(game.verbCommand.npc);
                                 // TBD - also look for game.items (for verbs like push/pull etc)...
                                 if( _npc ) {
                                     if( _npc.conversation[game.verbCommand.action] ) {
@@ -2665,7 +2607,7 @@ module.exports = function ltbl(settings) {
                                 singleton.outputText(chalk.bold(list[i]));
                                 console.dir(game.getItem(list[i]), { depth : 6 , colors : true});
                             }
-                            list = findNPCs(command);
+                            list = singleton.findNPCs(command);
                             for( var i = 0 ; i < list.length ; ++i ) {
                                 singleton.outputText(chalk.bold(list[i]));
                                 console.dir(game.getNpc(list[i]), { depth : 6 , colors : true});
