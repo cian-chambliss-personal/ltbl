@@ -42,6 +42,8 @@ module.exports = function ltbl(settings) {
         findNPC : function() {},
         findNPCs: function() {},
         describeNPC : function() {},
+        defineScript : function() {},
+        processScript : function() {},
         dontSee : function() {} , 
         dontSeeNpc : function() {} , 
         noUnderstand : function() {} , 
@@ -116,6 +118,9 @@ module.exports = function ltbl(settings) {
     singleton.findNPC  = npcIface.findNPC;
     singleton.findNPCs = npcIface.findNPCs;
     singleton.describeNPC = npcIface.describeNPC;
+    var scriptIface = require("./script.js")(singleton);
+    singleton.defineScript = scriptIface.defineScript;
+    singleton.processScript = scriptIface.processScript;
     var cantSeeIface = require("./cant-see.js")(singleton);
     singleton.dontSee = cantSeeIface.dontSee; 
     singleton.dontSeeNpc = cantSeeIface.dontSeeNpc;
@@ -149,255 +154,9 @@ module.exports = function ltbl(settings) {
     };
     
     //---------------------------------------------------------------------------
-        
 
-    var subSentence = function(sentence,wrd) {
-        sentence = sentence.split(" ");
-        for( var i = 0 ; i < wrd ; ++i )
-            sentence[i] = "";
-        return sentence.join(" ").trim();
-    };
-    
        
-    var defineNPCStates = [{
-        msg: "Describe character called {game.npc}:", prop : "newNPC"
-    } ];
-    var defineScript = function() {
-        var  states = [];
-        var  testNpc = false;
-        var design = game.design;
-        if( !game.verbCommand.npc ) {
-            states.push({ msg : "who?" , prop : "npc"});
-            testNpc = true;
-        } else if( !singleton.findNPC(game.verbCommand.npc) ) {
-            testNpc = true;
-        }
-        if( testNpc ) {
-            states.push({ test : function(state,command) { if( singleton.findNPC(state.data.npc) ) { return "skip"; } return "expand"; }  ,
-                states : defineNPCStates 
-            } );
-        }
-        if( singleton.resources.verbsWithTopics[game.verbCommand.action] && !game.verbCommand.topic ) {
-            states.push({ msg : "whats the topic of the '"+game.verbCommand.action+"'?" , prop : "topic"});
-        }
-        if( game.verbCommand.topic ) {
-            if( game.verbCommand.preposition ) {
-                states.push({ msg : "whats the response for '"+game.verbCommand.action+" "+game.verbCommand.preposition +" "+game.verbCommand.topic+"'?" , prop : "response"});
-            } else {
-                states.push({ msg : "whats the response for '"+game.verbCommand.action+" about "+game.verbCommand.topic+"'?" , prop : "response"});
-            }
-        } else {
-            states.push({ msg : "whats the response for '"+game.verbCommand.action+"'?" , prop : "response"});
-        }
-        game.stateMachine = {
-            state : 0 ,
-            data : game.verbCommand ,
-            states : states,
-            execute : stateMachineFillin,
-            start: stateMachineFillinStart,
-            askAbort: function() {
-                singleton.outputText("Do you want to quit? (y to quit)");
-            },
-            done: function(sm) {
-                var vc = sm.data;
-                if( vc.npc ) {
-                    var _npc = singleton.findNPC(vc.npc);
-                    if( !_npc && vc.newNPC ) {
-                        var newNPC  = vc.npc;
-                        newNPC = newNPC.toLowerCase().trim();
-                        _npc = {
-                            name : newNPC ,
-                            description : vc.newNPC ,
-                            location : game.pov.location 
-                        };
-                        game.setNpc(camelCase(newNPC),_npc);
-                    }
-                    if( _npc ) {
-                        if( singleton.resources.verbsWithTopics[vc.action] ) {
-                            if( !_npc.conversation ) {
-                                _npc.conversation = {};
-                            }                            
-                            if( !_npc.conversation[vc.action] ) {
-                                _npc.conversation[vc.action] = {};
-                            }
-                            if( game.verbCommand.preposition  ) {
-                                _npc.conversation[vc.action][vc.topic] = { preposition  : vc.preposition  , response : vc.response };
-                            } else {
-                                _npc.conversation[vc.action][vc.topic] = { response : vc.response };
-                            }
-                            singleton.outputText('"'+vc.response+'"');
-                        } else if( vc.action == "talkto" || vc.action == "hi" || vc.action == "bye" || vc.action == "leave" || vc.action == "notice" ) {
-                            if( !_npc.conversation ) {
-                                _npc.conversation = {};
-                            }
-                            _npc.conversation[vc.action] = { response : vc.response };
-                            singleton.outputText('"'+vc.response+'"');    
-                        } else {
-                            singleton.outputText("**Bad action");
-                        }
-                    } else {
-                        singleton.outputText("**No NPC")
-                    }
-                } else {
-                    singleton.outputText("npc parameter not defined");
-                }
-            }
-        };
-        if( !game.stateMachine.start(game.stateMachine) ) {
-            game.stateMachine = null;
-        }
-    };
-    var processScript = function() {
-        var design = game.design;
-        var emitResponse = function(response,vc,stateId) {
-            if( typeof(response) == "string" ) {
-                game.annotations = [];
-                singleton.outputText( response + singleton.annotate({ type:"conv" , npc : vc.npc , action : vc.action , preposition  : vc.preposition , topic : vc.topic }) );
-                return true;
-            } else if( response.then ) {
-                var responseIndex = game.state[stateId+".then"];
-                if( responseIndex ) {
-                    if( !emitResponse( response.then[responseIndex],vc,stateId ) )
-                         return false;
-                    if( response.then.length > (responseIndex+1) ) {
-                        game.state[stateId+".then"] = (responseIndex+1);
-                    }
-                } else {
-                    if( !emitResponse( response.then[0],vc,stateId ) )
-                        return false;
-                    if( response.then.length > 1 ) {
-                        game.state[stateId+".then"] = 1;
-                    }
-                }
-            } else if( response.or ) {
-                var responseIndex = game.state[stateId+".or"];
-                if( responseIndex ) {
-                    if( !emitResponse( response.or[responseIndex],vc,stateId ) )
-                        return false;
-                    if( response.or.length > (responseIndex+1) ) {
-                        game.state[stateId+".or"] = (responseIndex+1);
-                    } else {
-                        game.state[stateId+".or"] = 0;
-                    }
-                } else {
-                    if( !emitResponse( response.or[0],vc,stateId ) )
-                        return false;
-                    if( response.or.length > 1 ) {
-                        game.state[stateId+".or"] = 1;
-                    }
-                }
-            } else {
-                // All the actions
-                if( response.take ) {
-                    var npcPtr = game.getNpc(vc.npc);
-                    if( !npcPtr )
-                        return false;
-                    var item = singleton.removeItem(game.pov.inventory,"@"+response.take);
-                    if( !item ) 
-                        return false;
-                    if( npcPtr ) {
-                        if( !npcPtr.inventory ) {
-                            npcPtr.inventory = [];
-                        }
-                        npcPtr.inventory.push({item:item});
-                    }
-                }
-                if( response.consume ) {
-                    var item = singleton.removeItem(game.pov.inventory,"@"+response.consume);
-                    if( !item ) 
-                        return false;
-                }
-                if( response.give ) {
-                    var npcPtr = game.getNpc(vc.npc);
-                    if( !npcPtr )
-                        return false;
-                    if( !npcPtr.inventory ) 
-                        return false;
-                    var item = singleton.removeItem(npcPtr.inventory,"@"+response.give);
-                    if( !item ) 
-                        return false;                    
-                    game.pov.inventory.push({ item : item });
-                }
-                if( response.say ) {
-                    game.annotations = [];
-                    singleton.outputText( response.say + singleton.annotate({ type:"conv" , npc : vc.npc , action : vc.action , preposition  : vc.preposition , topic : vc.topic }));
-                }
-                if( response.score ) {
-                    if( !game.state[stateId+".score"] ) {
-                        game.state[stateId+".score"] = true;
-                        if( !game.state.Score ) {
-                            game.state.Score = 0;
-                        }
-                        game.state.Score = game.state.Score + response.score;
-                        singleton.outputText("Score went up by "+response.score+" Points");
-                    }
-                }
-                //if( response.die ) {
-                //}
-            }
-            return true;
-        };
-        if( !game.verbCommand.npc ) {
-            return false;
-        } else if( !singleton.findNPC(game.verbCommand.npc) ) {
-            return false;
-        } else if( singleton.resources.verbsWithTopics[game.verbCommand.action] && !game.verbCommand.topic ) {
-            return false;
-        } else {
-            if( singleton.resources.verbsWithTopics[game.verbCommand.action] ) {
-                if( !game.verbCommand.preposition  ) {
-                    if( game.verbCommand.topic.substring(0,6) == "about " ) {
-                        game.verbCommand.preposition  = "about";
-                        game.verbCommand.topic = game.verbCommand.topic.substring(6).trim();
-                    }
-                }
-                var _npc = singleton.findNPC(game.verbCommand.npc);
-                if( _npc.conversation ) {
-                    _npc = _npc.conversation[game.verbCommand.action];
-                    if( _npc ) {
-                        _npc = _npc[game.verbCommand.topic];
-                    }
-                } else {
-                   _npc = null;
-                }
-                if( _npc ) {
-                    emitResponse(_npc.response,game.verbCommand,game.verbCommand.npc+game.verbCommand.action+game.verbCommand.topic);
-                    return true;
-                } else if(game.pov.isGod) {
-                    return false;
-                } else {
-                    singleton.noUnderstand();
-                    return true;
-                }
-            } else {
-                var _npc = singleton.findNPC(game.verbCommand.npc);
-                if( _npc ) {
-                    if( _npc.conversation ) {
-                        if( game.verbCommand.action == "talkto" ) {
-                            _npc = _npc.conversation.talkto;
-                        } else if( _npc.conversation[game.verbCommand.action] ) {
-                            _npc = _npc.conversation[game.verbCommand.action];                            
-                        } else {
-                            _npc = null;
-                        }
-                    } else {
-                        _npc = null;
-                    }
-                }
-                if( _npc && _npc.response ) {
-                    emitResponse(_npc.response,game.verbCommand,game.verbCommand.npc+game.verbCommand.action+game.verbCommand.topic);
-                    return true;
-                } else if(game.pov.isGod) {
-                    return false;
-                } else {
-                    singleton.noUnderstand();
-                    return true;
-                }
-            }
-        }       
-        return false;
-    };
-
+    
     var allowPosture = function(itemptr,posture) {
         if( itemptr.postures ) {
             for( var i = 0 ; i < itemptr.postures.length ; ++i ) {
@@ -793,8 +552,8 @@ module.exports = function ltbl(settings) {
                     game.verbCommand.action = "show";
                 game.verbCommand.npc = args.subject;
                 game.verbCommand.topic = args.dObj;
-                if( !processScript() ) {
-                    defineScript();
+                if( !singleton.processScript() ) {
+                    singleton.defineScript();
                 }
             }
         },
@@ -815,8 +574,8 @@ module.exports = function ltbl(settings) {
                 game.verbCommand.npc = args.subject;
                 game.verbCommand.topic = args.dObj;
                 game.verbCommand.preposition = args.preposition;
-                if( !processScript() ) {
-                    defineScript();
+                if( !singleton.processScript() ) {
+                    singleton.defineScript();
                 }
             }
         },
@@ -839,8 +598,8 @@ module.exports = function ltbl(settings) {
                 game.verbCommand.npc = args.subject;
                 game.verbCommand.topic = null;
                 game.verbCommand.preposition = null;
-                if( !processScript() ) {
-                    defineScript();
+                if( !singleton.processScript() ) {
+                    singleton.defineScript();
                 }
             }
         },
@@ -1528,9 +1287,9 @@ module.exports = function ltbl(settings) {
                     game.verbCommand.action = "show";
                 game.verbCommand.npc = args.subject;
                 game.verbCommand.topic = args.dObj;
-                if( !processScript() ) {
+                if( !singleton.processScript() ) {
                     if (game.pov.isGod ) {
-                        defineScript();
+                        singleton.defineScript();
                     } else {
                         singleton.noUnderstand();
                     }
@@ -1554,7 +1313,7 @@ module.exports = function ltbl(settings) {
                 game.verbCommand.npc = args.subject;
                 game.verbCommand.topic = args.dObj;
                 game.verbCommand.preposition = args.preposition;
-                if( !processScript() ) {
+                if( !singleton.processScript() ) {
                     singleton.noUnderstand();
                 }
             }
@@ -1578,7 +1337,7 @@ module.exports = function ltbl(settings) {
                 game.verbCommand.npc = args.subject;
                 game.verbCommand.topic = null;
                 game.verbCommand.preposition = null;
-                if( !processScript() ) {
+                if( !singleton.processScript() ) {
                     singleton.noUnderstand();
                 }
             }
@@ -1713,7 +1472,7 @@ module.exports = function ltbl(settings) {
                 matchVerb = true;
             }
             if( matchVerb ) {
-                var object1 = subSentence( command , 1) , object2;
+                var object1 = singleton.helper.subSentence( command , 1) , object2;
                 if( _pattern.match.article ) {
                     var aList = [];
                     for(var j = 0 ; j < _pattern.match.article.length ; ++j ) {
@@ -1952,7 +1711,7 @@ module.exports = function ltbl(settings) {
                     if( lCaseWords.length > 0 ) {
                         firstPhrase =  singleton.resources.godWordMap.firstTwoWord[lCaseWords[0]+" "+lCaseWords[1]];
                         if( firstPhrase ) {
-                            command = firstPhrase+" "+subSentence(command,2);
+                            command = firstPhrase+" "+singleton.helper.subSentence(command,2);
                             firstWord = firstPhrase;
                             lCase = command;
                             lCase = lCase.toLowerCase();
@@ -1968,7 +1727,7 @@ module.exports = function ltbl(settings) {
             if( lCaseWords.length > 0 ) {
                 firstPhrase =  singleton.resources.wordMap.firstTwoWord[lCaseWords[0]+" "+lCaseWords[1]];
                 if( firstPhrase ) {
-                    command = firstPhrase+" "+subSentence(command,2);
+                    command = firstPhrase+" "+singleton.helper.subSentence(command,2);
                     firstWord = firstPhrase;
                     lCase = command;
                     lCase = lCase.toLowerCase();
@@ -2121,7 +1880,7 @@ module.exports = function ltbl(settings) {
                     } else if (firstWord == "!affix") {
                         thingType = "fixture";
                     }
-                    command = subSentence( command , 1);
+                    command = singleton.helper.subSentence( command , 1);
                     if (command != "") {
                         var where = game.getLocation(game.pov.location);
                         var what = command;
@@ -2401,7 +2160,7 @@ module.exports = function ltbl(settings) {
                     // linear script
                     if (game.pov.isGod ) {
                         if( game.verbCommand.action ) {
-                            command = subSentence( command , 1);
+                            command = singleton.helper.subSentence( command , 1);
                             if( command.length > 0 ) {
                                 var _npc = singleton.findNPC(game.verbCommand.npc);
                                 // TBD - also look for game.items (for verbs like push/pull etc)...
@@ -2449,7 +2208,7 @@ module.exports = function ltbl(settings) {
                     // alt script
                     if (game.pov.isGod ) {
                         if( game.verbCommand.action ) {
-                            command = subSentence( command , 1);
+                            command = singleton.helper.subSentence( command , 1);
                             if( command.length > 0 ) {
                                 var _npc = singleton.findNPC(game.verbCommand.npc);
                                 // TBD - also look for game.items (for verbs like push/pull etc)...
@@ -2503,7 +2262,7 @@ module.exports = function ltbl(settings) {
                     }
                 } else if( firstWord == "score") {
                     // linear script
-                    command = subSentence( command , 1);
+                    command = singleton.helper.subSentence( command , 1);
                     if( command.length > 0 ) {
                         if (game.pov.isGod ) {
                             var value = Number.parseInt(command);
@@ -2527,7 +2286,7 @@ module.exports = function ltbl(settings) {
                     }
                 } else if ( firstWord == "acquire" && game.pov.isGod ) {
                     // Be given an item
-                    command = subSentence( command , 1);
+                    command = singleton.helper.subSentence( command , 1);
                     var existingItem = singleton.lookupItem(game.pov.location,command);
                     if (existingItem && existingItem != "?") {
                         var ptr = getConvoObjectPtr();
@@ -2548,10 +2307,10 @@ module.exports = function ltbl(settings) {
                  || firstWord == "!goin" 
                 ) {
                     firstWord = firstWord.substring(1);
-                    command = subSentence( command , 1);
+                    command = singleton.helper.subSentence( command , 1);
                     game.verbCommand.preposition  = singleton.resources.wordMap.resources.posturePrep[command.split(" ")[0]];
                     if( game.verbCommand.preposition  ) {
-                        command = subSentence( command , 1);
+                        command = singleton.helper.subSentence( command , 1);
                     }
                     if( command.length ) {
                         var existingItem = singleton.lookupItem(game.pov.location,command);
@@ -2593,7 +2352,7 @@ module.exports = function ltbl(settings) {
                         }
                     }
                 } else if ( game.pov.isGod && firstWord == "!dump") {
-                    command = subSentence( command , 1).toLowerCase();
+                    command = singleton.helper.subSentence( command , 1).toLowerCase();
                     if( game.pov.isGod ) {
                         if( command && command.length )
                         {
@@ -2628,7 +2387,7 @@ module.exports = function ltbl(settings) {
                     }
                 } else if (firstWord == "map") {
                     if( game.pov.isGod ) {
-                        command = subSentence( command , 1).toLowerCase();
+                        command = singleton.helper.subSentence( command , 1).toLowerCase();
                         if( command == "show" )
                         {
                             if( !game.renderMap ) {
@@ -2677,7 +2436,7 @@ module.exports = function ltbl(settings) {
                         }
                     }
                 } else if (firstWord == "pov") {
-                    command = subSentence( command , 1);
+                    command = singleton.helper.subSentence( command , 1);
                     if( command && command.length ) {
                         if( command == game.god.name ) {
                             if( game.allowGodMode ) {

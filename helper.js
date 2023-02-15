@@ -237,6 +237,12 @@ module.exports = function ltbl(settings) {
         }
         return { obj :obj , scalar : scalar };
     };
+    var subSentence = function(sentence,wrd) {
+        sentence = sentence.split(" ");
+        for( var i = 0 ; i < wrd ; ++i )
+            sentence[i] = "";
+        return sentence.join(" ").trim();
+    };
     return {
         camelCase : camelCase,
         extractNounAndAdj : extractNounAndAdj,
@@ -248,6 +254,7 @@ module.exports = function ltbl(settings) {
         superScript: superScript,
         singularFromPlural : singularFromPlural ,
         pluralFromSingular : pluralFromSingular ,
+        subSentence : subSentence ,
         directionTags : function() { return ["s", "n", "e", "w", "u", "d", "sw", "se", "nw", "ne"]; }
     }
 };
