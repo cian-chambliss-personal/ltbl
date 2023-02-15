@@ -44,6 +44,7 @@ module.exports = function ltbl(settings) {
         describeNPC : function() {},
         defineScript : function() {},
         processScript : function() {},
+        getConvoObjectPtr: function() {},
         dontSee : function() {} , 
         dontSeeNpc : function() {} , 
         noUnderstand : function() {} , 
@@ -96,7 +97,8 @@ module.exports = function ltbl(settings) {
         },
         isDirection : function (command) {
             return singleton.directionsHash[command];
-        }
+        },
+        invalidateMap: function() {}
     };
     //  Wire it up 
     singleton.stateMachine = require("./state-machine")({output : function(txt) {
@@ -121,11 +123,18 @@ module.exports = function ltbl(settings) {
     var scriptIface = require("./script.js")(singleton);
     singleton.defineScript = scriptIface.defineScript;
     singleton.processScript = scriptIface.processScript;
+    singleton.getConvoObjectPtr = scriptIface.getConvoObjectPtr;
     var cantSeeIface = require("./cant-see.js")(singleton);
     singleton.dontSee = cantSeeIface.dontSee; 
     singleton.dontSeeNpc = cantSeeIface.dontSeeNpc;
     singleton.noUnderstand = cantSeeIface.noUnderstand;
     singleton.noCareAbout = cantSeeIface.noCareAbout;
+    singleton.invalidateMap = function() {
+        game.map = null;
+        singleton.render(game.getLocation(game.pov.location),game.pov.location, 0);
+    };
+
+
     var stateMachineFillin = singleton.stateMachine.fillin;
     var stateMachineFillinStart = singleton.stateMachine.fillinStart;
     var stateMachineFillinCreate = singleton.stateMachine.fillinCreate;
@@ -139,20 +148,7 @@ module.exports = function ltbl(settings) {
     var isVerb = singleton.helper.isVerb;
     var singularFromPlural = singleton.helper.singularFromPlural;
     var pluralFromSingular = singleton.helper.pluralFromSingular;
-    var invalidateMap = function() {
-        game.map = null;
-        singleton.render(game.getLocation(game.pov.location),game.pov.location, 0);
-    };
-    var splitOnOneOf = function(text,words) {
-        var newText;
-        for(var i = 0 ; i < words.length ; ++i ) {
-            newText = text.split(words[i]);
-            if( newText.length > 1 )
-                break;
-        }
-        return newText;                            
-    };
-    
+
     //---------------------------------------------------------------------------
 
        
@@ -169,50 +165,6 @@ module.exports = function ltbl(settings) {
     };
     
     var voids = require("./void-location.js")();
-    var getConvoObjectPtr = function(command) {
-        if( game.verbCommand.action ) {        
-            var _npc = singleton.findNPC(game.verbCommand.npc);
-            if( _npc ) {
-                var ptr = null;
-                var rContainer = null;
-                if( game.verbCommand.action == "talkto")  {
-                    if( _npc.conversation.talkto ) {
-                        rContainer = _npc.conversation.talkto;
-                        ptr = rContainer.response;
-                    }
-                } else if( _npc.conversation[game.verbCommand.action] ) {
-                    if( _npc.conversation[game.verbCommand.action][game.verbCommand.topic] ) {
-                         rContainer = _npc.conversation[game.verbCommand.action][game.verbCommand.topic];
-                         ptr = rContainer.response;
-                    }
-                }
-                if( ptr ) {
-                    if( typeof(ptr) == "string" ) {
-                        ptr = { "say" : ptr };
-                        if( rContainer ) {
-                            rContainer.response = ptr;
-                        }
-                    } else if( ptr.then ) {
-                        if( typeof(ptr.then[ ptr.then.length - 1 ]) == "string" ) {
-                            ptr.then[ ptr.then.length - 1 ] = { "say" : ptr.then[ ptr.then.length - 1 ] };
-                            ptr = ptr.then[ ptr.then.length - 1 ];
-                        } else {
-                            ptr = ptr.then[ ptr.then.length - 1 ];
-                        }
-                    } else if( ptr.or ) {
-                        if( typeof(ptr.or[ ptr.or.length - 1 ]) == "string" ) {
-                            ptr.then[ ptr.or.length - 1 ] = { "say" : ptr.or[ ptr.or.length - 1 ] };
-                            ptr = ptr.or[ ptr.or.length - 1 ];
-                        } else {
-                            ptr = ptr.or[ ptr.or.length - 1 ];
-                        }
-                    }
-                    return ptr;
-                }
-            }            
-        }
-        return null;
-    };
     var spellcheckedText = function(obj,prop,prompt) {
         var choices = [];
         var parts = { mispelled : []};
@@ -274,7 +226,7 @@ module.exports = function ltbl(settings) {
                 singleton.render(game.getLocation(game.pov.location),game.pov.location, 0);
             });
         } else {
-            game.stateMachine = stateMachineFillinCreate(obj,[ {msg:prompt,prop:prop} ],invalidateMap);
+            game.stateMachine = stateMachineFillinCreate(obj,[ {msg:prompt,prop:prop} ],singleton.invalidateMap);
         }
     };
     var doAnnotation = function(anno) {
@@ -377,7 +329,7 @@ module.exports = function ltbl(settings) {
         } else if( anno.type == "location.name" ) {
             var loc = game.getLocation(game.pov.location);
             if( loc ) {
-                game.stateMachine = stateMachineFillinCreate(loc,[{msg:"Change location name:",prop:"name"}],invalidateMap);
+                game.stateMachine = stateMachineFillinCreate(loc,[{msg:"Change location name:",prop:"name"}],singleton.invalidateMap);
             }
         } else if( anno.type == "location.description" ) {
             var loc = game.getLocation(game.pov.location);
@@ -387,7 +339,7 @@ module.exports = function ltbl(settings) {
         } else if( anno.type == "location.type" ) {
             var loc = game.getLocation(game.pov.location);
             if( loc ) {
-                game.stateMachine = stateMachineFillinCreate(loc,[{msg:"Change location type:",prop:"type",choices:singleton.resources.roomTypesMenu}],invalidateMap);
+                game.stateMachine = stateMachineFillinCreate(loc,[{msg:"Change location type:",prop:"type",choices:singleton.resources.roomTypesMenu}],singleton.invalidateMap);
             }
         } else if( anno.type == "location.topLoc" ) {
             game.annotations = [];
@@ -1485,7 +1437,7 @@ module.exports = function ltbl(settings) {
                             break;
                         }
                     }
-                    var wList = splitOnOneOf( object1 , aList );
+                    var wList = singleton.helper.splitOnOneOf( object1 , aList );
                     if( wList.length > 1 ) {
                         findPatternArgs.article = aList[0];
                         object1 = wList[0];
@@ -2267,7 +2219,7 @@ module.exports = function ltbl(settings) {
                         if (game.pov.isGod ) {
                             var value = Number.parseInt(command);
                             if( value > 0 ) {
-                                var ptr = getConvoObjectPtr();
+                                var ptr = singleton.getConvoObjectPtr();
                                 if( ptr ) {
                                     ptr.score = value; 
                                 } else {
@@ -2289,7 +2241,7 @@ module.exports = function ltbl(settings) {
                     command = singleton.helper.subSentence( command , 1);
                     var existingItem = singleton.lookupItem(game.pov.location,command);
                     if (existingItem && existingItem != "?") {
-                        var ptr = getConvoObjectPtr();
+                        var ptr = singleton.getConvoObjectPtr();
                         if( ptr ) {
                             ptr.give = existingItem; 
                         } else {

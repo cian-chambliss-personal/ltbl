@@ -241,5 +241,51 @@ module.exports = function(singleton) {
         }       
         return false;
     };
-    return { defineScript : defineScript , processScript : processScript };
+    var getConvoObjectPtr = function(command) {
+        var game = singleton.game;
+        if( game.verbCommand.action ) {        
+            var _npc = singleton.findNPC(game.verbCommand.npc);
+            if( _npc ) {
+                var ptr = null;
+                var rContainer = null;
+                if( game.verbCommand.action == "talkto")  {
+                    if( _npc.conversation.talkto ) {
+                        rContainer = _npc.conversation.talkto;
+                        ptr = rContainer.response;
+                    }
+                } else if( _npc.conversation[game.verbCommand.action] ) {
+                    if( _npc.conversation[game.verbCommand.action][game.verbCommand.topic] ) {
+                         rContainer = _npc.conversation[game.verbCommand.action][game.verbCommand.topic];
+                         ptr = rContainer.response;
+                    }
+                }
+                if( ptr ) {
+                    if( typeof(ptr) == "string" ) {
+                        ptr = { "say" : ptr };
+                        if( rContainer ) {
+                            rContainer.response = ptr;
+                        }
+                    } else if( ptr.then ) {
+                        if( typeof(ptr.then[ ptr.then.length - 1 ]) == "string" ) {
+                            ptr.then[ ptr.then.length - 1 ] = { "say" : ptr.then[ ptr.then.length - 1 ] };
+                            ptr = ptr.then[ ptr.then.length - 1 ];
+                        } else {
+                            ptr = ptr.then[ ptr.then.length - 1 ];
+                        }
+                    } else if( ptr.or ) {
+                        if( typeof(ptr.or[ ptr.or.length - 1 ]) == "string" ) {
+                            ptr.then[ ptr.or.length - 1 ] = { "say" : ptr.or[ ptr.or.length - 1 ] };
+                            ptr = ptr.or[ ptr.or.length - 1 ];
+                        } else {
+                            ptr = ptr.or[ ptr.or.length - 1 ];
+                        }
+                    }
+                    return ptr;
+                }
+            }            
+        }
+        return null;
+    };
+
+    return { defineScript : defineScript , processScript : processScript , getConvoObjectPtr : getConvoObjectPtr };
 }

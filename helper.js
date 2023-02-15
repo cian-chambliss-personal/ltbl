@@ -243,6 +243,15 @@ module.exports = function ltbl(settings) {
             sentence[i] = "";
         return sentence.join(" ").trim();
     };
+    var splitOnOneOf = function(text,words) {
+        var newText;
+        for(var i = 0 ; i < words.length ; ++i ) {
+            newText = text.split(words[i]);
+            if( newText.length > 1 )
+                break;
+        }
+        return newText;                            
+    };
     return {
         camelCase : camelCase,
         extractNounAndAdj : extractNounAndAdj,
@@ -255,6 +264,7 @@ module.exports = function ltbl(settings) {
         singularFromPlural : singularFromPlural ,
         pluralFromSingular : pluralFromSingular ,
         subSentence : subSentence ,
+        splitOnOneOf: splitOnOneOf,
         directionTags : function() { return ["s", "n", "e", "w", "u", "d", "sw", "se", "nw", "ne"]; }
     }
 };
