@@ -553,46 +553,6 @@ module.exports = function ltbl(settings) {
             } else if (lCase.trim() == "") {
                 singleton.outputText("Pardon?");
                 singleton.describeLocation();
-            /*} else if (mode == 'door?') {
-                // TBD make separate commands for door/passage etc Make
-                lCase = lCase.trim();
-                ...
-                } else if (lCase == "u") {
-                    game.getLocation(lastLocation)[lastDirection].direction = -1;
-                    game.getLocation(game.pov.location)[reverseDirection(lastDirection)].direction = 1;
-                    map = null;
-                } else if (lCase == "d") {
-                    game.getLocation(lastLocation)[lastDirection].direction = 1;
-                    game.getLocation(game.pov.location)[reverseDirection(lastDirection)].direction = -1;
-                    map = null;
-                } else if (lCase == "-") {
-                    game.getLocation(lastLocation)[lastDirection].teleport = true;
-                    game.getLocation(game.pov.location)[reverseDirection(lastDirection)].teleport = true;
-                    map = null;
-                } else if (lCase == "+") {
-                    // TBD - we need to make sure that the maps do *not* overlap
-                    if( game.getLocation(lastLocation)[lastDirection].teleport ) {
-                        delete game.getLocation(lastLocation)[lastDirection].teleport;
-                    }
-                    if( game.getLocation(game.pov.location)[reverseDirection(lastDirection)].teleport ) {
-                        delete game.getLocation(game.pov.location)[reverseDirection(lastDirection)].teleport;
-                    }
-                    map = null;
-                } else if (lCase != ""
-                    && lCase != "n"
-                    && lCase != "no"
-                ) {
-                    var name = extractNounAndAdj(command);
-                    if (!name || getDoor(name)) {
-                        name = game.getUniqueItemName(name,...);
-                    }
-                    game.setDoor(name,{ name: command });
-                    game.getLocation(lastLocation)[lastDirection].door = name;
-                    game.getLocation(game.pov.location)[reverseDirection(lastDirection)].door = name;
-                }
-                mode = "what";
-                describe();
-            */
             } else {                
                 var findPatternArgs = {};
                 var cmd = { firstWord : firstWord , command : command , origCommand : origCommand };
@@ -866,85 +826,6 @@ module.exports = function ltbl(settings) {
                     } else {
                         singleton.describeLocation(false);
                     }
-                /*} else if (firstWord == "!makedoor" && game.pov.isGod ) {
-                    command = subSentence( command , 1);
-                    if( isDirection(command) ) {
-                        lCase = isDirection(command).primary;
-                    } else {
-                        lCase = "lastdirection";
-                    }
-                    if (game.getLocation(game.pov.location)) {
-                        var nextLoc = game.getLocation(game.pov.location)[lCase];
-                        if (nextLoc) {
-                            lastDirection = lCase;
-                            lastLocation = game.pov.location;
-                            game.pov.location = nextLoc.location;
-                            stateMachine = stateMachineFillinCreate({},[
-                                {msg:"Door name:",prop:"name"}
-                            ],function(sm) {
-                                if( sm.data.name  && sm.data.name.length > 1  ) {
-                                    var name = extractNounAndAdj(sm.data.name);
-                                    name = game.getUniqueItemName(name,"door",game.util.calcCommonPrefix(game.pov.location,lastLocation));
-                                    game.setDoor(name,{ name: sm.data.name , type : "door" });
-                                    game.getLocation(lastLocation)[lastDirection].door = name;
-                                    game.getLocation(game.pov.location)[reverseDirection(lastDirection)].door = name;
-                                    game.pov.location = lastLocation;
-                                    game.map = null;
-                                    describeLocation();
-                                }
-                            });
-                        } else if( lCase == "lastdirection" ) { 
-                            if( lastDirection 
-                              && lastLocation 
-                              ) {
-                                stateMachine = stateMachineFillinCreate({},[
-                                    {msg:"Door name:",prop:"name"}
-                                ],function(sm) {
-                                    if( sm.data.name  && sm.data.name.length > 1  ) {
-                                        var name = extractNounAndAdj(sm.data.name);
-                                        var lastLocDir = null;
-                                        var curLocDir = null;
-                                        name = game.getUniqueItemName(name,"door",game.util.calcCommonPrefix(game.pov.location,lastLocation));
-                                        game.setDoor(name,{ name: sm.data.name , type : "door"});
-                                        lastLocDir = game.getLocation(lastLocation)[lastDirection];
-                                        curLocDir = game.getLocation(game.pov.location)[reverseDirection(lastDirection)]
-                                        if( !lastLocDir
-                                         && !curLocDir 
-                                          ) {
-                                            game.getLocation(lastLocation)[lastDirection] = { location : game.pov.location , door : name };
-                                            game.getLocation(game.pov.location)[reverseDirection(lastDirection)] = { location : lastLocation , door : name};
-                                        } else if( lastLocDir && curLocDir ) {
-                                            lastLocDir.door = name;
-                                            curLocDir.door = name;
-                                        } else {
-                                            outputText("Locations are not paired from "+lastDirection);
-                                        }
-                                        game.map = null;
-                                        describeLocation();
-                                    }
-                                });
-                            } else {
-                                outputText("There is no ending location. lastLocation="+lastLocation+" lastDirection="+lastDirection+ " game.pov.location="+game.pov.location);
-                            }
-                        } else {
-                            outputText("There is no opening to the "+lCase);
-                        }
-                    } else {
-                        outputText("There is no starting location.");
-                    }
-                } else if ( (firstWord == "!makepath" || firstWord == "!makepassage" || firstWord == "!makestairs") && game.pov.isGod ) {
-                    if( lastLocation ) {
-                        var dirCType = firstWord.substring(5);
-                        if( game.getLocation(lastLocation)[lastDirection] ) {
-                            game.getLocation(lastLocation)[lastDirection].type = dirCType;
-                            game.getLocation(game.pov.location)[reverseDirection(lastDirection)].type = dirCType;
-                        } else if( !game.getLocation(game.pov.location)[reverseDirection(lastDirection)] ) {
-                            game.getLocation(lastLocation)[lastDirection] = { location : game.pov.location , type : dirCType};
-                            game.getLocation(game.pov.location)[reverseDirection(lastDirection)] = {location : lastLocation , type : dirCType};
-                        }
-                    } else {
-                        outputText("There is no starting location.");
-                    }*/
                 } else if (lCase == "location outside" || lCase == "is outside") {                    
                     singleton.setLocationType("outside");
                 } else if (lCase == "location ship" || lCase == "is ship") {
