@@ -1,4 +1,6 @@
 module.exports = function(singleton) {
+    var chalk = singleton.chalk;
+    var stateMachineFillinCreate = singleton.stateMachine.fillinCreate;
     var doAnnotation = function(anno) {
         var game = singleton.game;
         if( anno.type == "item" ) {
