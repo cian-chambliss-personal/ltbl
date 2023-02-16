@@ -1,5 +1,15 @@
 module.exports = function(singleton) {
     var stateMachineFillinCreate = singleton.stateMachine.fillinCreate;
+    var allowPosture = function(itemptr,posture) {
+        if( itemptr.postures ) {
+            for( var i = 0 ; i < itemptr.postures.length ; ++i ) {
+                if( itemptr.postures[i] == posture ) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    };
     var takeFromContainerHandler = function(args) {
         var game = singleton.game;
         var ip = game.getItem(args.iObj);
@@ -635,7 +645,55 @@ module.exports = function(singleton) {
                     singleton.noUnderstand();
                 }
             }
-        },   
+        },
+        {
+            match : {
+                verb : [ "!sit","!lie","!stand","!goin" ],
+                dObj : "*" 
+            } , 
+            eval : function(args) {
+                var game = singleton.game;
+                var ip = game.getItem(args.dObj);
+                var verb = args.verb.substring(1);
+                if( args.verb == "!goin"  ) {
+                   game.verbCommand.preposition  = "in";
+                } else {
+                    game.verbCommand.preposition = "on";    
+                }
+                if( args.verb == "!goin"  ) {
+                    // Item portals to nested location..
+                    if( ip.location ) {
+                        // go to object
+                        if( game.getLocation(ip.location) ) {
+                            game.pov.location = ip.location;
+                            game.map = null;
+                            singleton.describeLocation();
+                        }
+                    } else if( game.pov.isGod ) {
+                        // Make a top level object... 
+                        if( game.pov.location )  {
+                            var design = game.design;
+                            design.pendingGoInsideItem = args.dObj;                                        
+                            design.pendingItemOut = game.pov.location; 
+                            game.pov.location = null;
+                            game.map = null;
+                            singleton.describeLocation();
+                        }
+                    }
+                } else if( allowPosture(ip,verb) ) {
+                    singleton.outputText("You "+verb + " on " + ip.name + ".");
+                    // TBD add state for non god
+                } else if( game.pov.isGod ) {
+                    if( !ip.postures ) {
+                        ip.postures = [];
+                    }
+                    ip.postures.push(verb);
+                    singleton.outputText("You can now "+verb + " on " + ip.name + ".");
+                } else {
+                    singleton.outputText("You cannot "+verb + " on " + ip.name + ".");
+                }
+            }
+        },
         {
             match: {
                 verb : "!saveplay"

@@ -273,6 +273,84 @@ module.exports = function(singleton) {
                     }
                 }
             }
+        },
+        {
+            match : {
+                verb : "!eat",
+                dObj : "actor"
+            } , 
+            eval : function(args) {
+                var game = singleton.game;
+                var ip = game.getItem(args.dObj);
+                if ( ip.type && ip.type != "food" ) {
+                    singleton.outputText("You cannot eat "+ip.name+".");
+                } else {
+                    ip.type = "food";
+                    singleton.outputText("Ok");
+                }
+            }
+        },
+        {
+            match : {
+                verb : "!wear",
+                dObj : "actor"
+            } , 
+            eval : function(args) {
+                var game = singleton.game;
+                var ip = game.getItem(args.dObj);
+                if (ip.type && ip.type !=  "wearable" ) {
+                    singleton.outputText("You cannot wear "+ip.name+".");
+                } else {
+                    ip.type = "wearable";
+                    singleton.outputText("Ok");
+                }
+            }
+        },
+        {
+            match : {
+                verb : "!light",
+                dObj : "actor"
+            } , 
+            eval : function(args) {
+                var game = singleton.game;
+                var ip = game.getItem(args.dObj);
+                if (ip.type && ip.type !=  "light" ) {
+                    singleton.outputText("You cannot light "+ip.name+".");
+                } else {
+                    ip.type = "light";
+                    singleton.outputText("Ok");
+                }
+            }
+        },
+        {
+            match : {
+                verb : "!affix",
+                dObj : "actor"
+            } , 
+            eval : function(args) {
+                var game = singleton.game;
+                var ip = game.getItem(args.dObj);
+                if (ip.type && ip.type !=  "fixture" ) {
+                    singleton.outputText("You cannot affix "+ip.name+".");
+                } else {
+                    ip.type = "fixture";
+                    singleton.outputText("Ok");
+                }
+            }
+        },
+        {
+            match : {
+                verb : "!acquire",
+                dObj : "actor"
+            } , 
+            eval : function(args) {
+                var ptr = singleton.getConvoObjectPtr();
+                if( ptr ) {
+                    ptr.give = args.dObj; 
+                } else {
+                    singleton.outputText("Must have run a conversation to acquire an item");
+                }
+            }
         }
     ]; 
     

@@ -645,50 +645,7 @@ module.exports = function ltbl(settings) {
                         findPattern.godEval(findPatternArgs);
                     } else {
                         findPattern.eval(findPatternArgs);
-                    }
-                    
-                } else if ( firstWord == "!eat" 
-                         || firstWord == "!wear" 
-                         || firstWord == "!light" 
-                         || firstWord == "!affix"
-                          ) {
-                    var thingType = null;
-                    if (firstWord == "!eat") {
-                        thingType = "food";
-                    } else if (firstWord == "!wear") {
-                        thingType = "wearable";
-                    } else if (firstWord == "!light") {
-                        thingType = "light";
-                    } else if (firstWord == "!affix") {
-                        thingType = "fixture";
-                    }
-                    command = singleton.helper.subSentence( command , 1);
-                    if (command != "") {
-                        var where = game.getLocation(game.pov.location);
-                        var what = command;
-                        if (!where.contains) {
-                            where.contains = [];
-                        }
-                        var existingItem = singleton.lookupItem(game.pov.location,what);
-                        if (existingItem && existingItem != "?") {
-                            var ip = game.getItem(existingItem);
-                            if (game.pov.isGod && !ip.type) {
-                                ip.type = thingType;
-                                singleton.outputText(command + " is " + thingType + ".");
-                            } else if (ip.type != thingType) {
-                                singleton.outputText("You cannot " + firstWord + " " + command);
-                            } else {
-                                if( !game.pov.isGod ) {
-                                    // TBD - add bookkeeping
-                                    singleton.outputText("You " + firstWord + " " + command);
-                                } else {
-                                    singleton.outputText(command + " is " + thingType + ".");
-                                }
-                            }
-                        } else if (existingItem != "?") {
-                            singleton.dontSee(command,game.pov.location,origCommand);
-                        }
-                    }
+                    }                    
                 } else if (singleton.isDirection(lCase)) {
                     singleton.navigate( singleton.isDirection(lCase).primary );
                 } else if (lCase == "location outside" || lCase == "is outside") {                    
@@ -715,7 +672,6 @@ module.exports = function ltbl(settings) {
                     } else {
                         singleton.outputText("You are nowhere.");
                     }
-
                 } else if( firstWord == "then") {
                     // linear script
                    singleton.thenDo(command);
@@ -725,73 +681,6 @@ module.exports = function ltbl(settings) {
                 } else if( firstWord == "score") {
                     // linear script
                     singleton.scoreDo(command);
-                } else if ( firstWord == "acquire" && game.pov.isGod ) {
-                    // Be given an item
-                    command = singleton.helper.subSentence( command , 1);
-                    var existingItem = singleton.lookupItem(game.pov.location,command);
-                    if (existingItem && existingItem != "?") {
-                        var ptr = singleton.getConvoObjectPtr();
-                        if( ptr ) {
-                            ptr.give = existingItem; 
-                        } else {
-                            singleton.outputText("Must have run a conversation to acquire an item");
-                        }                
-                    } else if( existingItem != "?" ) {
-                        singleton.outputText(command+" does not exist");
-                    } else {
-                        singleton.outputText("????");
-                    }                
-                } else if ( 
-                    firstWord == "!sit" 
-                 || firstWord == "!lie" 
-                 || firstWord == "!stand"
-                 || firstWord == "!goin" 
-                ) {
-                    firstWord = firstWord.substring(1);
-                    command = singleton.helper.subSentence( command , 1);
-                    game.verbCommand.preposition  = singleton.resources.wordMap.resources.posturePrep[command.split(" ")[0]];
-                    if( game.verbCommand.preposition  ) {
-                        command = singleton.helper.subSentence( command , 1);
-                    }
-                    if( command.length ) {
-                        var existingItem = singleton.lookupItem(game.pov.location,command);
-                        if (existingItem && existingItem != "?") {
-                            var ip =game.getItem(existingItem);
-                            if( firstWord == "goin"  ) {
-                                // Item portals to nested location..
-                                if( ip.location ) {
-                                    // go to object
-                                    if( game.getLocation(ip.location) ) {
-                                        game.pov.location = ip.location;
-                                        game.map = null;
-                                        singleton.describeLocation();
-                                    }
-                                } else if( game.pov.isGod ) {
-                                    // Make a top level object... 
-                                    if( game.pov.location )  {
-                                        var design = game.design;
-                                        design.pendingGoInsideItem = existingItem;                                        
-                                        design.pendingItemOut = game.pov.location; 
-                                        game.pov.location = null;
-                                        game.map = null;
-                                        singleton.describeLocation();
-                                    }
-                                }
-                            } else if( allowPosture(ip,firstWord) ) {
-                                singleton.outputText("You "+firstWord + " on " + ip.name + ".");
-                            } else if( game.pov.isGod ) {
-                                if( !ip.postures ) {
-                                    ip.postures = [];
-                                }
-                                ip.postures.push(firstWord);
-                                singleton.outputText("You can now "+firstWord + " on " + ip.name + ".");
-                            } else {
-                                singleton.outputText("You cannot "+firstWord + " on " + ip.name + ".");
-                            }
-                        } else if (existingItem != "?") {
-                            singleton.dontSee(command,game.pov.location,origCommand);
-                        }
-                    }
                 } else if ( game.pov.isGod && firstWord == "!dump") {
                     command = singleton.helper.subSentence( command , 1).toLowerCase();
                     if( game.pov.isGod ) {

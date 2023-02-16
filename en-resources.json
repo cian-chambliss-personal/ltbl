@@ -48,12 +48,16 @@
             "buy": "!buy",
             "sell": "!sell",
             "understand": "!understand",
+            "acquire": "!acquire",
             "quit": "!quit"
         },
         "firstTwoWord": {
             "talk to": "!talkto",
             "sit down": "!sit",
             "lie down": "!lie",
+            "sit on": "!sit",
+            "lie on": "!lie",
+            "stand on": "!stand",
             "stand up": "!stand",
             "go in": "!goin",
             "go inside": "!goin",
