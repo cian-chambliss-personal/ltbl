@@ -66,6 +66,7 @@ module.exports = function(args) {
         var directionHandled = {};
         var itemNamesUsed = {};
         var npcLoc = {};
+        var featuresUsed= {};
 
         // Find Rooms that require a unique name
         var  collectRooms = function( _locations , prefix) {
@@ -144,6 +145,42 @@ module.exports = function(args) {
 
         var startLoc = game.actor.location;
 
+        var emitOneReponse = function(vc) {
+            var topicResponse = null;
+            if( vc.response ) {
+                if( typeof(vc.response) == "string" ) {
+                    topicResponse = vc.response;
+                } else if( vc.response.then ) {
+                    topicResponse = '[one of]';
+                    for( var i = 0 ; i < vc.response.then.length ; ++i ) {
+                        if( i > 0 )
+                            topicResponse = topicResponse + "[or]";
+                        if( typeof(vc.response.then[i]) == "string" ) {
+                            topicResponse = topicResponse +  vc.response.then[i];
+                        } else if( vc.response.then[i].say ) {
+                            topicResponse = topicResponse + vc.response.then[i].say;
+                        }
+                    }
+                    topicResponse = topicResponse + '[stopping]';   
+                } else if( vc.response.or) {
+                    topicResponse = '[one of]';
+                    for( var i = 0 ; i < vc.response.or.length ; ++i ) {
+                        if( i > 0 )
+                            topicResponse = topicResponse + "[or]";
+                        if( typeof(vc.response.or[i]) == "string" ) {
+                            topicResponse = topicResponse + vc.response.or[i];
+                        } else if( vc.response.or[i].say ) {
+                            topicResponse = topicResponse + vc.response.or[i].say;
+                        }
+                    }
+                    topicResponse = topicResponse + '[at random]';                            
+                } else if( vc.response.say) {
+                    topicResponse = vc.response.say;
+                }
+            }
+            return topicResponse;
+        };
+
         var emitCharacter = function(npc) {
             src += npc.name+" is a person.\n";
             if( npc.description ) {
@@ -154,10 +191,22 @@ module.exports = function(args) {
             } else {
                 npcLoc[npc.location].push(npc);
             }
+            if(  npc.conversation ) {
+                for( var  verb in npc.conversation  ) {
+                    var vc = npc.conversation[verb];
+                    if( verb == "talkto" ) {
+                        featuresUsed["talking"] = true;
+                        src += "Instead of talking to "+npc.name+':\n\tsay "'+emitOneReponse(vc)+'".\n';
+                    }
+                }
+            }
         };
 
         for( var npcName in game.npc) {
             emitCharacter(game.getNpc(npcName));
+        }
+        if( featuresUsed["talking"] ) {
+            src = `Talking to is an action applying to one visible thing. Understand "talk to [someone]" or “converse with [someone]” as talking to.\nCheck talking to: say "[The noun] doesn't reply."\n\n` + src;
         }
 
 
