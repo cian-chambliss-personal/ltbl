@@ -172,7 +172,19 @@ module.exports = function(args) {
                     } else {
                         itemNamesUsed[iName] = contains[i].item;
                     }
-                    collect.items += "The " +ip.name+" is a thing.\n";
+                    if( ip.supports ) {
+                        collect.items += "The " +ip.name+" is a supporter.\n";
+                        var subCollect = { items : "" , places : "" };
+                        emitItems(ip.supports," is on the "+ip.name,subCollect);
+                        collect.items += subCollect.items + subCollect.places;
+                    } else {
+                        if( ip.type == "food" )
+                           collect.items += "The " +ip.name+" is edible.\n";
+                        else
+                            collect.items += "The " +ip.name+" is a thing.\n";
+                        if( ip.type == "wearable" )
+                            collect.items += "It is wearable.\n"; 
+                    }
                     collect.places += "The " +ip.name+itemLocation+"\n";
                 }
             };
@@ -188,7 +200,7 @@ module.exports = function(args) {
                             roomSrc += 'The printed name is '+quoted(room.name)+"\n"; 
                         }
                         if( room.name && room.description && room.name != room.description ) {
-                            roomSrc += 'The description is '+quoted(room.description)+"\n";
+                            roomSrc += 'The description is '+quoted(room.description)+".\n";
                         }
                         itemLocation = " is here.";
                     } else {

@@ -160,16 +160,7 @@ module.exports = function ltbl(settings) {
     var pluralFromSingular = singleton.helper.pluralFromSingular;
     //---------------------------------------------------------------------------
 
-    var allowPosture = function(itemptr,posture) {
-        if( itemptr.postures ) {
-            for( var i = 0 ; i < itemptr.postures.length ; ++i ) {
-                if( itemptr.postures[i] == posture ) {
-                    return true;
-                }
-            }
-        }
-        return false;
-    };
+   
     
     var voids = require("./void-location.js")();
     var godCommandPatterns = require("./god-commands.js")(singleton).godCommandPatterns;
