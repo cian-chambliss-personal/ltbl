@@ -65,6 +65,7 @@ module.exports = function(args) {
         var implicitlyNamedRoom = {};
         var directionHandled = {};
         var itemNamesUsed = {};
+        var npcLoc = {};
 
         // Find Rooms that require a unique name
         var  collectRooms = function( _locations , prefix) {
@@ -142,6 +143,24 @@ module.exports = function(args) {
         }
 
         var startLoc = game.actor.location;
+
+        var emitCharacter = function(npc) {
+            src += npc.name+" is a person.\n";
+            if( npc.description ) {
+                src += "The description of "+npc.name+' is "'+npc.description+'".\n';
+            }
+            if( !npcLoc[npc.location] ) {
+                npcLoc[npc.location] = [npc];
+            } else {
+                npcLoc[npc.location].push(npc);
+            }
+        };
+
+        for( var npcName in game.npc) {
+            emitCharacter(game.getNpc(npcName));
+        }
+
+
         if( startLoc ) {
             var goDirection = function(room,loc,direction,pass) {
                 var goes = room[direction];
@@ -216,7 +235,15 @@ module.exports = function(args) {
                     if( room.contains ) {
                         emitItems(room.contains,itemLocation,itemCollect);
                     }
-                    src += itemCollect.items + roomSrc + itemCollect.places+"\n";
+                    var persons = "";
+                    var personList = npcLoc[id];
+                    if( personList ) {
+                        for( var i = 0 ; i < personList.length ; ++i ) {
+                            var person = personList[i];
+                            persons += person.name + " is here."
+                        }
+                    }
+                    src += itemCollect.items + roomSrc + persons + itemCollect.places + "\n";
                     for(var pass = 0 ; pass < 2 ; ++pass ) {
                         for( var dir in informDirection ) {
                             goDirection(room,id,dir,pass);
