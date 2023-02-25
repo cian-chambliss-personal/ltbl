@@ -144,14 +144,29 @@ module.exports = function(args) {
         }
 
         var startLoc = game.actor.location;
-
-        var emitOneReponse = function(vc) {
+        
+        var emitOneReponse = function(ruleGeneral,vc) {
             var topicResponse = null;
+            var firstTime = null;
+            var emitExtras = function(vr) {
+                var topicResponse = '\tsay "'+vr.say+'"';
+                if( vr.give ) {
+                    topicResponse = topicResponse + ';\n\tnow the player carries the '+game.getItem(vr.give).name;
+                }
+                if( vr.take ) {
+                    topicResponse = topicResponse + ';\n\tremove the '+game.getItem(vr.take).name+' from play';
+                }
+                if( vr.score ) {
+                    firstTime = "\tincrease the score by "+vr.score+";\n";
+                }
+                return topicResponse+".\n";
+
+            };
             if( vc.response ) {
                 if( typeof(vc.response) == "string" ) {
-                    topicResponse = vc.response;
+                    topicResponse = '\tsay "'+vc.response+'".\n';
                 } else if( vc.response.then ) {
-                    topicResponse = '[one of]';
+                    topicResponse = '\tsay "[one of]';
                     for( var i = 0 ; i < vc.response.then.length ; ++i ) {
                         if( i > 0 )
                             topicResponse = topicResponse + "[or]";
@@ -161,9 +176,9 @@ module.exports = function(args) {
                             topicResponse = topicResponse + vc.response.then[i].say;
                         }
                     }
-                    topicResponse = topicResponse + '[stopping]';   
-                } else if( vc.response.or) {
-                    topicResponse = '[one of]';
+                    topicResponse = topicResponse + '[stopping]".\n';   
+                } else if( vc.response.or ) {
+                    topicResponse = '\tsay "[one of]';
                     for( var i = 0 ; i < vc.response.or.length ; ++i ) {
                         if( i > 0 )
                             topicResponse = topicResponse + "[or]";
@@ -173,12 +188,15 @@ module.exports = function(args) {
                             topicResponse = topicResponse + vc.response.or[i].say;
                         }
                     }
-                    topicResponse = topicResponse + '[at random]';                            
-                } else if( vc.response.say) {
-                    topicResponse = vc.response.say;
+                    topicResponse = topicResponse + '[at random]".\n';                            
+                } else if( vc.response.say ) {
+                    topicResponse = emitExtras(vc.response);
                 }
             }
-            return topicResponse;
+            if( firstTime ) {
+                return  ruleGeneral +' for the first time:\n'+firstTime + "\tcontinue the action.\n\n"+ruleGeneral +':\n'+ topicResponse;
+            }
+            return ruleGeneral +':\n'+ topicResponse + "\n";
         };
 
         var emitCharacter = function(npc) {
@@ -196,7 +214,15 @@ module.exports = function(args) {
                     var vc = npc.conversation[verb];
                     if( verb == "talkto" ) {
                         featuresUsed["talking"] = true;
-                        src += "Instead of talking to "+npc.name+':\n\tsay "'+emitOneReponse(vc)+'".\n';
+                        src += emitOneReponse("Instead of talking to "+npc.name,vc);
+                    } else {
+                        for( var  topic in vc  ) {
+                            if( verb == "give" ) {
+                                src += emitOneReponse("Instead of giving the "+topic+" to "+npc.name,vc[topic]);
+                            } else if( verb == "ask" ) {
+                                src += emitOneReponse("Instead of asking "+npc.name+' about "'+topic+'"',vc[topic]);
+                            }
+                        }
                     }
                 }
             }
