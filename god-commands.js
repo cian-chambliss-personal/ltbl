@@ -351,9 +351,15 @@ module.exports = function(singleton) {
                     singleton.outputText("Must have run a conversation to acquire an item");
                 }
             }
+        },
+        {
+           match : "[subject] provides [dObj] property",
+           eval : function(args) {
+               console.log("PROVIDES HANDLER ");
+               console.dir(args);
+           }
         }
-    ]; 
-    
+    ];
     /*
 Missing door logic -- Change levels Up & down etc
      } else if (mode == 'door?') {

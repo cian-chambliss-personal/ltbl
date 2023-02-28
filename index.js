@@ -264,6 +264,27 @@ module.exports = function ltbl(settings) {
     };
 
     var nullPatternHandler = { eval : function() {} };
+    var parseTemplate = function(def) {
+        var tmpl = [];
+        def = def.split("[");
+        for( var i = 0 ; i < def.length ; ++i ) {
+            if( def[i].length ) {
+                if( i == 0 ) {
+                    tmpl.push(def[i]);
+                } else {
+                    var sep = def[i].indexOf("]");
+                    if( sep > 0 ) {
+                        tmpl.push({ part : def[i].substring(0,sep) } );
+                        sep = def[i].substring(sep+1);
+                        if( sep.length ) {
+                            tmpl.push(sep);
+                        }
+                    }
+                }
+            }
+        }
+        return tmpl;
+    };
     var lookupCommandHandle = function(commands,cmd,findPatternArgs) {
         var findPattern = null;
         var firstWord = cmd.firstWord;
@@ -273,103 +294,78 @@ module.exports = function ltbl(settings) {
             var _pattern =  commands[i];
             var preposition = null;
             var matchVerb = false;
-            if( Array.isArray(_pattern.match.verb) ) {
-                for( var j = 0 ; j < _pattern.match.verb.length ; ++j ) {
-                    if( _pattern.match.verb[j] == firstWord ) {
-                        findPatternArgs.verb = firstWord;
-                        matchVerb = true;
-                        break;
-                    } 
-                }
-            } else if( _pattern.match.verb == firstWord ) {
-                matchVerb = true;
+
+            if( typeof(_pattern.match) == "string" ) {
+                _pattern.match = parseTemplate(_pattern.match);
             }
-            if( matchVerb ) {
-                var object1 = singleton.helper.subSentence( command , 1) , object2;
-                if( _pattern.match.article ) {
-                    var aList = [];
-                    for(var j = 0 ; j < _pattern.match.article.length ; ++j ) {
-                        if( _pattern.match.article[j] == " " ) {
-                            if( object1.indexOf( " " ) ) {
-                                aList.push(" ");
-                            }
-                        } else if( object1.indexOf( " " + _pattern.match.article[j] + " ") >= 0 ) {
-                            aList.push(" " + _pattern.match.article[j] + " ");
+            if( Array.isArray(_pattern.match) ) {
+                var matched = true;
+                var lastOffset = undefined;
+                var fields = {};
+                var pendingField = null;
+                for( var j = 0 ; j < _pattern.match.length ; ++j ) {
+                    if( typeof(_pattern.match[j]) == "string" ) {
+                        var offset = command.indexOf(_pattern.match[j],lastOffset);
+                        if( offset < 0 ) {
+                            matched = false;
                             break;
+                        } else {
+                            if( pendingField ) {
+                                if( lastOffset ) {
+                                    fields[pendingField] = command.substring(lastOffset,offset).trim();
+                                } else {
+                                    fields[pendingField] = command.substring(0,offset).trim();
+                                }
+                                pendingField = null;
+                            }
+                            lastOffset = offset + _pattern.match[j].length;
                         }
+                     } else {
+                        pendingField = _pattern.match[j].part;
                     }
-                    var wList = singleton.helper.splitOnOneOf( object1 , aList );
-                    if( wList.length > 1 ) {
-                        findPatternArgs.article = aList[0];
-                        object1 = wList[0];
-                        wList[0] = "";
-                        object2 = wList.join(" ").trim();
-                        if( _pattern.match.subject ) {
-                            if( !parseArg(game,_pattern,findPatternArgs,"subject",object1,origCommand) ) {
-                                findPattern = nullPatternHandler;
-                                break;
-                            }
-                            if( _pattern.match.iObj ) {
-                                if( !parseArg(game,_pattern,findPatternArgs,"iObj",object2,origCommand) ) {
-                                    findPattern = nullPatternHandler;
-                                    break;
+                }
+                if( matched ) {
+                    if( pendingField ) {
+                        fields[pendingField] = command.substring(lastOffset,offset).trim();
+                    }
+                    for( var j in fields ) {
+                        findPatternArgs[j] = fields[j];
+                    }
+                    findPattern = _pattern;
+                    break;
+                }
+            } else {
+                if( Array.isArray(_pattern.match.verb) ) {
+                    for( var j = 0 ; j < _pattern.match.verb.length ; ++j ) {
+                        if( _pattern.match.verb[j] == firstWord ) {
+                            findPatternArgs.verb = firstWord;
+                            matchVerb = true;
+                            break;
+                        } 
+                    }
+                } else if( _pattern.match.verb == firstWord ) {
+                    matchVerb = true;
+                }
+                if( matchVerb ) {
+                    var object1 = singleton.helper.subSentence( command , 1) , object2;
+                    if( _pattern.match.article ) {
+                        var aList = [];
+                        for(var j = 0 ; j < _pattern.match.article.length ; ++j ) {
+                            if( _pattern.match.article[j] == " " ) {
+                                if( object1.indexOf( " " ) ) {
+                                    aList.push(" ");
                                 }
-                                findPatternArgs.preposition = preposition;
-                                findPattern = _pattern;
-                                break;
-                            } else if( _pattern.match.dObj ) {
-                                if( _pattern.match.dObjScalar ) {
-                                    var es = extractScalar(object2,origCommand);
-                                    object2 = es.obj;
-                                    findPatternArgs.dObjScalar = es.scalar;
-                                }
-                                if( !parseArg(game,_pattern,findPatternArgs,"dObj",object2,origCommand) ) {
-                                    findPattern = nullPatternHandler;
-                                    break;
-                                }
-                                findPatternArgs.preposition = preposition;
-                                findPattern = _pattern;
-                                break;
-                            }
-                        } else if( _pattern.match.dObj ) {
-                            if( _pattern.match.dObjScalar ) {
-                                var es = extractScalar(object1,origCommand);
-                                object1 = es.obj;
-                                findPatternArgs.dObjScalar = es.scalar;
-                            }
-                            if( !parseArg(game,_pattern,findPatternArgs,"dObj",object1,origCommand) ) {
-                                findPattern = nullPatternHandler;
-                                break;
-                            }
-                            if( _pattern.match.iObj ) {
-                                if( !parseArg(game,_pattern,findPatternArgs,"iObj",object2,origCommand) ) {
-                                    findPattern = nullPatternHandler;
-                                    break;
-                                }
-                                findPatternArgs.preposition = preposition;
-                                findPattern = _pattern;                                            
+                            } else if( object1.indexOf( " " + _pattern.match.article[j] + " ") >= 0 ) {
+                                aList.push(" " + _pattern.match.article[j] + " ");
                                 break;
                             }
                         }
-                    }
-                } else if( _pattern.match.preposition ) {
-                    preposition = null;
-                    if( Array.isArray(_pattern.match.preposition) ) {                                
-                        for( var j = 0 ; j < _pattern.match.preposition.length ; ++j ) {
-                            var sep = command.indexOf(" "+_pattern.match.preposition[j]+" ");
-                            if( sep > 0 ) {
-                                preposition = _pattern.match.preposition[j];
-                                break;
-                            }
-                        }
-                    } else {
-                        preposition = _pattern.match.preposition;
-                    }
-                    if( preposition ) {
-                        var sep = object1.indexOf(" "+preposition+" ");
-                        if( sep > 0 ) {
-                            object2 = object1.substring(sep+preposition.length+2);
-                            object1 = object1.substring(0,sep);
+                        var wList = singleton.helper.splitOnOneOf( object1 , aList );
+                        if( wList.length > 1 ) {
+                            findPatternArgs.article = aList[0];
+                            object1 = wList[0];
+                            wList[0] = "";
+                            object2 = wList.join(" ").trim();
                             if( _pattern.match.subject ) {
                                 if( !parseArg(game,_pattern,findPatternArgs,"subject",object1,origCommand) ) {
                                     findPattern = nullPatternHandler;
@@ -388,7 +384,7 @@ module.exports = function ltbl(settings) {
                                         var es = extractScalar(object2,origCommand);
                                         object2 = es.obj;
                                         findPatternArgs.dObjScalar = es.scalar;
-                                    } 
+                                    }
                                     if( !parseArg(game,_pattern,findPatternArgs,"dObj",object2,origCommand) ) {
                                         findPattern = nullPatternHandler;
                                         break;
@@ -417,78 +413,145 @@ module.exports = function ltbl(settings) {
                                     break;
                                 }
                             }
-                        } else if( _pattern.match.dObj 
-                               && !_pattern.match.iObj
-                               && !_pattern.match.subject
-                                 ) {
+                        }
+                    } else if( _pattern.match.preposition ) {
+                        preposition = null;
+                        if( Array.isArray(_pattern.match.preposition) ) {                                
+                            for( var j = 0 ; j < _pattern.match.preposition.length ; ++j ) {
+                                var sep = command.indexOf(" "+_pattern.match.preposition[j]+" ");
+                                if( sep > 0 ) {
+                                    preposition = _pattern.match.preposition[j];
+                                    break;
+                                }
+                            }
+                        } else {
+                            preposition = _pattern.match.preposition;
+                        }
+                        if( preposition ) {
+                            var sep = object1.indexOf(" "+preposition+" ");
+                            if( sep > 0 ) {
+                                object2 = object1.substring(sep+preposition.length+2);
+                                object1 = object1.substring(0,sep);
+                                if( _pattern.match.subject ) {
+                                    if( !parseArg(game,_pattern,findPatternArgs,"subject",object1,origCommand) ) {
+                                        findPattern = nullPatternHandler;
+                                        break;
+                                    }
+                                    if( _pattern.match.iObj ) {
+                                        if( !parseArg(game,_pattern,findPatternArgs,"iObj",object2,origCommand) ) {
+                                            findPattern = nullPatternHandler;
+                                            break;
+                                        }
+                                        findPatternArgs.preposition = preposition;
+                                        findPattern = _pattern;
+                                        break;
+                                    } else if( _pattern.match.dObj ) {
+                                        if( _pattern.match.dObjScalar ) {
+                                            var es = extractScalar(object2,origCommand);
+                                            object2 = es.obj;
+                                            findPatternArgs.dObjScalar = es.scalar;
+                                        } 
+                                        if( !parseArg(game,_pattern,findPatternArgs,"dObj",object2,origCommand) ) {
+                                            findPattern = nullPatternHandler;
+                                            break;
+                                        }
+                                        findPatternArgs.preposition = preposition;
+                                        findPattern = _pattern;
+                                        break;
+                                    }
+                                } else if( _pattern.match.dObj ) {
                                     if( _pattern.match.dObjScalar ) {
                                         var es = extractScalar(object1,origCommand);
                                         object1 = es.obj;
                                         findPatternArgs.dObjScalar = es.scalar;
                                     }
-                                if( !parseArg(game,_pattern,findPatternArgs,"dObj",object1,origCommand) ) {
-                                findPattern = nullPatternHandler;
-                                break;
-                            }                            
-                            findPatternArgs.preposition = preposition;
-                            findPattern = _pattern;
-                            break;                
-                        } else if( !_pattern.match.dObj 
+                                    if( !parseArg(game,_pattern,findPatternArgs,"dObj",object1,origCommand) ) {
+                                        findPattern = nullPatternHandler;
+                                        break;
+                                    }
+                                    if( _pattern.match.iObj ) {
+                                        if( !parseArg(game,_pattern,findPatternArgs,"iObj",object2,origCommand) ) {
+                                            findPattern = nullPatternHandler;
+                                            break;
+                                        }
+                                        findPatternArgs.preposition = preposition;
+                                        findPattern = _pattern;                                            
+                                        break;
+                                    }
+                                }
+                            } else if( _pattern.match.dObj 
                                 && !_pattern.match.iObj
-                                && _pattern.match.subject
-                                 ) {
-                            if( !parseArg(game,_pattern,findPatternArgs,"subject",object1,origCommand) ) {
-                                findPattern = nullPatternHandler;
-                                break;
-                            }                            
-                            findPatternArgs.preposition = preposition;
-                            findPattern = _pattern;
-                            break;                
-                        } else {
-                            preposition = null;
+                                && !_pattern.match.subject
+                                    ) {
+                                        if( _pattern.match.dObjScalar ) {
+                                            var es = extractScalar(object1,origCommand);
+                                            object1 = es.obj;
+                                            findPatternArgs.dObjScalar = es.scalar;
+                                        }
+                                    if( !parseArg(game,_pattern,findPatternArgs,"dObj",object1,origCommand) ) {
+                                    findPattern = nullPatternHandler;
+                                    break;
+                                }                            
+                                findPatternArgs.preposition = preposition;
+                                findPattern = _pattern;
+                                break;                
+                            } else if( !_pattern.match.dObj 
+                                    && !_pattern.match.iObj
+                                    && _pattern.match.subject
+                                    ) {
+                                if( !parseArg(game,_pattern,findPatternArgs,"subject",object1,origCommand) ) {
+                                    findPattern = nullPatternHandler;
+                                    break;
+                                }                            
+                                findPatternArgs.preposition = preposition;
+                                findPattern = _pattern;
+                                break;                
+                            } else {
+                                preposition = null;
+                            }
                         }
-                    }
-                } else if( _pattern.match.dObj ) {
-                    if( _pattern.match.dObjScalar ) {
-                        var es = extractScalar(object1,origCommand);
-                        object1 = es.obj;
-                        findPatternArgs.dObjScalar = es.scalar;
-                    }
-                    if( !parseArg(game,_pattern,findPatternArgs,"dObj",object1,origCommand) ) {
-                        findPattern = nullPatternHandler;
-                        break;
-                    }                            
-                    findPattern = _pattern;
-                    break;
-                } else if( _pattern.match.subject ) {
-                    if( !parseArg(game,_pattern,findPatternArgs,"subject",object1,origCommand) ) {
-                        findPattern = nullPatternHandler;
-                        break;
-                    }
-                    findPattern = _pattern;
-                    break;
-                } else if( _pattern.match.iObj ) {
-                    if( !parseArg(game,_pattern,findPatternArgs,"iObj",object1,origCommand) ) {
-                        findPattern = nullPatternHandler;
-                        break;
-                    }                            
-                    findPattern = _pattern;
-                    break;
-                } else if( _pattern.match.direction ) {
-                    // Verb + direction
-                    if( singleton.isDirection(object1) ) {
-                        findPatternArgs.direction = singleton.isDirection(object1).primary;
+                    } else if( _pattern.match.dObj ) {
+                        if( _pattern.match.dObjScalar ) {
+                            var es = extractScalar(object1,origCommand);
+                            object1 = es.obj;
+                            findPatternArgs.dObjScalar = es.scalar;
+                        }
+                        if( !parseArg(game,_pattern,findPatternArgs,"dObj",object1,origCommand) ) {
+                            findPattern = nullPatternHandler;
+                            break;
+                        }                            
                         findPattern = _pattern;
-                        break;    
-                    } else if( object1 != "" ) {
-                        singleton.outputText("Expected a direction");
-                        findPattern = nullPatternHandler;
+                        break;
+                    } else if( _pattern.match.subject ) {
+                        if( !parseArg(game,_pattern,findPatternArgs,"subject",object1,origCommand) ) {
+                            findPattern = nullPatternHandler;
+                            break;
+                        }
+                        findPattern = _pattern;
+                        break;
+                    } else if( _pattern.match.iObj ) {
+                        if( !parseArg(game,_pattern,findPatternArgs,"iObj",object1,origCommand) ) {
+                            findPattern = nullPatternHandler;
+                            break;
+                        }                            
+                        findPattern = _pattern;
+                        break;
+                    } else if( _pattern.match.direction ) {
+                        // Verb + direction
+                        if( singleton.isDirection(object1) ) {
+                            findPatternArgs.direction = singleton.isDirection(object1).primary;
+                            findPattern = _pattern;
+                            break;    
+                        } else if( object1 != "" ) {
+                            singleton.outputText("Expected a direction");
+                            findPattern = nullPatternHandler;
+                            break;
+                        }
+                    } else if( object1 == "" ) {
+                        // Just a verb & nothing else supplied
+                        findPattern = _pattern;
                         break;
                     }
-                } else if( object1 == "" ) {
-                    // Just a verb & nothing else supplied
-                    findPattern = _pattern;
-                    break;
                 }
             }
         }
