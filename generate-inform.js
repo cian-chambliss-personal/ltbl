@@ -144,6 +144,40 @@ module.exports = function(args) {
         }
 
         var startLoc = game.actor.location;
+        var responseItems = { items : "" , places : ""};
+
+        var emitItems = function(contains,itemLocation,collect) {
+            var items = "";
+            var places =  "";
+            for( var i = 0 ; i < contains.length ; ++i ) {
+                var ip = game.getItem(contains[i].item);
+                var iName = ip.name || ip.description;
+                if( itemNamesUsed[iName] ) {
+                    ; // TBD -  lets make the name more specific
+                    continue;
+                } else {
+                    itemNamesUsed[iName] = contains[i].item;
+                }
+                if( ip.supports ) {
+                    collect.items += "The " +ip.name+" is a supporter.\n";
+                    var subCollect = { items : "" , places : "" };
+                    emitItems(ip.supports," is on the "+ip.name,subCollect);
+                    collect.items += subCollect.items + subCollect.places;
+                } else {
+                    if( ip.type == "food" )
+                       collect.items += "The " +ip.name+" is edible.\n";
+                    else
+                        collect.items += "The " +ip.name+" is a thing.\n";
+                    if( ip.type == "wearable" )
+                        collect.items += "It is wearable.\n"; 
+                }
+                if( ip.content ) {
+                    featuresUsed["reading"] = true;
+                    collect.items += 'The reading-material of the '+ip.name+' is "'+ip.content+'".\n';
+                }
+                collect.places += "The " +ip.name+itemLocation+"\n";
+            }
+        };
         
         var emitOneReponse = function(ruleGeneral,vc) {
             var topicResponse = null;
@@ -151,6 +185,7 @@ module.exports = function(args) {
             var emitExtras = function(vr) {
                 var topicResponse = '\tsay "'+vr.say+'"';
                 if( vr.give ) {
+                    emitItems([{item:vr.give}],"",responseItems);
                     topicResponse = topicResponse + ';\n\tnow the player carries the '+game.getItem(vr.give).name;
                 }
                 if( vr.take ) {
@@ -199,6 +234,8 @@ module.exports = function(args) {
             return ruleGeneral +':\n'+ topicResponse + "\n";
         };
 
+        
+
         var emitCharacter = function(npc) {
             src += npc.name+" is a person.\n";
             if( npc.description ) {
@@ -231,6 +268,9 @@ module.exports = function(args) {
         for( var npcName in game.npc) {
             emitCharacter(game.getNpc(npcName));
         }
+        if( responseItems.items != "" ) {
+            src = responseItems.items + src;
+        }
         if( featuresUsed["talking"] ) {
             src = `Talking to is an action applying to one visible thing. Understand "talk to [someone]" or “converse with [someone]” as talking to.\nCheck talking to: say "[The noun] doesn't reply."\n\n` + src;
         }
@@ -254,34 +294,7 @@ module.exports = function(args) {
                     }
                 }
             };
-            var emitItems = function(contains,itemLocation,collect) {
-                var items = "";
-                var places =  "";
-                for( var i = 0 ; i < contains.length ; ++i ) {
-                    var ip = game.getItem(contains[i].item);
-                    var iName = ip.name || ip.description;
-                    if( itemNamesUsed[iName] ) {
-                        ; // TBD -  lets make the name more specific
-                        return;
-                    } else {
-                        itemNamesUsed[iName] = contains[i].item;
-                    }
-                    if( ip.supports ) {
-                        collect.items += "The " +ip.name+" is a supporter.\n";
-                        var subCollect = { items : "" , places : "" };
-                        emitItems(ip.supports," is on the "+ip.name,subCollect);
-                        collect.items += subCollect.items + subCollect.places;
-                    } else {
-                        if( ip.type == "food" )
-                           collect.items += "The " +ip.name+" is edible.\n";
-                        else
-                            collect.items += "The " +ip.name+" is a thing.\n";
-                        if( ip.type == "wearable" )
-                            collect.items += "It is wearable.\n"; 
-                    }
-                    collect.places += "The " +ip.name+itemLocation+"\n";
-                }
-            };
+            
             var emitRoom = function(id) {
                 if( !generatedRoom[id] ) {
                     generatedRoom[id] = true;
@@ -328,6 +341,9 @@ module.exports = function(args) {
                 }
             }
             emitRoom(startLoc);
+            if( featuresUsed["reading"] ) {
+                src = 'A thing has some text called the reading-material. The reading-material of a thing is usually "".\n\nUnderstand the command "read" as something new.\nReading is an action applying to one thing and requiring light. Understand "read [something]" as reading.\nCheck reading:\n\tif the reading-material of the noun is "":\n\t\tsay "Nothing is printed on [the noun].” instead.\nCarry out reading:\n\tsay "[reading-material of the noun]."\n'+src;
+            }    
             if( src.length > 0 ) {
                 var titleSection = ""; 
                 if( game.metadata.author && game.metadata.title ) {
