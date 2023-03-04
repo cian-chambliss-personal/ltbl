@@ -353,6 +353,41 @@ module.exports = function(singleton) {
             }
         },
         {
+           match : "[subject:npc] is male",
+           eval : function(args) {
+               var npc = game.getNpc(args.subject);
+               npc.gender = "male";
+               singleton.outputText("Ok "+ip.name+" is male.");
+           }
+        },
+        {
+            match : "[subject:npc] is female",
+            eval : function(args) {
+               var game = singleton.game;
+               var npc = game.getNpc(args.subject);
+               npc.gender = "female";
+               singleton.outputText("Ok "+npc.name+" is female.");
+            }
+        },
+        {
+            match : "[subject:npc] is an animal",
+            eval : function(args) {
+                var game = singleton.game;
+                var npc = game.getNpc(args.subject);
+                npc.species = "animal";
+                singleton.outputText("Ok "+npc.name+" is an animal.");              
+            }
+        },
+        {
+            match : "[subject:npc] is a person",
+            eval : function(args) {
+                var game = singleton.game;
+                var npc = game.getNpc(args.subject);
+                npc.species = "person";
+                singleton.outputText("Ok "+npc.name+" is a person.");              
+            }
+        },
+        {
            match : "[subject] provides [dObj] property",
            eval : function(args) {
                console.log("PROVIDES HANDLER ");

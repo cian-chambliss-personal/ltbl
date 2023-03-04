@@ -274,7 +274,15 @@ module.exports = function ltbl(settings) {
                 } else {
                     var sep = def[i].indexOf("]");
                     if( sep > 0 ) {
-                        tmpl.push({ part : def[i].substring(0,sep) } );
+                        var partName = def[i].substring(0,sep);
+                        var placeholder;
+                        var typeIndex = partName.indexOf(":"); 
+                        if( typeIndex > 0 ) {
+                            placeholder = { part : partName.substring(0,typeIndex) , type : partName.substring(typeIndex+1) };
+                        } else {
+                            placeholder = { part : partName };
+                        }
+                        tmpl.push( placeholder );
                         sep = def[i].substring(sep+1);
                         if( sep.length ) {
                             tmpl.push(sep);
@@ -325,13 +333,25 @@ module.exports = function ltbl(settings) {
                     }
                 }
                 if( matched ) {
-                    if( pendingField ) {
-                        fields[pendingField] = command.substring(lastOffset,offset).trim();
-                    }
+                    var patternTypes = {};
                     for( var j in fields ) {
                         findPatternArgs[j] = fields[j];
                     }
                     findPattern = _pattern;
+                    if( pendingField ) {
+                        fields[pendingField] = command.substring(lastOffset,offset).trim();
+                    }
+                    for( var j = 0 ; j < _pattern.length ; ++j  ) {
+                        if( typeof(_pattern.match[j]) != "string" ) {
+                            if( _pattern.match[j].type ) {
+                                patternTypes[ _pattern.match[j].part ] = _pattern.match[j].type;
+                                if( !parseArg(game,patternTypes,findPatternArgs,_pattern.match[j].part,fields[_pattern.match[j].part],origCommand) ) {
+                                    findPattern = nullPatternHandler;
+                                    break;
+                                }
+                            }
+                        }
+                    }
                     break;
                 }
             } else {

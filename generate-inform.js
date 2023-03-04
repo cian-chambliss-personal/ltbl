@@ -248,7 +248,11 @@ module.exports = function(args) {
 
 
         var emitCharacter = function(npc) {
-            src += npc.name+" is a person.\n";
+            if( npc.gender ) {
+                src += npc.name+" is a "+npc.gender+" person.\n";
+            } else {
+                src += npc.name+" is a person.\n";
+            }
             if( npc.description ) {
                 src += "The description of "+npc.name+' is "'+npc.description+'".\n';
             }

@@ -172,9 +172,9 @@ module.exports = function(singleton) {
                 }
                 singleton.outputText(chalk.bold("Description"));
                 if( ni.description ) {
-                    singleton.outputText(ni.description+" "+singleton.annotate({"type":"npc.name","npc":anno.npc}));
+                    singleton.outputText(ni.description+" "+singleton.annotate({"type":"npc.description","npc":anno.npc}));
                 } else {
-                    singleton.outputText("No Description "+singleton.annotate({"type":"npc.name","npc":anno.npc}));    
+                    singleton.outputText("No Description "+singleton.annotate({"type":"npc.description","npc":anno.npc}));    
                 }
             }
         } else if( anno.type == "npc.name" ) {
