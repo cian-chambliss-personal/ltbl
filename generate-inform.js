@@ -175,7 +175,11 @@ module.exports = function(args) {
                     featuresUsed["reading"] = true;
                     collect.items += 'The reading-material of the '+ip.name+' is "'+ip.content+'".\n';
                 }
-                collect.places += "The " +ip.name+itemLocation+"\n";
+                if( itemLocation.indexOf(" carries ") > 0 ) {
+                    collect.places += itemLocation + " the "+ip.name+".\n";
+                } else {
+                    collect.places += "The " +ip.name+itemLocation+"\n";
+                }
             }
         };
         
@@ -234,7 +238,14 @@ module.exports = function(args) {
             return ruleGeneral +':\n'+ topicResponse + "\n";
         };
 
-        
+        var emitPlayer = function(player) {
+            if( player.inventory ) {
+                var carry = { items : "" , places : "" };
+                emitItems(player.inventory,"The player carries ",carry);
+                src += carry.items + carry.places;
+            }
+        };
+
 
         var emitCharacter = function(npc) {
             src += npc.name+" is a person.\n";
@@ -245,6 +256,11 @@ module.exports = function(args) {
                 npcLoc[npc.location] = [npc];
             } else {
                 npcLoc[npc.location].push(npc);
+            }
+            if( npc.inventory ) {
+                var carry = { items : "" , places : "" };
+                emitItems(npc.inventory,npc.name+" carries ",carry);
+                src += carry.items + carry.places;
             }
             if(  npc.conversation ) {
                 for( var  verb in npc.conversation  ) {
@@ -264,6 +280,8 @@ module.exports = function(args) {
                 }
             }
         };
+
+        emitPlayer(game.actor);
 
         for( var npcName in game.npc) {
             emitCharacter(game.getNpc(npcName));
