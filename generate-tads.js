@@ -10,13 +10,13 @@ module.exports = function(args) {
     var actor = args.actor;
     var getLocation = args.getLocation;
     var locations = args.locations;
-    var doors = args.doors;
     var items = args.items;
     var npc = args.npc;
     var reservedNames = require("./reserved.json");
     var helper = require("./helper.js")();
     var getPartsOfSpeech = helper.getPartsOfSpeech;
     var directionTags = helper.directionTags();
+    var topics = {};
     var safePrefixAdd = function(prefix,loc) {
         if( prefix ) {
             return prefix+"/"+loc;
@@ -62,6 +62,9 @@ module.exports = function(args) {
             var _srcLines = []
             var ip = game.getItem(it);
             var oName = cleanupSymName(it);
+            if( ip.type == "door") {
+                return "";
+            }
             if (depth > 0) {
                 oName = ("+++++++++++++++++".substring(0, depth)) + " " + oName;
             }
@@ -156,9 +159,22 @@ module.exports = function(args) {
             if( _actor.name == actor.name ) {
                 actorType = "Actor";
             }
+            var referencedTopics = "";
             var _lines = [ _actor.name + ": "+actorType ];
+            var noun = _actor.name;
+
+            _lines.push('\tname = "'+_actor.name+'"');
+            //isProperName = true
+            _lines.push("\nnoun = '"+noun+"'");
             if( _actor.description ) {
-                _lines.push('\t"'+_actor.description+'"');
+                _lines.push('\tdesc = "'+_actor.description+'"');
+            }
+            if( _actor.gender ) {
+                if( _actor.gender == "female" ) {
+                    _lines.push("\tisHer = true");
+                } else if( _actor.gender == "male" ) {
+                    _lines.push("\tisHim = true");
+                }
             }
             _lines.push("\tlocation = " + roomDObj +"\n;\n");
             if( _actor.inventory ) {
@@ -169,7 +185,7 @@ module.exports = function(args) {
             }
             if( _actor.conversation ) {
                 var emitExtras = function(vr) {
-                    var topicResponse = '\n\t\t"'+vr.say+'"';
+                    var topicResponse = '\n\t\t"'+vr.say+'";';
                     if( vr.give ) {
                         topicResponse = topicResponse + '\n\t\t'+vr.give+'.moveInto(me);\n';
                     }
@@ -189,7 +205,7 @@ module.exports = function(args) {
                             topicResponse = '\ttopicResponse = "'+vc.response+'"';
                         } else if( vc.response.then ) {
                             topicType = topicType + ", StopEventList"
-                            topicResponse = '\ttopicResponse = [';
+                            topicResponse = '\teventList = [';
                             for( var i = 0 ; i < vc.response.then.length ; ++i ) {
                                 if( i > 0 )
                                     topicResponse = topicResponse + ",";
@@ -228,6 +244,9 @@ module.exports = function(args) {
                         if( tr.topicResponse ) {
                             _lines.push("+"+tr.topicType);
                             _lines.push(tr.topicResponse);
+                            if( tr.topicResponse.indexOf("achievement.addToScoreOnce") > 0 ) {
+                                _lines.push('\tachievement : Achievement { "Talk to '+_actor.name+'." }'); 
+                            }
                             _lines.push("\t;\n");
                         }
                     } else {
@@ -247,17 +266,34 @@ module.exports = function(args) {
                             }
                             var tr = emitOneReponse(tc,topicType);                            
                             _lines.push("+"+tr.topicType);
-                            var match = topic;                    
+                            var match = topic;
+                            if( !topics[match]) {
+                                if( !game.getItem(match) ) {
+                                    topics[match] = true;
+                                    referencedTopics = referencedTopics + match + ": Topic\n\t;\n\n"
+                                }
+                            }
                             _lines.push("\tmatchObject = "+match);
                             if( tr.topicResponse ) {
                                 _lines.push(tr.topicResponse);
+                            }
+                            if( tr.topicResponse.indexOf("achievement.addToScoreOnce") > 0 ) {
+                                if( verb == "tell" ) {
+                                    _lines.push('\tachievement : Achievement { "Tell '+_actor.name+' about '+topic+'." }'); 
+                                } else if( verb == "give" ) {
+                                    _lines.push('\tachievement : Achievement { "Give '+_actor.name+' '+topic+'." }'); 
+                                } else if( verb == "show" ) {
+                                    _lines.push('\tachievement : Achievement { "Show '+_actor.name+' '+topic+'." }'); 
+                                } else if( verb == "ask" ) {
+                                    _lines.push('\tachievement : Achievement { "Ask '+_actor.name+' about '+topic+'." }');  
+                                }
                             }
                             _lines.push("\t;\n");
                         }
                     }
                 }
             }
-            return _lines.join("\n");
+            return referencedTopics+_lines.join("\n");
         };
         srcLines.push(emitCharacter(actor));
         var masterDoors = {};
@@ -297,11 +333,11 @@ module.exports = function(args) {
         };
         var tadDirection = function (dir, roomLoc, dirName) {
             if (dir.door) {
-                if (doors[dir.door]) {
-                    var doorPrt = doors[dir.door];
+                var doorPtr = game.getDoor(dir.door);
+                if (doorPtr) {
                     var doorname = "door";
-                    if (doorPrt.name) {
-                        doorname = doorPrt.name;
+                    if (doorPtr.name) {
+                        doorname = doorPtr.name;
                     }
                     var masterDoor = masterDoors[dir.door];
                     if (masterDoor) {
