@@ -18,14 +18,13 @@ module.exports = function ltbl(settings) {
       }
      */
     var Game = require('./Game');
-    var game = new Game(settings); 
     var singleton = { 
         chalk: chalk,
         settings : settings,
         outputText: function(txt) {
             console.log(txt);
         },
-        game: game,
+        game: new Game(settings),
         stateMachine : null,
         godGame: null,
         helper: require("./helper.js")({spellCorrect:settings.spellCorrect}),
@@ -55,9 +54,9 @@ module.exports = function ltbl(settings) {
         noCareAbout : function() {},
         resources: require("./en-resources.json") ,
         annotate : function(expr) {
-            if( game.pov.isGod ) {
-                game.annotations.push(expr);
-                return singleton.helper.superScript(""+game.annotations.length);
+            if( singleton.game.pov.isGod ) {
+                singleton.game.annotations.push(expr);
+                return singleton.helper.superScript(""+singleton.game.annotations.length);
             }
             return "";
         },
@@ -142,8 +141,8 @@ module.exports = function ltbl(settings) {
     singleton.noUnderstand = cantSeeIface.noUnderstand;
     singleton.noCareAbout = cantSeeIface.noCareAbout;
     singleton.invalidateMap = function() {
-        game.map = null;
-        singleton.render(game.getLocation(game.pov.location),game.pov.location, 0);
+        singleton.game.map = null;
+        singleton.render(singleton.game.getLocation(singleton.game.pov.location),singleton.game.pov.location, 0);
     };
     singleton.spellcheckedText = require("./spellcheck-text")(singleton).spellcheckedText;
     singleton.doAnnotation = require("./annotation.js")(singleton).doAnnotation;
@@ -298,6 +297,7 @@ module.exports = function ltbl(settings) {
         var firstWord = cmd.firstWord;
         var command = cmd.command;
         var origCommand = cmd.origCommand;
+        var game = singleton.game;
         for( var i = 0 ; i < commands.length ; ++i ) {
             var _pattern =  commands[i];
             var preposition = null;
@@ -579,6 +579,7 @@ module.exports = function ltbl(settings) {
     };
 
     var parseCommand = function (command) {
+        var game = singleton.game;
         if( game.stateMachine ) {
             // Set of prompts....
             if( command && command.length > 0 && !game.stateMachine.aborting )
@@ -843,27 +844,43 @@ module.exports = function ltbl(settings) {
                     command = singleton.helper.subSentence( command , 1);
                     if( command && command.length ) {
                         if( command == game.god.name ) {
-                            if( game.allowGodMode ) {
-                                if( singleton.godGame ) {
-                                    game = singleton.godGame;
-                                    singleton.game = game;
-                                }
+                            if( game.allowGodMode && singleton.godGame ) {
+                                singleton.game = singleton.godGame;
+                                game = singleton.godGame;
                                 game.pov = game.god;
+                                singleton.outputText("Ok you are god.");
                             } else {
-                                singleton.outputText("God mode not available.")
+                                singleton.outputText("God mode not available.");
                             }
                         } else if( command == game.actor.name ) {
                             if( game.pov.isGod ) {
                                 if( singleton.godGame ) {
                                     // Work from a copy
-                                    game = new Game(settings);
-                                    singleton.game = game;
+                                    singleton.game = new Game(settings);
+                                    game = singleton.game;
                                     game.cloneFrom(singleton.godGame);
+                                    singleton.outputText("Ok you are playing the game.");
                                 } else {
                                     game.state = {};
                                 }
+                                game.pov = game.actor;
+                            } else {
+                                singleton.outputText("POV command unavailable.");
                             }
-                            game.pov = game.actor;
+                        } else if( game.allowGodMode ) {
+                            if( singleton.findNPC(command) && singleton.godGame ) {
+                                // Work from a copy
+                                singleton.game = new Game(settings);
+                                game = singleton.game;
+                                game.cloneFrom(singleton.godGame);
+                                game.pov = singleton.findNPC(command);
+                                // what do we want to do as the player
+                                singleton.outputText("Ok you are playing "+command+".");
+                            } else {
+                                singleton.outputText("POV unavailable.");
+                            }
+                        } else {
+                            singleton.outputText("POV unavailable.");
                         }
                     } else {
                         singleton.outputText("You are "+game.pov.name);
@@ -919,6 +936,7 @@ module.exports = function ltbl(settings) {
     //---------------------------------------------------------------------------
     // Load a Game from JSON
     var loadGame = function (onComplete) {
+        var game = singleton.game;
         game.loadGame(function(err, loaded) {
             if( !loaded ) {
                 game.god.location = "void1";
@@ -938,7 +956,7 @@ module.exports = function ltbl(settings) {
                         if( game.metadata.title || game.metadata.description )
                            singleton.outputText("\n");   
                     }
-                } else if( game.allowGodMode ) {
+                } else if( game.allowGodMode && !singleton.godGame ) {
                     game.renderMap =  game.renderMapLevelText();
                     singleton.describeLocation(false);
                     singleton.godGame = game;
@@ -949,16 +967,18 @@ module.exports = function ltbl(settings) {
     };
     var exportTads = function (folder) {
         var generate = require("./generate-tads");
+        var game = singleton.game;
         generate({ folder : folder , settings : settings , metadata : game.metadata, game : game , actor : game.actor, getLocation : function(name) { return game.getLocation(name); } , locations : game.locations , items : game.items , npc : game.npc });
     };
     var exportInform = function(folder) {
         var generate = require("./generate-inform");
-        generate({ folder : folder , settings : settings , game : game });
+        generate({ folder : folder , settings : settings , game : singleton.game });
     };
     var createDumpFile = function(err) {
-        game.createDumpFile(err);
+        singleton.game.createDumpFile(err);
     };
     var stateMachineCommand = function(command) {
+        var game = singleton.game;
         if( game.stateMachine ) {
             // Set of prompts....
             var saveStatemachine = game.stateMachine;  
@@ -972,6 +992,7 @@ module.exports = function ltbl(settings) {
         return false;
     };
     var configDefaults = function(onComplete) {
+        var game = singleton.game;
         game.loadConfig(function(err,data) {
             game.stateMachine = {
                 state : 0 ,
