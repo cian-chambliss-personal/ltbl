@@ -187,7 +187,76 @@ module.exports = function(singleton) {
             if( ni ) {
                 game.stateMachine = stateMachineFillinCreate(ni,[{msg:"Change NPC description:",prop:"description"}]);
             }
-        } else if( anno.type == "conv" ) {
+        } else if( anno.type == "conv" || anno.type.substring(0,5) == "conv." ) {
+            var ni = game.getNpc(anno.npc);
+            if( ni ) {
+                var ap = ni.conversation[anno.action]; 
+                if( ap ) {
+                    if( anno.topic && ap[anno.topic] ) {
+                         ap = ap[anno.topic];
+                         if( anno.preposition && ap[anno.preposition] ) {
+                            ap = ap[anno.preposition];
+                         }
+                    }
+                    if( ap.response ) {
+                        game.annotations = [];
+                        var emitResponse = function(response,parent) {
+                            if( typeof(response) == "string" ) {
+                                singleton.outputText( response + singleton.annotate({ type:parent+".response" , npc : anno.npc , action : anno.action , preposition  : anno.preposition , topic : anno.topic }) );
+                                singleton.outputText( "Add actions..." + singleton.annotate({ type:parent+".response.action" , npc : anno.npc , action : anno.action , preposition  : anno.preposition , topic : anno.topic }) );
+                                if( parent == "conv.") {
+                                    singleton.outputText( "And then..." + singleton.annotate({ type:parent+".andthen" , npc : anno.npc , action : anno.action , preposition  : anno.preposition , topic : anno.topic }) );
+                                    singleton.outputText( "Or else..." + singleton.annotate({ type:parent+".orelse" , npc : anno.npc , action : anno.action , preposition  : anno.preposition , topic : anno.topic }) );
+                                }
+                            } else if( response.then ) {
+                                for( var i = 0 ; i < response.then.length ; ++i ) {
+                                    if( i > 0 ) {
+                                        singleton.outputText(chalk.green("And then ..."));
+                                    }
+                                    emitResponse(response.then[i],parent+".then."+i+".");
+                                }
+                                singleton.outputText( "And then..." + singleton.annotate({ type:parent+".andthen" , npc : anno.npc , action : anno.action , preposition  : anno.preposition , topic : anno.topic }) );
+                            } else if( response.or ) {
+                                for( var i = 0 ; i < response.or.length ; ++i ) {
+                                    if( i > 0 ) {
+                                        singleton.outputText(chalk.green("Or else..."));
+                                    }
+                                    emitResponse(response.or[i],parent+".or."+i+".");
+                                }
+                                singleton.outputText( "Or else..." + singleton.annotate({ type:parent+".orelse" , npc : anno.npc , action : anno.action , preposition  : anno.preposition , topic : anno.topic }) );
+                            } else {
+                                if( response.say ) {
+                                    singleton.outputText( "Say: " + response.say + singleton.annotate({ type:parent+".response.say" , npc : anno.npc , action : anno.action , preposition  : anno.preposition , topic : anno.topic }) );
+                                } else {
+                                    singleton.outputText( "Say: " + singleton.annotate({ type:parent+".response.say" , npc : anno.npc , action : anno.action , preposition  : anno.preposition , topic : anno.topic }) );    
+                                }
+                                if( response.score ) {
+                                    singleton.outputText( "Score: " + response.score + singleton.annotate({ type:parent+".response.score" , npc : anno.npc , action : anno.action , preposition  : anno.preposition , topic : anno.topic }) );
+                                }
+                                if( response.give ) {
+                                    singleton.outputText( "Give: " + response.give + singleton.annotate({ type:parent+".response.give" , npc : anno.npc , action : anno.action , preposition  : anno.preposition , topic : anno.topic }) );
+                                }
+                                if( response.take ) {
+                                    singleton.outputText( "Take: " + response.take + singleton.annotate({ type:parent+".response.take" , npc : anno.npc , action : anno.action , preposition  : anno.preposition , topic : anno.topic }) );
+                                }
+                                if( response.consume ) {
+                                    singleton.outputText( "Consume: " + response.consume + singleton.annotate({ type:parent+".response.consume" , npc : anno.npc , action : anno.action , preposition  : anno.preposition , topic : anno.topic }) );
+                                }
+                                singleton.outputText( "Add actions..." + singleton.annotate({ type:parent+".response.action" , npc : anno.npc , action : anno.action , preposition  : anno.preposition , topic : anno.topic }) );
+                            }
+                        };
+                        if( anno.type == "conv.response" ) {
+                            if( typeof(ap.response) == "string" ) {
+                                game.stateMachine = stateMachineFillinCreate(ap,[{msg:"Change NPC response:",prop:"response"}]);
+                            }
+                        } else if( anno.type == "conv" ) {
+                            emitResponse(ap.response,"conv.");
+                        } else {
+
+                        }
+                    }
+                }
+            }           
             //{ type:"conv" , game.npc : vc.npc , action : vc.action , preposition  : vc.preposition , topic : vc.topic }
         }
     };
