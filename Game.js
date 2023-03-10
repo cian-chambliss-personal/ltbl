@@ -78,6 +78,7 @@ module.exports = class Game {
         this.locations = { };
         this.items = { };
         this.npc = { };
+        this.actions = { };
         this.util = new GameUtility();
         this.map = null;
         this.mapScale = null;
@@ -102,6 +103,7 @@ module.exports = class Game {
         this.verbCommand = {
             action : null,
             npc : null,
+            item : null,
             preposition  :null,
             topic : null
         };
@@ -162,7 +164,8 @@ module.exports = class Game {
             actor: this.actor, 
             locations: this.locations, 
             items: this.items, 
-            npc: this.npc 
+            npc: this.npc ,
+            actions: this.actions
         };
         if( this.allowGodMode ) {
             obj.god = this.god;
@@ -214,6 +217,10 @@ module.exports = class Game {
                     this.locations = obj.locations;
                     this.items = obj.items;
                     this.npc = obj.npc;
+                    this.actions = obj.actions;
+                    if( !this.actions ) {
+                        this.actions = {};
+                    }
                     if( obj.god && this.settings.action != "play" ) {
                         this.allowGodMode = true;
                         this.god = obj.god;
@@ -243,6 +250,7 @@ module.exports = class Game {
         this.locations = JSON.parse(JSON.stringify(_game.locations));
         this.items = JSON.parse(JSON.stringify(_game.items));
         this.npc = JSON.parse(JSON.stringify(_game.npc));
+        this.actions = JSON.parse(JSON.stringify(_game.actions));
         this.map = null;
         this.pov = this.actor;
     }

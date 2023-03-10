@@ -43,6 +43,7 @@ module.exports = function ltbl(settings) {
         describeNPC : function() {},
         defineScript : function() {},
         processScript : function() {},
+        processAction: function() {},
         getConvoObjectPtr: function() {},
         thenDo : function() {},
         orDo : function() {},
@@ -130,6 +131,7 @@ module.exports = function ltbl(settings) {
     var scriptIface = require("./script.js")(singleton);
     singleton.defineScript = scriptIface.defineScript;
     singleton.processScript = scriptIface.processScript;
+    singleton.processAction = scriptIface.processAction;
     singleton.getConvoObjectPtr = scriptIface.getConvoObjectPtr;
     singleton.thenDo = scriptIface.thenDo;
     singleton.orDo = scriptIface.orDo;
@@ -924,7 +926,39 @@ module.exports = function ltbl(settings) {
                                 noUnderstand();
                             }
                         }*/
-                        singleton.noUnderstand();
+                        command = command.split(" ");
+                        command[0] = "";
+                        command = command.join(" ").trim();
+                        var handler = game.actions[verb];
+                        if( handler || game.pov.isGod ) {
+                            if( singleton.findNPC(command) ) {
+                                game.verbCommand.npc = command;
+                            } else {
+                                game.verbCommand.npc = null;
+                            }
+                            game.verbCommand.action = verb;
+                        }
+                        if( handler ) {
+                            // Lets match at action - i.e. press button, wind clock
+                            if( !singleton.processScript() ) {
+                                if( game.pov.isGod ) {
+                                    singleton.defineScript();
+                                } else {
+                                    // Default response to action
+                                    singleton.processAction(handler.response,game.verbCommand,game.verbCommand.action+game.verbCommand.npc);
+                                }
+                            }
+                        } else if( game.pov.isGod ) {
+                            game.stateMachine = stateMachineFillinCreate({},[
+                                {msg:"Add the action (y/n):",prop:"addAction",yesNo : true}
+                            ],function(sm) {
+                                if( sm.data.addAction ) {
+                                    game.actions[verb] = { response : { say : "Nothing appears to happen." } };
+                                }
+                            });
+                        } else {
+                             singleton.noUnderstand();
+                        }
                     } else {
                         singleton.outputText("Command not handled ");
                     }
