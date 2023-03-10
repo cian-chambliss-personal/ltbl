@@ -249,10 +249,12 @@ module.exports = function (singleton) {
                         } else {
                             _npc = null;
                         }
-                        if( !_npc ) {
-                            if( _origPtr.actions ) {
-                                _ncp = _origPtr.actions[game.verbCommand.action];
-                            }
+                    } else {
+                        _npc = null;
+                    }
+                    if( !_npc ) {
+                        if( _origPtr.actions ) {
+                            _npc = _origPtr.actions[game.verbCommand.action];
                         }
                     }
                     if (_npc && _npc.response) {
@@ -326,10 +328,18 @@ module.exports = function (singleton) {
                 if (command.length > 0) {
                     var _npc = singleton.findNPC(game.verbCommand.npc);
                     // TBD - also look for game.items (for verbs like push/pull etc)...
-                    if (_npc && _npc.conversation) {
-                        if (_npc.conversation[game.verbCommand.action]) {
-                            if (_npc.conversation[game.verbCommand.action][game.verbCommand.topic]) {
-                                var modResponse = _npc.conversation[game.verbCommand.action][game.verbCommand.topic].response;
+                    var actions = null;
+                    if( _npc ) {
+                        if ( _npc.actions && _npc.actions[game.verbCommand.action] ) {
+                            actions = _npc.actions;    
+                        } else if ( _npc.conversation) {
+                            actions = _npc.conversation;
+                        }
+                    }
+                    if( actions ) {
+                        if (actions[game.verbCommand.action]) {
+                            if (actions[game.verbCommand.action][game.verbCommand.topic]) {
+                                var modResponse = actions[game.verbCommand.action][game.verbCommand.topic].response;
                                 if (typeof (modResponse) == "string") {
                                     modResponse = { "then": [modResponse, command] };
                                 } else {
@@ -340,11 +350,13 @@ module.exports = function (singleton) {
                                     }
                                     modResponse.then.push(command);
                                 }
-                                _npc.conversation[game.verbCommand.action][game.verbCommand.topic].response = modResponse;
+                                actions[game.verbCommand.action][game.verbCommand.topic].response = modResponse;
+                                return;
                             }
-                        } else if (game.verbCommand.action == "talkto") {
-                            if (_npc.conversation.talkto) {
-                                var modResponse = _npc.conversation.talkto.response;
+                        } 
+                        if (game.verbCommand.action == "talkto" || actions != _npc.conversation ) {
+                            if (actions[game.verbCommand.action]) {
+                                var modResponse = actions[game.verbCommand.action].response;
                                 if (typeof (modResponse) == "string") {
                                     modResponse = { "then": [modResponse, command] };
                                 } else {
@@ -355,7 +367,7 @@ module.exports = function (singleton) {
                                     }
                                     modResponse.then.push(command);
                                 }
-                                _npc.conversation.talkto.response = modResponse;
+                                actions[game.verbCommand.action].response = modResponse;
                             }
                         }
                     }
