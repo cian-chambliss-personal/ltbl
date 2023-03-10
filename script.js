@@ -389,36 +389,44 @@ module.exports = function (singleton) {
                     var _npc = singleton.findNPC(game.verbCommand.npc);
                     // TBD - also look for game.items (for verbs like push/pull etc)...
                     if (_npc) {
-                        if (_npc.conversation[game.verbCommand.action]) {
-                            if (game.verbCommand.topic) {
-                                if (_npc.conversation[game.verbCommand.action][game.verbCommand.topic]) {
-                                    var modResponse = _npc.conversation[game.verbCommand.action][game.verbCommand.topic].response;
-                                    if (typeof (modResponse) == "string") {
-                                        modResponse = { "or": [modResponse, command] };
-                                    } else {
-                                        if (!modResponse.or && !modResponse.then) {
+                        var actions = null;
+                        if ( _npc.actions && _npc.actions[game.verbCommand.action] ) {
+                            actions = _npc.actions;    
+                        } else if ( _npc.conversation) {
+                            actions = _npc.conversation;
+                        }
+                        if( actions ) {
+                            if (actions[game.verbCommand.action]) {
+                                if (game.verbCommand.topic) {
+                                    if (actions[game.verbCommand.action][game.verbCommand.topic]) {
+                                        var modResponse = actions[game.verbCommand.action][game.verbCommand.topic].response;
+                                        if (typeof (modResponse) == "string") {
                                             modResponse = { "or": [modResponse, command] };
-                                        } else if (!modResponse.or) {
-                                            modResponse.or = [];
+                                        } else {
+                                            if (!modResponse.or && !modResponse.then) {
+                                                modResponse = { "or": [modResponse, command] };
+                                            } else if (!modResponse.or) {
+                                                modResponse.or = [];
+                                            }
+                                            modResponse.or.push(command);
                                         }
-                                        modResponse.or.push(command);
+                                        actions[game.verbCommand.action][game.verbCommand.topic].response = modResponse;
                                     }
-                                    _npc.conversation[game.verbCommand.action][game.verbCommand.topic].response = modResponse;
-                                }
-                            } else {
-                                if (_npc.conversation[game.verbCommand.action]) {
-                                    var modResponse = _npc.conversation[game.verbCommand.action].response;
-                                    if (typeof (modResponse) == "string") {
-                                        modResponse = { "or": [modResponse, command] };
-                                    } else {
-                                        if (!modResponse.or && !modResponse.then) {
+                                } else {
+                                    if (actions[game.verbCommand.action]) {
+                                        var modResponse = actions[game.verbCommand.action].response;
+                                        if (typeof (modResponse) == "string") {
                                             modResponse = { "or": [modResponse, command] };
-                                        } else if (!modResponse.or) {
-                                            modResponse.or = [];
+                                        } else {
+                                            if (!modResponse.or && !modResponse.then) {
+                                                modResponse = { "or": [modResponse, command] };
+                                            } else if (!modResponse.or) {
+                                                modResponse.or = [];
+                                            }
+                                            modResponse.or.push(command);
                                         }
-                                        modResponse.or.push(command);
+                                        actions[game.verbCommand.action].response = modResponse;
                                     }
-                                    _npc.conversation[game.verbCommand.action].response = modResponse;
                                 }
                             }
                         } else {
