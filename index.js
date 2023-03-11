@@ -909,6 +909,8 @@ module.exports = function ltbl(settings) {
                     }
                 } else {
                     var verb = lCase.split(" ")[0];
+                    var parts = game.digestSentence(command);
+                    console.dir(parts);
                     if ( isVerb(verb) ) {
                         // TBD register actions (and consequences)
                         /*

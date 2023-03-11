@@ -253,6 +253,7 @@ module.exports = class Game {
         this.actions = JSON.parse(JSON.stringify(_game.actions));
         this.map = null;
         this.pov = this.actor;
+        this.allNpc = null;
     }
     //------------------
     getLocation(name) {
@@ -452,6 +453,7 @@ module.exports = class Game {
     //-----------------------------------
     setNpc(name,ni) {
         this.npc[name] = ni;
+        this.allNpc = null;
     }
     //-----------------------------------
     setLocation(name,room) {
@@ -517,6 +519,64 @@ module.exports = class Game {
             list = inexactList;
         }
         return list;
+    }
+    digestSentence(command) {
+        var sentence = [];
+        var where = this.getLocation(this.pov.location);
+        var normCommand = " "+command+" ";
+        var foundNpcs = [];
+        normCommand = normCommand.toLowerCase();
+        if( where ) {
+            if( !this.allNpc ) {
+                this.allNpc = [];
+                // TBD - build list of all npcs (including nesting) / once location npcs are supported.
+                for(var npcId in this.npc ) {
+                    this.allNpc.push(npcId);
+                }
+            }
+            var at = normCommand.indexOf( " "+this.actor.name.toLowerCase()+" " );
+            var firstIsActor = false;
+            if( at >= 0 ) {
+                firstIsActor = true;
+                foundNpcs.push( command.substring(at,at+this.actor.name.length ) );
+            }
+            for( var i = 0 ; i < this.allNpc.length ; ++i ) {
+                var _npc = this.getNpc(this.allNpc[i]);
+                if( _npc.location == this.pov.location ) {
+                    var at = normCommand.indexOf( " "+_npc.name.toLowerCase()+" " );
+                    if( at >= 0 ) {
+                        foundNpcs.push( command.substring(at,at+_npc.name.length ) );
+                    }
+                }
+            }
+            console.log(foundNpcs);
+            if( foundNpcs.length > 0 ) {
+                command = " "+command+" ";
+                for( var i = 0 ; i < foundNpcs.length ; ++i ) {
+                    command = command.split(" "+foundNpcs[i]+" ").join("***$$"+i+"***");
+                }
+                command = command.split("***");
+                for( var i = 0 ; i < command.length ; ++i ) {
+                    if(command[i].length > 2 && command[i].substring(0,2) == '$$' ) {
+                        var index =Number.parseInt(command[i].substring(2));
+                        if( index == 0 && firstIsActor ) {
+                            command[i] = { actor : foundNpcs[index] };
+                        } else {
+                            command[i] = { npc : foundNpcs[index] };
+                        }
+                    }
+                }
+                if( command[0] == "" ) {
+                    command.splice(0,1);
+                }
+                command[command.length-1] = command[command.length-1].trim();
+                if( command[command.length-1] == "" ) {
+                    command.splice(command.length-1,1); 
+                }
+                sentence = command;
+            }
+        }
+        return sentence;
     }
     //---------------------------------------------------------------------------
     dropObject(dObj) {
