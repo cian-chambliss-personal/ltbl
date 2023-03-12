@@ -522,9 +522,33 @@ module.exports = class Game {
         }
         return list;
     }
+    sentenceToString(command,start,end) {
+        var text = "";
+        for( var i = start ; i < end ; ++i ) {
+            if( i > start )
+                text += " ";
+            if (typeof(command[i]) == "string") {
+                text += command[i];
+            } else if( command[i].npc ) {
+                text += command[i].npc;
+            } else if( command[i].actor ) {
+                text += command[i].actor;
+            } else if( command[i].item ) {
+                text += command[i].item;
+            }
+        }
+        return text;
+    }
     digestSentence(command,allowAll) {
         // Look for relevent characters and items in a phrase
         var sentence = [];
+        if( command.indexOf(",") >= 0 ) {
+            command = command.split(",");
+            for( var i = 0 ; i < command.length-1 ; ++i ) {
+                command[i]  = command[i].trim();
+            }
+            command = command.join(" ***,*** ");
+        }
         var where = this.getLocation(this.pov.location);
         var normCommand = " "+command+" ";
         var foundNpcs = [];
@@ -610,15 +634,13 @@ module.exports = class Game {
                         command[i] = { item : foundItems[index] };
                     }
                 }
-                if( command[0] == "" ) {
-                    command.splice(0,1);
-                }
-                if (typeof (command[0]) == "string") {
-                    command[0] = command[0].trim();
-                }
-                command[command.length-1] = command[command.length-1].trim();
-                if( command[command.length-1] == "" ) {
-                    command.splice(command.length-1,1); 
+                for( var i = command.length - 1 ; i >= 0 ; --i ) {
+                    if (typeof (command[i]) == "string") {
+                        command[i] = command[i].trim();
+                        if( command[i] == "" ) {
+                            command.splice(i,1);
+                        }
+                    }
                 }
                 sentence = command;
             }

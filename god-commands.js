@@ -100,7 +100,7 @@ module.exports = function(singleton) {
                 verb : ["!talkto","!ask","!tell"],
                 dObj : "topic",
                 subject : "createnpc",
-                preposition: ["about","for"]
+                preposition: ["about","for","to"]
             } ,
             eval : function(args) {
                 var game = singleton.game;

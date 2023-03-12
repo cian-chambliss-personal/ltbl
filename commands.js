@@ -603,7 +603,7 @@ module.exports = function(singleton) {
                 verb : ["!talkto","!ask","!tell"],
                 dObj : "topic",
                 subject : "npc",
-                preposition: ["about","for"]
+                preposition: ["about","for","to"]
             } ,
             eval : function(args) {
                 var game = singleton.game;

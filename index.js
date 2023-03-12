@@ -910,7 +910,6 @@ module.exports = function ltbl(settings) {
                 } else {
                     var verb = lCase.split(" ")[0];
                     var parts = game.digestSentence(command);
-                    console.dir(parts);
                     if ( isVerb(verb) ) {
                         // TBD register actions (and consequences)
                         /*
@@ -962,7 +961,14 @@ module.exports = function ltbl(settings) {
                              singleton.noUnderstand();
                         }
                     } else {
-                        singleton.outputText("Command not handled ");
+                        if( parts.length > 2 && parts[1] == "," ) {
+                            // Commands map to 'tell'
+                            if( parts[0] ) {
+                                parseCommand("tell "+game.sentenceToString(parts,0,1)+" to "+game.sentenceToString(parts,2,parts.length));
+                            }
+                        } else {
+                            singleton.outputText("Command not handled ");
+                        }
                     }
                 }
             }
