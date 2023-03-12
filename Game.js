@@ -254,6 +254,7 @@ module.exports = class Game {
         this.map = null;
         this.pov = this.actor;
         this.allNpc = null;
+        this.allItems = null;
     }
     //------------------
     getLocation(name) {
@@ -355,7 +356,8 @@ module.exports = class Game {
             }
         } else {
             this.items[name[0]] = pi;
-        }    
+        }
+        this.allItems = null;   
     }
     //-----------------------------------    
     getUniqueItemName(name,altname,prefix) {
@@ -520,11 +522,13 @@ module.exports = class Game {
         }
         return list;
     }
-    digestSentence(command) {
+    digestSentence(command,allowAll) {
+        // Look for relevent characters and items in a phrase
         var sentence = [];
         var where = this.getLocation(this.pov.location);
         var normCommand = " "+command+" ";
         var foundNpcs = [];
+        var foundItems = [];
         normCommand = normCommand.toLowerCase();
         if( where ) {
             if( !this.allNpc ) {
@@ -534,6 +538,29 @@ module.exports = class Game {
                     this.allNpc.push(npcId);
                 }
             }
+            if( !this.allItems ) {
+                var _allItems = [];
+                
+                var addItems = function(items,prefix) {
+                    for(var itemId in items ) {
+                        _allItems.push(prefix+itemId);
+                    }
+                };
+                var recurseAddItems = function(locations,prefix) {
+                    for(var locId in locations) {
+                        var loc = locations[locId];
+                        if( loc.items ) {
+                            addItems(loc.items,prefix+locId+"/");
+                        }
+                        if( loc.locations ) {
+                            recurseAddItems(loc.location,prefix+locId+"/");
+                        }
+                    }
+                };
+                addItems(this.items,"");
+                recurseAddItems(this.locations,"");
+                this.allItems = _allItems;
+            }
             var at = normCommand.indexOf( " "+this.actor.name.toLowerCase()+" " );
             var firstIsActor = false;
             if( at >= 0 ) {
@@ -542,32 +569,52 @@ module.exports = class Game {
             }
             for( var i = 0 ; i < this.allNpc.length ; ++i ) {
                 var _npc = this.getNpc(this.allNpc[i]);
-                if( _npc.location == this.pov.location ) {
-                    var at = normCommand.indexOf( " "+_npc.name.toLowerCase()+" " );
-                    if( at >= 0 ) {
-                        foundNpcs.push( command.substring(at,at+_npc.name.length ) );
+                if( _npc.location == this.pov.location || allowAll) {
+                    if( _npc.name ) {
+                        var at = normCommand.indexOf( " "+_npc.name.toLowerCase()+" " );
+                        if( at >= 0 ) {
+                            foundNpcs.push( command.substring(at,at+_npc.name.length ) );
+                        }
                     }
                 }
             }
-            console.log(foundNpcs);
-            if( foundNpcs.length > 0 ) {
+            for( var i = 0 ; i < this.allItems.length ; ++i ) {
+                var _item = this.getItem(this.allItems[i]);
+                if( _item.name ) {
+                    var at = normCommand.indexOf( " "+_item.name.toLowerCase()+" " );
+                    if( at >= 0 ) {
+                        foundItems.push( command.substring(at,at+_item.name.length ) );
+                    }
+                }
+            }
+            
+            if( foundNpcs.length > 0 || foundItems.length > 0) {
                 command = " "+command+" ";
                 for( var i = 0 ; i < foundNpcs.length ; ++i ) {
                     command = command.split(" "+foundNpcs[i]+" ").join("***$$"+i+"***");
+                } 
+                for( var i = 0 ; i < foundItems.length ; ++i ) {
+                    command = command.split(" "+foundItems[i]+" ").join("***^^"+i+"***");
                 }
                 command = command.split("***");
                 for( var i = 0 ; i < command.length ; ++i ) {
                     if(command[i].length > 2 && command[i].substring(0,2) == '$$' ) {
                         var index =Number.parseInt(command[i].substring(2));
                         if( index == 0 && firstIsActor ) {
-                            command[i] = { actor : foundNpcs[index] };
+                            command[i] = { actor : foundNpcs[index ] };
                         } else {
                             command[i] = { npc : foundNpcs[index] };
                         }
+                    } else if(command[i].length > 2 && command[i].substring(0,2) == '^^' ) {
+                        var index =Number.parseInt(command[i].substring(2));
+                        command[i] = { item : foundItems[index] };
                     }
                 }
                 if( command[0] == "" ) {
                     command.splice(0,1);
+                }
+                if (typeof (command[0]) == "string") {
+                    command[0] = command[0].trim();
                 }
                 command[command.length-1] = command[command.length-1].trim();
                 if( command[command.length-1] == "" ) {
