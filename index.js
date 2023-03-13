@@ -580,7 +580,7 @@ module.exports = function ltbl(settings) {
         return findPattern;
     };
 
-    var parseCommand = function (command) {
+    var parseCommand = function (command,translated) {
         var game = singleton.game;
         if( game.stateMachine ) {
             // Set of prompts....
@@ -600,7 +600,7 @@ module.exports = function ltbl(settings) {
             var lCaseWords =  lCase.split(" ");
             var firstWord = lCaseWords[0].trim(); 
             var firstPhrase = null;
-            if( command && command.length > 0 )
+            if( command && command.length > 0 && !translated )
                game.logCommand(command);
             if( game.pov ) {
                 if( game.pov.isGod ) {
@@ -964,7 +964,7 @@ module.exports = function ltbl(settings) {
                         if( parts.length > 2 && parts[1] == "," ) {
                             // Commands map to 'tell'
                             if( parts[0] ) {
-                                parseCommand("tell "+game.sentenceToString(parts,0,1)+" to "+game.sentenceToString(parts,2,parts.length));
+                                parseCommand("tell "+game.sentenceToString(parts,0,1)+" to "+game.sentenceToString(parts,2,parts.length),true);
                             }
                         } else {
                             singleton.outputText("Command not handled ");
