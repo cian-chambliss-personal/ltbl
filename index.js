@@ -966,6 +966,12 @@ module.exports = function ltbl(settings) {
                             if( parts[0] ) {
                                 parseCommand("tell "+game.sentenceToString(parts,0,1)+" to "+game.sentenceToString(parts,2,parts.length),true);
                             }
+                        } else if( parts.length > 1 && typeof(parts[0]) === 'object' ) {
+                            if( parts[0].npc ) {
+                                parseCommand("tell "+game.sentenceToString(parts,0,1)+" to "+game.sentenceToString(parts,1,parts.length),true);
+                            } else {
+                                singleton.outputText("Command not handled ");
+                            }
                         } else {
                             singleton.outputText("Command not handled ");
                         }
