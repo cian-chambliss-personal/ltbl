@@ -612,7 +612,7 @@ module.exports = class Game {
                 }
             }
             
-            if( foundNpcs.length > 0 || foundItems.length > 0) {
+            if( foundNpcs.length > 0 || foundItems.length > 0 || command.indexOf("***") >= 0 ) {
                 command = " "+command+" ";
                 for( var i = 0 ; i < foundNpcs.length ; ++i ) {
                     command = command.split(" "+foundNpcs[i]+" ").join("***$$"+i+"***");
