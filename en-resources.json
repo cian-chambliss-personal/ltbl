@@ -217,5 +217,19 @@
             "text": "Stand",
             "value": "stand"
         }
+    ],
+    "actionTarget": [
+        {
+            "text" : "npc",
+            "target" : "npc"
+        },
+        {
+            "text" : "object",
+            "target" : "object"
+        },
+        {
+            "text": "npc or object",
+            "target": "*"
+        }
     ]
 }

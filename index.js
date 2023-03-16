@@ -951,10 +951,11 @@ module.exports = function ltbl(settings) {
                             }
                         } else if( game.pov.isGod ) {
                             game.stateMachine = stateMachineFillinCreate({},[
-                                {msg:"Add the action (y/n):",prop:"addAction",yesNo : true}
+                                {msg:"Add the action (y/n):",prop:"addAction",yesNo : true},
+                                {msg:"Action '"+verb+"' target is:",prop:"target",choices : singleton.resources.actionTarget}
                             ],function(sm) {
                                 if( sm.data.addAction ) {
-                                    game.actions[verb] = { response : { say : "Nothing appears to happen." } };
+                                    game.actions[verb] = { target : sm.data.target , response : { say : "Nothing appears to happen." } };
                                 }
                             });
                         } else {

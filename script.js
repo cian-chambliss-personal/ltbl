@@ -2,7 +2,7 @@ module.exports = function (singleton) {
     var stateMachineFillin = singleton.stateMachine.fillin;
     var stateMachineFillinStart = singleton.stateMachine.fillinStart;
     var defineNPCStates = [{
-        msg: "Describe character called {game.npc}:", prop: "newNPC"
+        msg: "Describe character called {npc}:", prop: "newNPC"
     }];
     //=================================================================
     var defineScript = function () {
@@ -16,6 +16,7 @@ module.exports = function (singleton) {
             }
         }
         if (!game.verbCommand.npc) {
+            console.dir(game.verbCommand);
             states.push({ msg: "who?", prop: "npc" });
             testNpc = true;
         } else if (!singleton.findNPC(game.verbCommand.npc)) {
