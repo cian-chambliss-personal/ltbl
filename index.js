@@ -335,6 +335,12 @@ module.exports = function ltbl(settings) {
                     }
                 }
                 if( matched ) {
+                    if( pendingField ) {
+                        if( lastOffset ) {
+                            fields[pendingField] = command.substring(lastOffset).trim();
+                        }
+                        pendingField = null;
+                    }
                     var patternTypes = {};
                     for( var j in fields ) {
                         findPatternArgs[j] = fields[j];

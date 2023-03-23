@@ -1,6 +1,10 @@
 module.exports = function(singleton) {
     var stateMachineFillinCreate = singleton.stateMachine.fillinCreate;
     var extractNounAndAdj = singleton.helper.extractNounAndAdj;
+    var definePartOf = function(args) {
+        args.action = "partOf";
+        console.log(args);
+    };
     var godCommandPatterns = [
         {
             match : {
@@ -379,6 +383,26 @@ module.exports = function(singleton) {
             }
         },
         {
+            match : "[subject:npc] is a man",
+            eval : function(args) {
+               var game = singleton.game;
+               var npc = game.getNpc(args.subject);
+               npc.gender = "male";
+               npc.species = "person";
+               singleton.outputText("Ok "+npc.name+" is female.");
+            }
+        },
+        {
+            match : "[subject:npc] is a woman",
+            eval : function(args) {
+               var game = singleton.game;
+               var npc = game.getNpc(args.subject);
+               npc.gender = "female";
+               npc.species = "person";
+               singleton.outputText("Ok "+npc.name+" is female.");
+            }
+        },
+        {
             match : "[subject:npc] is a person",
             eval : function(args) {
                 var game = singleton.game;
@@ -388,11 +412,70 @@ module.exports = function(singleton) {
             }
         },
         {
+            match : "every [type] provides [dObj] property",
+            eval : function(args) {
+                console.log("PROVIDES TYPE HANDLER ");
+                console.dir(args);
+            }
+        },
+        {
            match : "[subject] provides [dObj] property",
            eval : function(args) {
                console.log("PROVIDES HANDLER ");
                console.dir(args);
            }
+        },
+        {
+            match : "[subject] is part of every [type]",
+            eval : function(args) {
+                definePartOf(args);
+            }
+        },
+        {
+            match : "[subject] is a part of every [type]",
+            eval : function(args) {
+                definePartOf(args);
+            }
+        },
+        {
+            match : "[subject] are part of every [type]",
+            eval : function(args) {
+                args.plural = true;
+                definePartOf(args);
+            }
+        },
+        {
+            match : "[subject] are a part of every [type]",
+            eval : function(args) {
+                args.plural = true;
+                definePartOf(args);
+            }
+        },
+        {
+            match : "[subject] is part of [dObj]",
+            eval : function(args) {
+                definePartOf(args);
+            }
+        },
+        {
+            match : "[subject] is a part of [dObj]",
+            eval : function(args) {
+                definePartOf(args);
+            }
+        },
+        {
+            match : "[subject] are part of [dObj]",
+            eval : function(args) {
+                args.plural = true;
+                definePartOf(args);
+            }
+        },
+        {
+            match : "[subject] are a part of [dObj]",
+            eval : function(args) {
+                args.plural = true;
+                definePartOf(args);
+            }
         }
     ];
     /*
