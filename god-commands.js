@@ -1,10 +1,7 @@
 module.exports = function(singleton) {
     var stateMachineFillinCreate = singleton.stateMachine.fillinCreate;
     var extractNounAndAdj = singleton.helper.extractNounAndAdj;
-    var definePartOf = function(args) {
-        args.action = "partOf";
-        console.log(args);
-    };
+    var definePartOf = singleton.definePart;
     var godCommandPatterns = [
         {
             match : {

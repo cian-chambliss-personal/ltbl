@@ -78,6 +78,7 @@ module.exports = class Game {
         this.locations = { };
         this.items = { };
         this.npc = { };
+        this.types = { }
         this.actions = { };
         this.util = new GameUtility();
         this.map = null;
@@ -165,7 +166,8 @@ module.exports = class Game {
             locations: this.locations, 
             items: this.items, 
             npc: this.npc ,
-            actions: this.actions
+            actions: this.actions ,
+            types : this.types
         };
         if( this.allowGodMode ) {
             obj.god = this.god;
@@ -218,8 +220,12 @@ module.exports = class Game {
                     this.items = obj.items;
                     this.npc = obj.npc;
                     this.actions = obj.actions;
+                    this.types = obj.types;
                     if( !this.actions ) {
                         this.actions = {};
+                    }
+                    if( !this.types ) {
+                        this.types = {};
                     }
                     if( obj.god && this.settings.action != "play" ) {
                         this.allowGodMode = true;
@@ -251,6 +257,7 @@ module.exports = class Game {
         this.items = JSON.parse(JSON.stringify(_game.items));
         this.npc = JSON.parse(JSON.stringify(_game.npc));
         this.actions = JSON.parse(JSON.stringify(_game.actions));
+        this.types = JSON.parse(JSON.stringify(_game.types));
         this.map = null;
         this.pov = this.actor;
         this.allNpc = null;

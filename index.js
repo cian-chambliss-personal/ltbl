@@ -53,6 +53,7 @@ module.exports = function ltbl(settings) {
         dontSeeNpc : function() {} , 
         noUnderstand : function() {} , 
         noCareAbout : function() {},
+        definePart : function() {},
         resources: require("./en-resources.json") ,
         annotate : function(expr) {
             if( singleton.game.pov.isGod ) {
@@ -151,6 +152,8 @@ module.exports = function ltbl(settings) {
     var stateMachineFillin = singleton.stateMachine.fillin;
     var stateMachineFillinStart = singleton.stateMachine.fillinStart;
     var stateMachineFillinCreate = singleton.stateMachine.fillinCreate;
+    var partIface = require("./part")(singleton);
+    singleton.definePart = partIface.definePart;
     var fs = require("fs");
     var helpText = require("./en-help.json");
     var camelCase = singleton.helper.camelCase;
