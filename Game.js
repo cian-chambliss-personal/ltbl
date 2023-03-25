@@ -336,6 +336,37 @@ module.exports = class Game {
                     }
                 }
             }
+            if( !part ) 
+            {
+                if( isNpc )
+                {
+                    var _types = this.getNpcTypes(item);
+                    for( var t = 0 ; t < _types.length ; ++t )
+                    {
+                        var _type = _types[t];
+                        if( _type.parts )
+                        {
+                            var part =item;
+                            part = _type;
+                            for( var i = 1 ; i < name.length ; ++i ) {
+                                if( !part.parts ) {
+                                    part = null;
+                                    break;
+                                } else {
+                                    part = part.parts[name[i]];
+                                    if( !part ) {
+                                        break;
+                                    }
+                                }
+                            }
+                            if( part )
+                            {
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
             return part;
         }
         return null;
@@ -504,6 +535,83 @@ module.exports = class Game {
             }
         }
         return _npcs;
+    }
+    //-----------------------------------
+    getNpcTypes(ni) {
+        var _types = [];
+        var _game = this;
+        var definePerson = function() {
+            // Implicit definitions
+            if( ni.gender == "female" ) 
+            {
+                if( _game.types["woman"] )
+                {
+                    _types.push(_game.types["woman"]);
+                }
+            } 
+            else 
+            {
+                if( _game.types["man"] )
+                {
+                    _types.push(_game.types["man"]);
+                }
+            }
+            if( _game.types["person"] )
+            {
+                _types.push(_game.types["person"]);
+            }
+        };
+        // People
+        if( !ni.species || ni.species == "person" )
+        {
+            definePerson();
+        }
+        else
+        {
+            var _ni = this.types[ni.species];
+            if( _ni )
+            {     
+                _types.push(this.types[_ni]);
+                while( _ni.species )
+                {
+                    if( _ni.species == "person" || _ni.species == "animal" || _ni.species == "npc")
+                    {
+                        break;
+                    }
+                    _ni = this.types[_ni.species];
+                    if( !_ni ) {
+                        break;
+                    }
+                }
+                if( _ni ) 
+                {
+                    if( _ni.species == "person" )
+                    {
+                        definePerson();
+                    } else if( _ni.species != "npc" )
+                    {
+                        if( this.types["animal"] )
+                        {
+                            _types.push(this.types["animal"]);
+                        }
+                    }
+                }  
+                else if( this.types["animal"] )
+                {
+                    _types.push(this.types["animal"]);
+                }
+            } 
+            else if( this.types["animal"] )
+            {
+                _types.push(this.types["animal"]);
+            }
+        }
+        // Definitions generic to all lifeforms    
+        if( this.types["npc"] )
+        {
+            _types.push(this.types["npc"]);
+        }
+        return _types;
     }
     //-----------------------------------
     setLocation(name,room) {

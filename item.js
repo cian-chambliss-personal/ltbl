@@ -90,17 +90,43 @@ module.exports = function(singleton) {
                     var _npcs = game.getNpcsAtLocation(game.pov.location);
                     for(var _npc in _npcs) {
                         var  ni = _npcs[_npc];
+                        var foundAPart = false;
                         if( ni.parts ) 
                         {
+                            
                             for( var _part in ni.parts )
                             {
                                 if( normCommand.indexOf(" "+_part+" ") >= 0 || matchAlias(normCommand,ni.parts[_part]) )
                                 {
                                     // Add a candidate...
                                     candidates.push(_npc+"#"+_part);
+                                    foundAPart = true;
                                 }
                             }
                         }
+                        if( !foundAPart ) 
+                        {
+                            // Lets get type definitions.. (generic parts)
+                            var types = game.getNpcTypes(ni);
+                            for( var i = 0 ; i < types.length ; ++i ) 
+                            {
+                                var _type = types[i];
+                                if( _type.parts ) 
+                                {
+                                    // JIT instanced based on type
+                                    for( var _part in _type.parts )
+                                    {
+                                        if( normCommand.indexOf(" "+_part+" ") >= 0 || matchAlias(normCommand,_type.parts[_part]) )
+                                        {
+                                            // Add a candidate...
+                                            candidates.push(_npc+"#"+_part);
+                                            foundAPart = true;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    
                     }
                 }
             }
