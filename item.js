@@ -1,6 +1,7 @@
 module.exports = function(singleton) {
     var lookupItemLow = function (parts,arr,command,candidates) {
         var itemName = null;
+        var game = singleton.game;
         if( command[0] == '@' ) {
             command = command.substring(1);
             for (var i = 0; i < arr.length; ++i) {
@@ -16,7 +17,7 @@ module.exports = function(singleton) {
         } else {
             for (var i = 0; i < arr.length; ++i) {
                 var item = arr[i].item;
-                var game = singleton.game;
+                
                 var ptr = game.getItem(item);
                 if (ptr) {
                     var lname = ptr.name;
@@ -51,6 +52,44 @@ module.exports = function(singleton) {
                         }
                         if (foundPart) {
                             candidates.push(item);
+                        }
+                    }
+                }
+            }
+            if( !itemName ) {
+                if( candidates.length == 0 ) {
+                    var normCommand = " "+command+" ";
+                    for (var i = 0; i < arr.length; ++i) {
+                        var item = arr[i].item;
+                        item = game.getItem(item);
+                        if( item )
+                        {
+                            if( item.parts ) 
+                            {
+                                for( var _part in ni.parts )
+                                {
+                                    if( normCommand.indexOf(" "+_part+" ") >= 0 )
+                                    {
+                                        // Add a candidate...
+                                        candidates.push(arr[i].item+"#"+_part);
+                                    }
+                                }   
+                            }
+                        }
+                    }
+                    var _npcs = game.getNpcsAtLocation(game.pov.location);
+                    for(var _npc in _npcs) {
+                        var  ni = _npcs[_npc];
+                        if( ni.parts ) 
+                        {
+                            for( var _part in ni.parts )
+                            {
+                                if( normCommand.indexOf(" "+_part+" ") >= 0 )
+                                {
+                                    // Add a candidate...
+                                    candidates.push(_npc+"#"+_part);
+                                }
+                            }
                         }
                     }
                 }

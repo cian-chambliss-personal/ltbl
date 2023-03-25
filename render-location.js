@@ -155,11 +155,10 @@ module.exports = function(singleton) {
             describeNav(loc.nw, "northwest","nw");
         }
         if( locationId ) {
-            for( var _npc in game.npc) {
-                var  ni = game.getNpc(_npc);
-                if( ni.location == locationId ) {
-                    singleton.outputText(ni.name+" is here."+singleton.annotate({"type":"npc","npc":_npc}));
-                }
+            var _npcs = game.getNpcsAtLocation(locationId);
+            for(var _npc in _npcs) {
+                var  ni = _npcs[_npc];
+                singleton.outputText(ni.name+" is here."+singleton.annotate({"type":"npc","npc":_npc}));
             }
         }
     };

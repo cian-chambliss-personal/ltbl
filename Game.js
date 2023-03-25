@@ -314,8 +314,38 @@ module.exports = class Game {
         return null;
     }
     //--------------------------------
+    // Parts are stored with items or types
+    getPartLow(name) {  
+        name = name.split("#");
+        var item = this.getItem(name[0]);
+        var isNpc = false;
+        if( !item ) {
+            item = this.getNpc(name[0]);
+            isNpc = true; // for type lookup
+        }
+        if( item ) {
+            var part =item;
+            for( var i = 1 ; i < name.length ; ++i ) {
+                if( !part.parts ) {
+                    part = null;
+                    break;
+                } else {
+                    part = part.parts[name[i]];
+                    if( !part ) {
+                        break;
+                    }
+                }
+            }
+            return part;
+        }
+        return null;
+    }
+    //--------------------------------
     getItem(name) {
         if( name ) {
+            if( name.indexOf("#") > 0 ) {
+                return this.getPartLow(name);
+            }
             name = name.split("/");
             if( name.length > 1 ) {
                 var location = this.locations[name[0]];
@@ -463,6 +493,17 @@ module.exports = class Game {
     setNpc(name,ni) {
         this.npc[name] = ni;
         this.allNpc = null;
+    }
+    //-----------------------------------
+    getNpcsAtLocation(locationId) {
+        var _npcs = {};
+        for( var _npc in this.npc) {
+            var  ni = this.getNpc(_npc);
+            if( ni.location == locationId ) {
+                _npcs[_npc] = ni;
+            }
+        }
+        return _npcs;
     }
     //-----------------------------------
     setLocation(name,room) {
