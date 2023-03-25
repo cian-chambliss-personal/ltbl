@@ -2,6 +2,16 @@ module.exports = function(singleton) {
     var lookupItemLow = function (parts,arr,command,candidates) {
         var itemName = null;
         var game = singleton.game;
+        var matchAlias = function(normCommand,item) {
+            if( item.alias ) {
+                for( var i = 0 ; i < item.alias.length ; ++i ) {
+                    if( normCommand.indexOf(item.alias[i]) >= 0 ) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        };
         if( command[0] == '@' ) {
             command = command.substring(1);
             for (var i = 0; i < arr.length; ++i) {
@@ -66,9 +76,9 @@ module.exports = function(singleton) {
                         {
                             if( item.parts ) 
                             {
-                                for( var _part in ni.parts )
+                                for( var _part in item.parts )
                                 {
-                                    if( normCommand.indexOf(" "+_part+" ") >= 0 )
+                                    if( normCommand.indexOf(" "+_part+" ") >= 0 || matchAlias(item.parts[_part]))
                                     {
                                         // Add a candidate...
                                         candidates.push(arr[i].item+"#"+_part);
@@ -84,7 +94,7 @@ module.exports = function(singleton) {
                         {
                             for( var _part in ni.parts )
                             {
-                                if( normCommand.indexOf(" "+_part+" ") >= 0 )
+                                if( normCommand.indexOf(" "+_part+" ") >= 0 || matchAlias(normCommand,ni.parts[_part]) )
                                 {
                                     // Add a candidate...
                                     candidates.push(_npc+"#"+_part);
