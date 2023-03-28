@@ -428,6 +428,20 @@ module.exports = class Game {
         this.allItems = null;   
     }
     //-----------------------------------    
+    getFullName(name) {
+        var fullname = this.getItem(name).name;
+        var prefix = "";
+        if( name.indexOf("#") > 0 ) {
+            name = name.split("#");
+            var item = this.getItem(name[0]);
+            if( !item ) {
+                item = this.getNpc(name[0]);
+                prefix = item.name+"'s ";
+            }
+        }
+        return prefix+fullname;
+    }
+    //-----------------------------------    
     getUniqueItemName(name,altname,prefix) {
         var fullName = null;
         if (!name) {

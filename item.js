@@ -90,6 +90,19 @@ module.exports = function(singleton) {
                     var _npcs = game.getNpcsAtLocation(game.pov.location);
                     for(var _npc in _npcs) {
                         var  ni = _npcs[_npc];
+                        var nameLoc = normCommand.indexOf(" "+ni.name);
+                        if(  nameLoc >= 0 )
+                        {
+                            var remainder = normCommand.substring(nameLoc+ni.name.length+1).split(" ");
+                            if( remainder[0] == "" || remainder[0] == "'s" || remainder[0] == "s'" ) {
+                                _npcs = {};
+                                _npcs[ _npc ] =  ni;
+                                break;
+                            }
+                        }
+                    }
+                    for(var _npc in _npcs) {
+                        var  ni = _npcs[_npc];
                         var foundAPart = false;
                         if( ni.parts ) 
                         {
@@ -234,7 +247,7 @@ module.exports = function(singleton) {
                 } else if (candidates.length > 1) {
                     singleton.outputText("which " + command + "?");
                     for (var i = 0; i < candidates.length; ++i) {
-                        singleton.outputText(game.getItem(candidates[i]).name);
+                        singleton.outputText(game.getFullName(candidates[i]));
                     }
                     itemName = "?"; // ambiguouse
                 } else if( game.pov.isGod && command.substring(0,1) == "@" ) {                    
